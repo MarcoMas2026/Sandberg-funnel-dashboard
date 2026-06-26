@@ -1,18 +1,30 @@
-import { kv } from "@vercel/kv";
 import { FunnelData } from "./types";
 
 const FUNNEL_KEY = "funnel:merged";
 
-export async function getFunnelData(): Promise<FunnelData> {
-  const data = await kv.get<FunnelData>(FUNNEL_KEY);
+function kvHeaders() {
+  return { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` };
+}
 
-  if (!data) {
+export async function getFunnelData(): Promise<FunnelData> {
+  const res = await fetch(`${process.env.KV_REST_API_URL}/get/${FUNNEL_KEY}`, {
+    headers: kvHeaders(),
+    cache: "no-store",
+  });
+  const { result } = await res.json();
+
+  if (!result) {
     return { campaigns: [], last_updated: null, status: "stale" };
   }
 
-  return data;
+  return JSON.parse(result) as FunnelData;
 }
 
 export async function setFunnelData(data: FunnelData): Promise<void> {
-  await kv.set(FUNNEL_KEY, data);
+  await fetch(`${process.env.KV_REST_API_URL}/set/${FUNNEL_KEY}`, {
+    method: "POST",
+    headers: { ...kvHeaders(), "Content-Type": "text/plain" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
 }
