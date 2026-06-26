@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { DashboardProvider } from "@/lib/dashboard-context";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -17,9 +18,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans text-slate-900 antialiased`}>
-        <Navbar />
-        <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+      <body className={`${inter.variable} font-sans`}>
+        <DashboardProvider>
+          <Navbar />
+          <main className="mx-auto max-w-[1400px] px-6 pb-16">{children}</main>
+        </DashboardProvider>
       </body>
     </html>
   );

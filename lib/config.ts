@@ -12,4 +12,20 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     property: "Catalina Duplex",
     ref: "6648",
   },
+  {
+    meta_campaign_id: "120248931370460071",
+    meta_campaign_name: "SP - 32785 - Finca Bugambilia",
+    typeform_form_id: "d53a9GPD",
+    typeform_form_name: "Finca Bugambilia Qualifier",
+    property: "Finca Bugambilia",
+    ref: "32785",
+  },
+  {
+    meta_campaign_id: "120248754551970071",
+    meta_campaign_name: "SP - 32606 - CAN VILA",
+    typeform_form_id: "BZDwyYhN",
+    typeform_form_name: "CAN VILA Qualifier",
+    property: "CAN VILA",
+    ref: "32606",
+  },
 ];

@@ -1,14 +1,33 @@
-export interface MetaCampaign {
-  id: string;
-  name: string;
-  status: "ACTIVE" | "PAUSED" | "ARCHIVED";
+export interface MetaDailyRow {
+  date: string; // YYYY-MM-DD
   spend: number;
   impressions: number;
   clicks: number;
   link_clicks: number;
+  leads: number;
+  video_plays: number;
+  ctr: number; // 0..1
+  outbound_ctr: number; // 0..1
+  cpl: number; // cost per lead that day
+}
+
+export interface MetaCampaign {
+  id: string;
+  name: string;
+  status: "ACTIVE" | "PAUSED" | "ARCHIVED";
+  start_date: string | null; // ISO
+  stop_date: string | null; // ISO, null = ongoing
+  spend: number;
+  impressions: number;
+  clicks: number;
+  link_clicks: number;
+  leads: number;
+  video_plays: number;
   cpm: number;
-  ctr: number;
-  cpl: number;
+  ctr: number; // 0..1
+  cpl: number; // cost per lead (spend / leads)
+  outbound_ctr: number; // 0..1
+  daily: MetaDailyRow[];
 }
 
 export interface TypeformField {
@@ -33,6 +52,7 @@ export interface FunnelCampaign {
   campaign_id: string;
   campaign_name: string;
   property: string;
+  ref: string;
   status: "ACTIVE" | "PAUSED" | "ARCHIVED";
   meta: MetaCampaign;
   typeform: TypeformForm;

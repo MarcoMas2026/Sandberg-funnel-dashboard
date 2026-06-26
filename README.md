@@ -5,13 +5,31 @@ Qualified Lead for Sandberg Estates campaigns. Data is synced by n8n into
 Vercel KV; the dashboard reads it and visualizes drop-off, cost, and
 conversion at every stage.
 
+The UI is a dark-themed, two-view app: an **Overview** grid of active campaigns
+and a per-campaign **deep dive** (daily metric charts, KPI summary, and a 3D-style
+marketing funnel from impressions → video views → landing page → Typeform start →
+submission). The Update button (top-right of the nav) triggers the n8n sync and
+re-renders all panels when fresh data lands.
+
 ## Stack
 
 - Next.js 14 (App Router, TypeScript)
-- Tailwind CSS
+- Tailwind CSS (dark theme, purple/violet accent)
 - Recharts
-- Vercel KV
+- Upstash Redis (via the KV REST API — see `lib/kv.ts`)
 - Deployed to Vercel via GitHub Actions
+
+## Frontend structure
+
+- `lib/dashboard-context.tsx` — single client-side data provider; fetches
+  `/api/funnel`, exposes `triggerUpdate()` (fires n8n + polls for fresh data).
+  Both pages and the Navbar consume it via `useDashboard()`.
+- `app/page.tsx` — Overview: grid of active-campaign cards.
+- `app/campaign/[id]/page.tsx` — Campaign deep dive (Metrics + Summary + Funnel).
+- `components/MarketingFunnel.tsx` — SVG funnel; layer widths use a sqrt scale so
+  low-volume stages stay visible (values/rates shown as text are exact).
+- `lib/format.ts` — `parseCampaignName` ("SP - REF - PROPERTY"), date/number/percent
+  formatters.
 
 ## Setup
 

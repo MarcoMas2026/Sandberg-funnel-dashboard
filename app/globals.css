@@ -2,6 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #0d0d0f;
+  --panel: #141417;
+  --panel-2: #1a1a1f;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --text: #ededf2;
+  --text-muted: #8b8b96;
+  --text-faint: #5c5c66;
+  --accent: #6c4bdb;
+  --accent-2: #4f7cf7;
+}
+
+html,
 body {
-  background-color: #f8fafc;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Panel surface used across the dashboard */
+.panel {
+  background-color: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+/* Purple gradient used by the Update button + accents */
+.accent-gradient {
+  background-image: linear-gradient(135deg, #6c4bdb 0%, #4f7cf7 100%);
+}
+
+.accent-glow {
+  box-shadow: 0 0 0 1px rgba(108, 75, 219, 0.4), 0 8px 24px rgba(108, 75, 219, 0.25);
+}
+
+/* Recharts dark tweaks */
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text-faint);
+}
+.recharts-text {
+  fill: var(--text-faint);
 }
