@@ -29,7 +29,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="space-y-5 pt-2">
-      <CampaignInfoBar campaign={campaign} />
+      <CampaignInfoBar campaign={campaign} lastUpdated={data?.last_updated ?? null} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[35fr_65fr]">
         <div className="space-y-5">
