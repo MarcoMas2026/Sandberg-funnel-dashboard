@@ -13,6 +13,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  ZAxis,
 } from "recharts";
 import { MetaCampaign } from "@/lib/types";
 import {
@@ -140,6 +141,7 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
               <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="2 4" vertical horizontal={false} />
               <XAxis dataKey="label" {...axis} interval="preserveStartEnd" allowDuplicatedCategory={false} />
               <YAxis dataKey="ctr" {...axis} width={36} unit="%" />
+              <ZAxis range={[10, 10]} />
               <Tooltip {...tooltipStyle()} formatter={(v: number) => `${v}%`} />
               <Scatter data={data} fill="#4f7cf7">
                 {data.map((_, i) => (
