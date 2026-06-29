@@ -2,45 +2,33 @@ import { FunnelCampaign } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { DotsIcon, FunnelIcon } from "./icons";
 
-interface Stage {
-  name: string;
-  short: string;
-  value: number;
-  source: string;
-}
+// The funnel artwork is a fixed 2049 x 1152 image; the SVG overlay uses the same
+// coordinate space so every label scales perfectly with the background.
+const VB_W = 2049;
+const VB_H = 1152;
 
-const VIEW_W = 400;
-const LAYER_H = 74;
-const MAX_W = 350;
-const MIN_W = 34;
-const CENTER = VIEW_W / 2;
+const C_TEXT = "#d7d7e6"; // descriptive labels
+const C_WHITE = "#ffffff";
+const C_MUTED = "#9a9ab0";
+const C_AMOUNT = "#ffffff";
+const C_RATE = "#b7a6ff";
 
 export default function MarketingFunnel({ campaign }: { campaign: FunnelCampaign }) {
   const { meta, typeform } = campaign;
 
-  const stages: Stage[] = [
-    { name: "Ad Appears", short: "AD APPEARS", value: meta.impressions, source: "Impressions" },
-    { name: "Watches Video Ad", short: "VIDEO", value: meta.video_plays, source: "3-sec video plays" },
-    { name: "Enters Landing Page", short: "LANDING", value: meta.link_clicks, source: "Link clicks" },
-    { name: "Enters Typeform", short: "TYPEFORM", value: typeform.starts, source: "Form starts" },
-    { name: "Fills Typeform", short: "LEAD", value: typeform.completions, source: "Form submissions" },
+  // Left-rail stages: descriptive name (from the design) + live amount.
+  const stages = [
+    { name: "AD APPEARS", value: meta.impressions, y: 100 },
+    { name: "WATCHES VIDEO AD", value: meta.video_plays, y: 335 },
+    { name: "ENTERS LANDING PAGE", value: meta.link_clicks, y: 635 },
+    { name: "ENTERS TYPEFORM", value: typeform.starts, y: 860 },
+    { name: "FILLS TYPEFORM", value: typeform.completions, y: 1070 },
   ];
 
-  const top = stages[0].value || 1;
-
-  // Boundary widths: B[i] = width at the top of stage i; B[stages.length] tapers the base.
-  // A sqrt scale keeps the deep (low-volume) stages visible while still narrowing the
-  // cone — the true values and conversion rates are shown as text, so this is visual only.
-  const widthFor = (v: number) =>
-    Math.max(MIN_W, Math.min(MAX_W, MAX_W * Math.sqrt(Math.max(v, 0) / top)));
-  const B: number[] = [];
-  for (let i = 0; i < stages.length; i++) {
-    const w = widthFor(stages[i].value);
-    B.push(i === 0 ? w : Math.min(B[i - 1], w));
-  }
-  B.push(B[B.length - 1] * 0.62); // base taper
-
-  const svgH = stages.length * LAYER_H + 24;
+  // Conversion rate into each stage (stage[i] / stage[i-1]), drawn on the right rail.
+  const rates = stages.map((s, i) =>
+    i === 0 || stages[i - 1].value === 0 ? null : s.value / stages[i - 1].value
+  );
 
   return (
     <div className="panel flex h-full flex-col p-5">
@@ -56,119 +44,89 @@ export default function MarketingFunnel({ campaign }: { campaign: FunnelCampaign
         </button>
       </div>
 
-      <div
-        className="mt-2 grid flex-1 items-stretch gap-x-4"
-        style={{ gridTemplateColumns: "minmax(120px,160px) 1fr minmax(72px,96px)" }}
-      >
-        {/* Left labels — one cell per stage */}
-        <div className="grid" style={{ gridTemplateRows: `repeat(${stages.length}, ${LAYER_H}px)` }}>
-          {stages.map((s) => (
-            <div key={s.name} className="flex flex-col justify-center text-right">
-              <span className="text-xs font-medium text-white">{s.name}</span>
-              <span className="text-[13px] font-semibold text-[var(--text-muted)]">
-                {formatNumber(s.value)}
-              </span>
-            </div>
-          ))}
-        </div>
+      <div className="flex flex-1 items-center justify-center">
+        <div className="relative w-full" style={{ maxWidth: 860 }}>
+          <img src="/funnel-plain.png" alt="" className="block w-full select-none" draggable={false} />
 
-        {/* Funnel SVG */}
-        <div className="flex items-start justify-center">
           <svg
-            viewBox={`0 0 ${VIEW_W} ${svgH}`}
-            width="100%"
-            style={{ maxWidth: 460 }}
-            preserveAspectRatio="xMidYMin meet"
+            className="absolute inset-0 h-full w-full"
+            viewBox={`0 0 ${VB_W} ${VB_H}`}
+            preserveAspectRatio="xMidYMid meet"
+            fontFamily="var(--font-inter), sans-serif"
           >
-            <defs>
-              <linearGradient id="funnel-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2a2370" stopOpacity={0.55} />
-                <stop offset="100%" stopColor="#15123a" stopOpacity={0.85} />
-              </linearGradient>
-              <linearGradient id="funnel-rim" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#6c4bdb" />
-                <stop offset="100%" stopColor="#4f7cf7" />
-              </linearGradient>
-              <filter id="rim-glow" x="-40%" y="-200%" width="180%" height="500%">
-                <feGaussianBlur stdDeviation="3" result="b" />
-                <feMerge>
-                  <feMergeNode in="b" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
+            {/* Top title */}
+            <text x={1024} y={78} textAnchor="middle" fontSize={42} letterSpacing={6} fill={C_WHITE}>
+              LEAD GEN
+            </text>
 
-            {stages.map((s, i) => {
-              const y = i * LAYER_H;
-              const topW = B[i];
-              const botW = B[i + 1];
-              const tL = CENTER - topW / 2;
-              const tR = CENTER + topW / 2;
-              const bL = CENTER - botW / 2;
-              const bR = CENTER + botW / 2;
-              return (
-                <g key={s.name}>
-                  <path
-                    d={`M ${tL} ${y} L ${tR} ${y} L ${bR} ${y + LAYER_H} L ${bL} ${y + LAYER_H} Z`}
-                    fill="url(#funnel-fill)"
-                  />
-                  {/* glowing elliptical rim at the top of each layer */}
-                  <ellipse
-                    cx={CENTER}
-                    cy={y}
-                    rx={topW / 2}
-                    ry={6}
-                    fill="none"
-                    stroke="url(#funnel-rim)"
-                    strokeWidth={2}
-                    filter="url(#rim-glow)"
-                    opacity={0.95}
-                  />
-                  <text
-                    x={CENTER}
-                    y={y + LAYER_H / 2 + 3}
-                    textAnchor="middle"
-                    fontSize={11}
-                    letterSpacing={2}
-                    fill="#cfcfe6"
-                  >
-                    {s.short}
-                  </text>
-                </g>
-              );
-            })}
-            {/* base cap ellipse */}
-            <ellipse
-              cx={CENTER}
-              cy={stages.length * LAYER_H}
-              rx={B[stages.length] / 2}
-              ry={6}
-              fill="none"
-              stroke="url(#funnel-rim)"
-              strokeWidth={2}
-              filter="url(#rim-glow)"
-              opacity={0.8}
-            />
+            {/* Inside the cone — campaign / ad anatomy */}
+            <text x={1024} y={205} textAnchor="middle" fontSize={26} letterSpacing={3} fill={C_TEXT}>
+              AD HOOK
+            </text>
+            <text x={660} y={306} textAnchor="middle" fontSize={26} letterSpacing={3} fill={C_TEXT}>
+              AD COPY
+            </text>
+            <text x={1024} y={310} textAnchor="middle" fontSize={48} letterSpacing={2} fill={C_WHITE}>
+              SPECIFIC PROPERTY
+            </text>
+            <text x={1410} y={306} textAnchor="middle" fontSize={26} letterSpacing={3} fill={C_TEXT}>
+              SEGMENTATION
+            </text>
+            <text x={1024} y={420} textAnchor="middle" fontSize={26} letterSpacing={3} fill={C_TEXT}>
+              AD BODY
+            </text>
+
+            {/* Inside lower stages */}
+            <text x={845} y={628} textAnchor="middle" fontSize={24} letterSpacing={3} fill={C_TEXT}>
+              NURTURING
+            </text>
+            <text x={1245} y={622} textAnchor="middle" fontSize={24} letterSpacing={3} fill={C_TEXT}>
+              INCENTIVE
+            </text>
+            <text x={1035} y={818} textAnchor="middle" fontSize={24} letterSpacing={3} fill={C_TEXT}>
+              NURTURING
+            </text>
+
+            {/* Right rail — channel labels (from the design) */}
+            <text x={1660} y={92} textAnchor="start" fontSize={28} letterSpacing={3} fill={C_MUTED}>
+              META ADS
+            </text>
+            <text x={1628} y={626} textAnchor="start" fontSize={28} letterSpacing={3} fill={C_MUTED}>
+              LANDING PAGE
+            </text>
+            <text x={1660} y={1058} textAnchor="start" fontSize={28} letterSpacing={3} fill={C_MUTED}>
+              TYPEFORM
+            </text>
+
+            {/* Left rail — stage name + live amount */}
+            {stages.map((s) => (
+              <g key={s.name}>
+                <text x={150} y={s.y} textAnchor="start" fontSize={27} letterSpacing={2} fill={C_TEXT}>
+                  {s.name}
+                </text>
+                <text x={150} y={s.y + 42} textAnchor="start" fontSize={34} fontWeight={600} fill={C_AMOUNT}>
+                  {formatNumber(s.value)}
+                </text>
+              </g>
+            ))}
+
+            {/* Right rail — live conversion rate into each stage */}
+            {stages.map((s, i) =>
+              rates[i] === null ? null : (
+                <text
+                  key={`rate-${s.name}`}
+                  x={2010}
+                  y={s.y + 12}
+                  textAnchor="end"
+                  fontSize={32}
+                  fontWeight={600}
+                  fill={C_RATE}
+                >
+                  {formatPercent(rates[i]!)}
+                </text>
+              )
+            )}
           </svg>
-        </div>
-
-        {/* Right conversion badges — aligned to each stage row */}
-        <div className="grid" style={{ gridTemplateRows: `repeat(${stages.length}, ${LAYER_H}px)` }}>
-          {stages.map((s, i) => {
-            const prev = i > 0 ? stages[i - 1].value : 0;
-            const rate = i > 0 && prev > 0 ? s.value / prev : null;
-            return (
-              <div key={s.name} className="flex flex-col items-start justify-center">
-                {rate === null ? (
-                  <span className="text-xs text-[var(--text-faint)]">—</span>
-                ) : (
-                  <span className="rounded-md bg-[var(--accent)]/15 px-2 py-1 text-xs font-semibold text-[#b7a6ff]">
-                    {formatPercent(rate)}
-                  </span>
-                )}
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>
