@@ -50,9 +50,11 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
     label: shortDay(d.date),
     leads: d.leads,
     spend: Number(d.spend.toFixed(2)),
-    // Days with no submissions have no cost-per-lead — null so the line skips
-    // them (connectNulls draws straight across) instead of dropping to 0.
-    cpl: d.leads > 0 ? Number(d.cpl.toFixed(2)) : null,
+    cpl: Number(d.cpl.toFixed(2)), // real value (0 on no-lead days) — for the tooltip
+    // Separate field for the drawn line: null on no-lead days so connectNulls
+    // skips them visually (straight line across) instead of dropping to 0.
+    cplLine: d.leads > 0 ? Number(d.cpl.toFixed(2)) : null,
+    tip: 0, // always-present invisible series so the tooltip fires on every day
     ctr: Number((d.outbound_ctr * 100).toFixed(2)),
   }));
 
@@ -124,11 +126,20 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
               <Tooltip cursor={{ stroke: "rgba(255,255,255,0.15)" }} content={<CplTooltip />} />
               <Area
                 type="monotone"
-                dataKey="cpl"
+                dataKey="cplLine"
                 stroke="#9a7cff"
                 strokeWidth={2}
                 fill="url(#grad-cpl)"
                 connectNulls
+              />
+              {/* invisible: guarantees the tooltip fires on skipped (0-lead) days too */}
+              <Area
+                type="monotone"
+                dataKey="tip"
+                stroke="none"
+                fill="none"
+                isAnimationActive={false}
+                activeDot={false}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -165,23 +176,16 @@ function CplTooltip({
   label,
 }: {
   active?: boolean;
-  payload?: { payload: { leads: number; cpl: number | null } }[];
+  payload?: { payload: { leads: number; cpl: number } }[];
   label?: string;
 }) {
   if (!active || !payload || !payload.length) return null;
   const row = payload[0].payload;
   return (
-    <div className="rounded-[10px] border border-[var(--border-strong)] bg-[var(--panel2)] px-3 py-2 text-xs">
-      <p className="mb-0.5 text-white">{label}</p>
-      <p className="text-[var(--text-muted)]">
-        Leads: <span className="text-white">{row.leads}</span>
-      </p>
-      <p className="text-[var(--text-muted)]">
-        CPL:{" "}
-        <span className="text-white">
-          {row.cpl === null ? "—" : formatCurrency(row.cpl, 2)}
-        </span>
-      </p>
+    <div className="rounded-[10px] border border-[var(--border-strong)] bg-[var(--panel2)] px-3 py-2 text-xs text-white">
+      <p className="mb-0.5">{label}</p>
+      <p>Leads: {row.leads}</p>
+      <p>CPL: {row.leads > 0 ? formatCurrency(row.cpl, 2) : "N/A"}</p>
     </div>
   );
 }
