@@ -50,7 +50,9 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
     label: shortDay(d.date),
     leads: d.leads,
     spend: Number(d.spend.toFixed(2)),
-    cpl: Number(d.cpl.toFixed(2)),
+    // Days with no submissions have no cost-per-lead — null so the line skips
+    // them (connectNulls draws straight across) instead of dropping to 0.
+    cpl: d.leads > 0 ? Number(d.cpl.toFixed(2)) : null,
     ctr: Number((d.outbound_ctr * 100).toFixed(2)),
   }));
 
@@ -119,13 +121,14 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
               <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="2 4" vertical horizontal={false} />
               <XAxis dataKey="label" {...axis} interval="preserveStartEnd" />
               <YAxis {...axis} width={36} />
-              <Tooltip {...tooltipStyle()} formatter={(v: number) => formatCurrency(v, 2)} />
+              <Tooltip cursor={{ stroke: "rgba(255,255,255,0.15)" }} content={<CplTooltip />} />
               <Area
                 type="monotone"
                 dataKey="cpl"
                 stroke="#9a7cff"
                 strokeWidth={2}
                 fill="url(#grad-cpl)"
+                connectNulls
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -152,6 +155,33 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
           </ResponsiveContainer>
         </MetricBlock>
       </div>
+    </div>
+  );
+}
+
+function CplTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { payload: { leads: number; cpl: number | null } }[];
+  label?: string;
+}) {
+  if (!active || !payload || !payload.length) return null;
+  const row = payload[0].payload;
+  return (
+    <div className="rounded-[10px] border border-[var(--border-strong)] bg-[var(--panel2)] px-3 py-2 text-xs">
+      <p className="mb-0.5 text-white">{label}</p>
+      <p className="text-[var(--text-muted)]">
+        Leads: <span className="text-white">{row.leads}</span>
+      </p>
+      <p className="text-[var(--text-muted)]">
+        CPL:{" "}
+        <span className="text-white">
+          {row.cpl === null ? "—" : formatCurrency(row.cpl, 2)}
+        </span>
+      </p>
     </div>
   );
 }
