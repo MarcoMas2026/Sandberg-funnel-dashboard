@@ -1,8 +1,9 @@
 import { CampaignMapEntry } from "./types";
 
 // Maps a Meta Ads campaign to its corresponding Typeform qualifier.
-// To add a new campaign: append an entry here, then add the matching
-// mapping in the n8n "Merge & finalize" workflow (see /docs/n8n-workflow.md).
+// SINGLE SOURCE OF TRUTH: this is exposed at /api/config and read live by both
+// n8n workflows (Typeform Sync + Merge). To add a campaign, append an entry here
+// and push — no n8n edits needed. `property` and `ref` drive the on-screen labels.
 export const CAMPAIGN_MAP: CampaignMapEntry[] = [
   {
     meta_campaign_id: "120249096771300071",
@@ -27,5 +28,13 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     typeform_form_name: "CAN VILA Qualifier",
     property: "CAN VILA",
     ref: "32606",
+  },
+  {
+    meta_campaign_id: "120250284542490071",
+    meta_campaign_name: "CW - Anchorage - ENG",
+    typeform_form_id: "OEtGQCfj",
+    typeform_form_name: "Anchorage Club Waitlist",
+    property: "Anchorage Club",
+    ref: "Community",
   },
 ];
