@@ -60,3 +60,49 @@ body {
 .recharts-text {
   fill: var(--text-faint);
 }
+
+/* ---- Marketing funnel animations ---- */
+@keyframes funnel-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+@keyframes funnel-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes funnel-scan {
+  0% {
+    transform: translateY(-6%);
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(106%);
+    opacity: 0;
+  }
+}
+.funnel-stream {
+  animation: funnel-flow 1.15s linear infinite;
+}
+.funnel-pulse {
+  animation: funnel-pulse 2.6s ease-in-out infinite;
+}
+.funnel-scan {
+  animation: funnel-scan 5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .funnel-stream,
+  .funnel-pulse,
+  .funnel-scan {
+    animation: none;
+  }
+}
