@@ -38,9 +38,13 @@ and where leads drop off.
   start date) → link to `/campaign/[id]`.
 - `app/campaign/[id]/page.tsx` — **Campaign deep dive**: info bar + 2-col layout. Left 35%:
   `MetricsPanel` (4 daily charts) + `SummaryPanel` (2×2 KPIs). Right 65%: `MarketingFunnel`.
-- `components/MarketingFunnel.tsx` — funnel artwork `public/funnel-empty.png` with an SVG text
-  overlay (same 1366×1100 coord space) drawing all labels + live amounts (left) + conversion %
-  (right). (`funnel-plain.png` is the old, unused artwork.)
+- `components/MarketingFunnel.tsx` — fully code-drawn animated SVG cone (no image; the old
+  `public/funnel-empty.png`/`funnel-plain.png` are unused). 5 stages, blue→fuchsia gradient,
+  glowing rims, animated flow lines + scanline (CSS keyframes in `globals.css`, respects
+  `prefers-reduced-motion`), count-up numbers on mount, hover-per-stage drop-off tooltip. **Stage 2
+  is conditional on `campaign.campaign_type`**: `"property"` → "Watches Video" (`meta.video_plays`);
+  `"community"` → "Engagement" (`meta.engagement` = Meta's `post_engagement` action — community
+  campaigns run image ads with no video).
 - `components/MetricsPanel.tsx` — 4 charts: Leads/day (bar), Spend/day (bar), Cost per lead
   (area; skips 0-lead days via `cplLine=null`+`connectNulls`; custom tooltip shows Leads + CPL),
   Unique Outbound CTR (small-dot scatter via tight `ZAxis range`).
@@ -118,10 +122,13 @@ Instance: `https://n8n.srv980538.hstgr.cloud`. Three workflows, all ACTIVE, owne
 ## 6. Single source of truth: adding a campaign
 
 Edit **`lib/config.ts`** `CAMPAIGN_MAP` (add `meta_campaign_id`, `typeform_form_id`, property,
-ref, names) → push to `main`. Vercel redeploys `/api/config`, and BOTH n8n workflows read it live
+ref, names, and **`campaign_type`**: `"property"` or `"community"` — controls the funnel's 2nd
+stage, see §3) → push to `main`. Vercel redeploys `/api/config`, and BOTH n8n workflows read it live
 (Typeform Sync "Set Form List" via a "Get Config" node; orchestrator Merge via a "Read Config"
-node). No hardcoded copies remain. Find a Typeform form id from the Typeform admin URL, or via the
-API (`GET api.typeform.com/forms?page_size=200`, match by title).
+node, which also falls back to inferring type from a `CW` name prefix if a campaign isn't in
+config). No hardcoded copies remain. Find a Typeform form id from the Typeform admin URL, or via
+the API (`GET api.typeform.com/forms?page_size=200`, match by title) — **watch for duplicate
+titles**; confirm the real form by grepping the live landing page HTML for `typeform.com/to/<id>`.
 
 ## 7. Secrets & access (where they live — NOT in this repo)
 
@@ -136,11 +143,13 @@ API (`GET api.typeform.com/forms?page_size=200`, match by title).
 
 `NEXT_PUBLIC_N8N_WEBHOOK_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN` — in `.env.local` and Vercel.
 
-## 9. Current state (as of 2026-07-01)
+## 9. Current state (as of 2026-07-13)
 
-All 3 campaigns (Catalina Duplex `120249096771300071`/`pqBjw5Y6`, Finca Bugambilia
-`120248931370460071`/`d53a9GPD`, CAN VILA `120248754551970071`/`BZDwyYhN`) are **PAUSED**, so the
-dashboard shows empty — expected. Reactivating them repopulates automatically via the config-driven,
+Campaigns in `CAMPAIGN_MAP`: Catalina Duplex `120249096771300071`/`pqBjw5Y6` (property), Finca
+Bugambilia `120248931370460071`/`d53a9GPD` (property), CAN VILA `120248754551970071`/`BZDwyYhN`
+(property) — all **PAUSED** as of 2026-07-01. Anchorage Club `120250284542490071`/`OEtGQCfj`
+(community) — **ACTIVE**, verified live (€314 spend, 55 leads via Typeform, engagement 655).
+Reactivating the paused ones repopulates automatically via the config-driven,
 id-safe pipeline.
 
 ## 10. Known non-blocking items (audited, deliberately left)
