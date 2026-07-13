@@ -4,6 +4,9 @@ import { CampaignMapEntry } from "./types";
 // SINGLE SOURCE OF TRUTH: this is exposed at /api/config and read live by both
 // n8n workflows (Typeform Sync + Merge). To add a campaign, append an entry here
 // and push — no n8n edits needed. `property` and `ref` drive the on-screen labels.
+// `campaign_type` drives which funnel layout is shown (see MarketingFunnel.tsx):
+// "property" (named "SP - REF - PROPERTY") shows video views; "community"
+// (named "CW - ...") shows post engagement instead, since those run image ads.
 export const CAMPAIGN_MAP: CampaignMapEntry[] = [
   {
     meta_campaign_id: "120249096771300071",
@@ -12,6 +15,7 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     typeform_form_name: "Catalina Duplex Qualifier",
     property: "Catalina Duplex",
     ref: "6648",
+    campaign_type: "property",
   },
   {
     meta_campaign_id: "120248931370460071",
@@ -20,6 +24,7 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     typeform_form_name: "Finca Bugambilia Qualifier",
     property: "Finca Bugambilia",
     ref: "32785",
+    campaign_type: "property",
   },
   {
     meta_campaign_id: "120248754551970071",
@@ -28,6 +33,7 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     typeform_form_name: "CAN VILA Qualifier",
     property: "CAN VILA",
     ref: "32606",
+    campaign_type: "property",
   },
   {
     meta_campaign_id: "120250284542490071",
@@ -36,5 +42,6 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     typeform_form_name: "Anchorage Club Waitlist",
     property: "Anchorage Club",
     ref: "Community",
+    campaign_type: "community",
   },
 ];

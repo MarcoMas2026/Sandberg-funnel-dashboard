@@ -45,9 +45,16 @@ export default function MarketingFunnel({ campaign }: { campaign: FunnelCampaign
   const [hover, setHover] = useState<number | null>(null);
   const elapsed = useElapsed();
 
+  // Community waitlist campaigns run image ads (no video), so the second
+  // stage shows post engagement instead of video plays.
+  const isCommunity = campaign.campaign_type === "community";
+  const secondStage = isCommunity
+    ? { name: "Engagement", sub: "post engagements", value: meta.engagement }
+    : { name: "Watches Video", sub: "3-sec plays", value: meta.video_plays };
+
   const stages = [
     { name: "Ad Appears", sub: "impressions", value: meta.impressions },
-    { name: "Watches Video", sub: "3-sec plays", value: meta.video_plays },
+    secondStage,
     { name: "Enters Landing Page", sub: "link clicks", value: meta.link_clicks },
     { name: "Enters Typeform", sub: "form starts", value: typeform.starts },
     { name: "Fills Typeform", sub: "submissions", value: typeform.completions },

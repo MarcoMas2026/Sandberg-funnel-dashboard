@@ -6,6 +6,7 @@ export interface MetaDailyRow {
   link_clicks: number;
   leads: number;
   video_plays: number;
+  engagement: number; // post_engagement (reactions/comments/shares/clicks on the ad)
   ctr: number; // 0..1
   outbound_ctr: number; // 0..1
   cpl: number; // cost per lead that day
@@ -23,6 +24,7 @@ export interface MetaCampaign {
   link_clicks: number;
   leads: number;
   video_plays: number;
+  engagement: number; // post_engagement, used in the funnel for community campaigns
   cpm: number;
   ctr: number; // 0..1
   cpl: number; // cost per lead (spend / leads)
@@ -48,11 +50,14 @@ export interface TypeformForm {
   fields: TypeformField[];
 }
 
+export type CampaignType = "property" | "community";
+
 export interface FunnelCampaign {
   campaign_id: string;
   campaign_name: string;
   property: string;
   ref: string;
+  campaign_type: CampaignType;
   status: "ACTIVE" | "PAUSED" | "ARCHIVED";
   meta: MetaCampaign;
   typeform: TypeformForm;
@@ -76,4 +81,7 @@ export interface CampaignMapEntry {
   typeform_form_name: string;
   property: string;
   ref: string;
+  // "property" = a specific-listing campaign (funnel shows video views);
+  // "community" = a community waitlist campaign (funnel shows engagement instead).
+  campaign_type: CampaignType;
 }
