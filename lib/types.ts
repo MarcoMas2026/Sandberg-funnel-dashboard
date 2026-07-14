@@ -74,6 +74,29 @@ export interface FunnelData {
   status: "fresh" | "stale" | "error";
 }
 
+// A resolved past campaign used as a performance benchmark in the Compare view.
+// Only campaigns whose Typeform submissions could be verifiably attributed to
+// THAT specific campaign (via a hidden field matching its ref, or — for the
+// one campaign type with no ref — its own utm_campaign) are included. See
+// historical:campaigns in KV / CONTEXT.md for how this pool is populated.
+export interface HistoricalCampaign {
+  campaign_id: string;
+  campaign_name: string;
+  property: string;
+  ref: string;
+  campaign_type: CampaignType;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  link_clicks: number;
+  leads: number; // Typeform submissions
+  starts: number; // Typeform starts (completed + partial)
+  ctr: number; // 0..1
+  cpl: number; // spend / leads
+  click_to_form_start_rate: number; // 0..1
+  form_completion_rate: number; // 0..1
+}
+
 export interface CampaignMapEntry {
   meta_campaign_id: string;
   meta_campaign_name: string;

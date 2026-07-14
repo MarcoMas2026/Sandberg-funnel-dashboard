@@ -16,6 +16,7 @@ export default function Navbar() {
 
   const onOverview = pathname === "/";
   const onCampaign = pathname.startsWith("/campaign");
+  const onCompare = pathname.startsWith("/compare");
   const firstCampaignId = data?.campaigns?.[0]?.campaign_id;
 
   return (
@@ -28,7 +29,7 @@ export default function Navbar() {
           icon={<BarIcon />}
           label="Campaign"
         />
-        <DisabledTab icon={<CompareIcon />} label="Compare" />
+        <Tab href="/compare" active={onCompare} icon={<CompareIcon />} label="Compare" />
         <DisabledTab icon={<PatternsIcon />} label="Patterns" />
 
         <button
