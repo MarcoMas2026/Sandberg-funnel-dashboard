@@ -11,7 +11,7 @@ export default function PatternsPage() {
       <div className="fade-up flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-faint)]">Creative Intelligence</p>
-          <h1 className="text-2xl font-semibold text-white">Creative DNA</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Creative DNA</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             In the Andromeda era, creative is the targeting — these are the patterns that win across your campaigns
           </p>

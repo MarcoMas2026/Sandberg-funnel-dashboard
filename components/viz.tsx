@@ -29,35 +29,43 @@ export function CountUp({
   return <span style={{ fontVariantNumeric: "tabular-nums" }}>{format(shown)}</span>;
 }
 
-// Minimal SVG sparkline (no chart lib overhead).
+// SVG sparkline. `peakLabel`/`markers` reproduce the reference decks' pattern:
+// a dotted circle at the local peak/trough with a floating value chip above it.
 export function Sparkline({
   data,
   width = 120,
   height = 34,
   stroke = "#9a7cff",
   fill = true,
+  markers = false,
+  peakLabel,
 }: {
   data: number[];
   width?: number;
   height?: number;
   stroke?: string;
   fill?: boolean;
+  markers?: boolean;
+  peakLabel?: (v: number) => string;
 }) {
   if (!data || data.length < 2) return <svg width={width} height={height} />;
   const min = Math.min(...data);
   const max = Math.max(...data);
   const span = max - min || 1;
-  const pad = 3;
+  const pad = 4;
+  const topPad = peakLabel ? 14 : pad;
   const pts = data.map((v, i) => {
     const x = pad + (i / (data.length - 1)) * (width - pad * 2);
-    const y = height - pad - ((v - min) / span) * (height - pad * 2);
+    const y = topPad + (height - topPad - pad) * (1 - (v - min) / span);
     return [x, y] as const;
   });
   const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const area = `${pad},${height - pad} ${line} ${width - pad},${height - pad}`;
   const gid = `sp-${stroke.replace("#", "")}`;
+  const peakIdx = data.indexOf(max);
+
   return (
-    <svg width={width} height={height} className="block">
+    <svg width={width} height={height} className="block overflow-visible">
       {fill && (
         <>
           <defs>
@@ -70,7 +78,19 @@ export function Sparkline({
         </>
       )}
       <polyline points={line} fill="none" stroke={stroke} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r={2.4} fill={stroke} />
+      {markers &&
+        pts.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={i === pts.length - 1 || i === peakIdx ? 2.6 : 1.6} fill={i === peakIdx ? "#fff" : stroke} stroke={i === peakIdx ? stroke : "none"} strokeWidth={1.5} />
+        ))}
+      {!markers && <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r={2.4} fill={stroke} />}
+      {peakLabel && (
+        <g transform={`translate(${pts[peakIdx][0]}, ${pts[peakIdx][1] - 8})`}>
+          <rect x={-20} y={-13} width={40} height={15} rx={7} fill="rgba(255,255,255,0.94)" />
+          <text x={0} y={-2} textAnchor="middle" fontSize={9} fontWeight={700} fill="#111116">
+            {peakLabel(max)}
+          </text>
+        </g>
+      )}
     </svg>
   );
 }
@@ -82,7 +102,7 @@ export function DeltaChip({ pct, goodWhenUp = true }: { pct: number; goodWhenUp?
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-        good ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+        good ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
       }`}
     >
       {up ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}%
@@ -115,5 +135,25 @@ export function RingGauge({ value, size = 84 }: { value: number; size?: number }
         {Math.round(clamped)}
       </text>
     </svg>
+  );
+}
+
+// Reusable pill filter / segmented-control chip.
+export function Pill({
+  label,
+  active,
+  onClick,
+  dot,
+}: {
+  label: string;
+  active: boolean;
+  onClick?: () => void;
+  dot?: string;
+}) {
+  return (
+    <button onClick={onClick} className={`pill ${active ? "pill-on accent-gradient" : "pill-off"}`}>
+      {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />}
+      {label}
+    </button>
   );
 }

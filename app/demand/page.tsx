@@ -23,7 +23,7 @@ export default function DemandPage() {
       <div className="fade-up flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-faint)]">Market Intelligence</p>
-          <h1 className="text-2xl font-semibold text-white">Buyer Demand Map</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Buyer Demand Map</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             What your paid traffic is telling you buyers want — aggregated from every form submission
           </p>

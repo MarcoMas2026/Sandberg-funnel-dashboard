@@ -104,7 +104,7 @@ export default function ComparePage() {
   if (subjects.length === 0) {
     return (
       <div className="pt-2">
-        <h1 className="mb-1 text-2xl font-semibold text-white">Compare</h1>
+        <h1 className="mb-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">Compare</h1>
         <p className="mb-6 text-sm text-[var(--text-muted)]">
           Compare a campaign against your best-performing past campaigns of the same type
         </p>
@@ -152,7 +152,7 @@ export default function ComparePage() {
   return (
     <div className="pt-2">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">Compare</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Compare</h1>
         <p className="text-sm text-[var(--text-muted)]">
           Benchmark any campaign against your best past campaigns of the same type
         </p>

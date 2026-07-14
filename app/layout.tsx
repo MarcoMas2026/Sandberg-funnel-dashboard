@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import Topbar from "@/components/Topbar";
 import CommandPalette from "@/components/CommandPalette";
 import { DashboardProvider } from "@/lib/dashboard-context";
 
@@ -24,7 +25,10 @@ export default function RootLayout({
           <div className="shell-grid flex min-h-screen">
             <Sidebar />
             <div className="min-w-0 flex-1">
-              <main className="mx-auto max-w-[1440px] px-5 py-6 lg:px-8">{children}</main>
+              <main className="mx-auto max-w-[1440px] px-5 py-6 lg:px-8">
+                <Topbar />
+                {children}
+              </main>
             </div>
           </div>
           <CommandPalette />

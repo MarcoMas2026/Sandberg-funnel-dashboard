@@ -24,7 +24,7 @@ export default function InsightsPage() {
       <div className="fade-up flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-faint)]">AI Analyst</p>
-          <h1 className="text-2xl font-semibold text-white">Insights</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Insights</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             Findings computed nightly from your own data — anomalies, fatigue, pacing and opportunities
           </p>

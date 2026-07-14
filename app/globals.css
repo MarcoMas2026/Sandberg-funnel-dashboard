@@ -3,16 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0d0d0f;
-  --panel: #141417;
-  --panel-2: #1a1a1f;
-  --border: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --text: #ededf2;
-  --text-muted: #8b8b96;
-  --text-faint: #5c5c66;
+  /* softer graphite, not near-black — matches the reference platforms' perceived depth */
+  --bg: #101014;
+  --bg-2: #16161c;
+  --panel: #17171d;
+  --panel2: #1e1e26;
+  --panel3: #26262f;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #f0f0f4;
+  --text-muted: #9494a3;
+  --text-faint: #63636f;
   --accent: #6c4bdb;
   --accent-2: #4f7cf7;
+  --radius-lg: 1.5rem;
+  --radius-md: 1.1rem;
 }
 
 html,
@@ -29,7 +34,7 @@ body {
 .panel {
   background-color: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 1.25rem;
+  border-radius: var(--radius-lg);
 }
 
 .icon-btn {
@@ -39,7 +44,7 @@ body {
   width: 2rem;
   height: 2rem;
   border-radius: 9999px;
-  background: var(--panel-2);
+  background: var(--panel2);
   border: 1px solid var(--border);
   color: var(--text-muted);
 }
@@ -51,6 +56,51 @@ body {
 
 .accent-glow {
   box-shadow: 0 0 0 1px rgba(108, 75, 219, 0.4), 0 8px 24px rgba(108, 75, 219, 0.25);
+}
+
+/* Solid white pill CTA (the "Deposit"-style primary action from the reference decks) */
+.cta-light {
+  background: #f4f4f8;
+  color: #111116;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.cta-light:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* Pill filter/segmented-control chip */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+.pill-off {
+  background: var(--panel2);
+  color: var(--text-muted);
+}
+.pill-off:hover {
+  color: var(--text);
+  background: var(--panel3);
+}
+.pill-on {
+  color: #fff;
+}
+
+/* Colored left accent bar used on identity/price-style cards */
+.accent-bar {
+  position: absolute;
+  left: 0;
+  top: 0.9rem;
+  bottom: 0.9rem;
+  width: 3px;
+  border-radius: 4px;
 }
 
 /* Recharts dark tweaks */
@@ -116,9 +166,28 @@ body::before {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(600px 400px at 12% -10%, rgba(108, 75, 219, 0.13), transparent 70%),
-    radial-gradient(700px 500px at 95% 15%, rgba(79, 124, 247, 0.08), transparent 70%),
-    radial-gradient(500px 600px at 60% 110%, rgba(192, 38, 211, 0.06), transparent 70%);
+    radial-gradient(700px 460px at 14% -8%, rgba(108, 75, 219, 0.16), transparent 70%),
+    radial-gradient(800px 560px at 96% 10%, rgba(79, 124, 247, 0.09), transparent 70%),
+    radial-gradient(560px 640px at 55% 115%, rgba(192, 38, 211, 0.07), transparent 70%);
+  pointer-events: none;
+}
+
+/* faint starfield speckle, reads as depth rather than noise */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 30% 65%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1.5px 1.5px at 55% 15%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 72% 78%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 88% 40%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 22% 88%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 45% 45%, rgba(255, 255, 255, 0.25), transparent);
+  background-size: 100% 100%;
   pointer-events: none;
 }
 
