@@ -13,6 +13,10 @@ When the user types **`FUNNEL-CTX`** (or asks you to "load the funnel context"),
 campaign, where secrets live, and current state. Load it before doing any non-trivial work on the
 pipeline or data logic.
 
+For roadmap/vision work, also read [`ARCHITECTURE.md`](ARCHITECTURE.md) — the phased master plan
+(L1–L5: history snapshots, lead-quality scoring, intelligence engines, AI-analyst layer,
+value-based CAPI feedback loop) with build-order and zero-API-cost constraints.
+
 ## Critical rules (do not violate)
 
 - **KV access:** use the Upstash REST API directly in `lib/kv.ts` with `cache: 'no-store'`. Never
