@@ -106,3 +106,122 @@ body {
     animation: none;
   }
 }
+
+/* ---- Command-center shell ---- */
+
+/* ambient mesh glow behind everything */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(600px 400px at 12% -10%, rgba(108, 75, 219, 0.13), transparent 70%),
+    radial-gradient(700px 500px at 95% 15%, rgba(79, 124, 247, 0.08), transparent 70%),
+    radial-gradient(500px 600px at 60% 110%, rgba(192, 38, 211, 0.06), transparent 70%);
+  pointer-events: none;
+}
+
+/* faint grid texture on the shell */
+.shell-grid {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+/* glass panel variant */
+.glass {
+  background: rgba(20, 20, 23, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* gradient hairline border (for hero cards) */
+.gradient-border {
+  position: relative;
+  background: var(--panel);
+  border-radius: 1.25rem;
+}
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(108, 75, 219, 0.55), rgba(255, 255, 255, 0.06) 40%, rgba(79, 124, 247, 0.4));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* staggered entrance */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* live status dot */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+  }
+}
+.pulse-dot {
+  animation: pulse-ring 2.2s infinite;
+}
+
+/* insight ticker marquee */
+@keyframes ticker-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.ticker-track {
+  animation: ticker-x 45s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .pulse-dot,
+  .ticker-track {
+    animation: none;
+  }
+}
+
+/* slim dark scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a31 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a2a31;
+  border-radius: 8px;
+}

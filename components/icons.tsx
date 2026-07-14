@@ -94,3 +94,18 @@ export const CtrIcon = ({ className }: P) => (
     <path d="M3 3v3M3 3h3" />
   </svg>
 );
+
+export const InsightIcon = ({ className }: P) => (
+  <svg {...base(className)}>
+    <path d="M12 2v3M4.9 4.9l2.1 2.1M2 12h3M19 12h3M17 7l2.1-2.1" />
+    <path d="M9 18h6M10 21h4" />
+    <path d="M8 13a4 4 0 1 1 8 0c0 1.5-1 2.5-2 3.5H10c-1-1-2-2-2-3.5Z" />
+  </svg>
+);
+
+export const MapIcon = ({ className }: P) => (
+  <svg {...base(className)}>
+    <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" />
+    <path d="M9 4v14M15 6v14" />
+  </svg>
+);

@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
+import CommandPalette from "@/components/CommandPalette";
 import { DashboardProvider } from "@/lib/dashboard-context";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "Sandberg Estates – Funnel Intelligence",
-  description: "Marketing funnel dashboard for Sandberg Estates ad campaigns",
+  description: "AI-fueled paid-performance operating system for Sandberg Estates",
 };
 
 export default function RootLayout({
@@ -20,8 +21,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} font-sans`}>
         <DashboardProvider>
-          <Navbar />
-          <main className="mx-auto max-w-[1400px] px-6 pb-16">{children}</main>
+          <div className="shell-grid flex min-h-screen">
+            <Sidebar />
+            <div className="min-w-0 flex-1">
+              <main className="mx-auto max-w-[1440px] px-5 py-6 lg:px-8">{children}</main>
+            </div>
+          </div>
+          <CommandPalette />
         </DashboardProvider>
       </body>
     </html>
