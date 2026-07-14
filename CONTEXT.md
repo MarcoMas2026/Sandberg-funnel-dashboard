@@ -50,8 +50,13 @@ and where leads drop off.
   Unique Outbound CTR (small-dot scatter via tight `ZAxis range`).
 - `lib/format.ts` — `parseCampaignName` ("SP - REF - PROPERTY"), `formatDate`, `shortDay`,
   currency/number/percent helpers.
-- Nav: Overview + Campaign are functional; **Compare + Patterns are intentionally dimmed /
-  non-functional** placeholders. The purple **Update** button is in the nav.
+- `app/compare/page.tsx` — **Compare**: pick an active campaign (pill selector), benchmark it
+  against its top 3 past campaigns of the same `campaign_type` across 6 metrics (spend, leads,
+  CPL, CTR, click→form rate, completion rate) via `components/MetricCompareChart.tsx` (grouped
+  horizontal bars, direction-aware "▲/▼ N% vs avg" badge). Ranking logic in `lib/ranking.ts` —
+  see §6 for how the underlying historical data is populated and its real limitations.
+- Nav: Overview, Campaign, and **Compare are functional**; **Patterns is still an intentionally
+  dimmed / non-functional** placeholder. The purple **Update** button is in the nav.
 
 ## 4. API routes (`app/api/*`)
 
@@ -60,6 +65,7 @@ and where leads drop off.
 - `GET /api/health` — returns `last_updated`.
 - `GET /api/config` — **single source of truth**: returns `CAMPAIGN_MAP` from `lib/config.ts`.
   Both n8n workflows read this.
+- `GET /api/historical` — returns `historical:campaigns` from KV (the Compare benchmark pool).
 
 ## 5. Data pipeline — n8n (the real backend)
 
@@ -130,7 +136,39 @@ config). No hardcoded copies remain. Find a Typeform form id from the Typeform a
 the API (`GET api.typeform.com/forms?page_size=200`, match by title) — **watch for duplicate
 titles**; confirm the real form by grepping the live landing page HTML for `typeform.com/to/<id>`.
 
-## 7. Secrets & access (where they live — NOT in this repo)
+## 7. Historical data for Compare (`historical:campaigns` in KV)
+
+Unlike everything else, this is **NOT a live n8n pipeline** — it's a manually-populated KV key
+(`historical:campaigns`, read by `GET /api/historical`), because past (paused) campaigns' data
+never changes and because resolving them is real detective work, not something to redo on every
+Update. `lib/ranking.ts` reads this pool and, for a given active campaign, ranks past campaigns of
+the same `campaign_type` by a composite score (50% normalized lead volume + 50% normalized
+1/cost-per-lead, computed within the eligible pool) — filtered to spend ≥ `MIN_HISTORICAL_SPEND`
+(€250, agreed with the user 2026-07-13) and excluding the campaign itself.
+
+**Critical rule — do not add a campaign to this pool unless its leads are verifiably its own.**
+Typeform doesn't know which ad campaign drove a submission unless the response's `hidden` fields
+say so (checked via `GET /forms/{id}/responses`, inspect `.items[].hidden`). Two attribution
+schemes exist in practice: newer community-page submissions carry `hidden.utm_campaign` = the
+exact Meta campaign ID; older property-page submissions carry `hidden.campaign_name` /
+`hidden.listing_reference` = the ref number. **A form matched only by name/landing-page similarity,
+with no matching hidden field, must be excluded** — reusing the same form/landing page across
+multiple ad campaigns over time means "total submissions" would double-count. This is exactly why,
+in the 2026-07-13 backfill, 3 property campaigns (Villa Tulum, Finca Son Catlar, Apartamento Vista
+Mar — empty hidden fields) and 2 old `"...WAITLIST"`-named community campaigns (Sa Vinya, Anchorage
+— zero responses / all responses tagged to the *current* Anchorage campaign, not the old one) were
+investigated and deliberately left OUT, rather than guessed.
+
+Current pool (5 verified entries): Catalina Duplex, Finca Bugambilia, Villa Sa Caleta, Finca Son
+Llum (all `property`, all already in `CAMPAIGN_MAP` or resolved via landing-page grep against
+`~/Desktop/LANDINGS/sandbergestates.es/<ref>/index.html`), and Anchorage Club (`community` — the
+only verified community campaign so far, so Compare correctly shows "not enough historical
+community campaigns" until more exist). To extend the pool: find candidates via Meta (any status,
+`spend >= 250`), resolve each to its real form via the landing-page grep method above, verify via
+hidden-field attribution, compute `ctr`/`cpl`/`click_to_form_start_rate`/`form_completion_rate`,
+then `POST` the appended array to `https://maximum-anteater-96315.upstash.io/set/historical:campaigns`.
+
+## 8. Secrets & access (where they live — NOT in this repo)
 
 - **KV creds** (`KV_REST_API_URL`, `KV_REST_API_TOKEN`) + `NEXT_PUBLIC_N8N_WEBHOOK_URL`: in
   `.env.local` (gitignored) and in Vercel project env vars.
@@ -139,11 +177,11 @@ titles**; confirm the real form by grepping the live landing page HTML for `type
   if you need to modify workflows from here.
 - **GitHub push PAT:** user supplies per-push (repo is private; needs `repo` + `workflow` scopes).
 
-## 8. Env vars
+## 9. Env vars
 
 `NEXT_PUBLIC_N8N_WEBHOOK_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN` — in `.env.local` and Vercel.
 
-## 9. Current state (as of 2026-07-13)
+## 10. Current state (as of 2026-07-13)
 
 Campaigns in `CAMPAIGN_MAP`: Catalina Duplex `120249096771300071`/`pqBjw5Y6` (property), Finca
 Bugambilia `120248931370460071`/`d53a9GPD` (property), CAN VILA `120248754551970071`/`BZDwyYhN`
@@ -152,7 +190,7 @@ Bugambilia `120248931370460071`/`d53a9GPD` (property), CAN VILA `120248754551970
 Reactivating the paused ones repopulates automatically via the config-driven,
 id-safe pipeline.
 
-## 10. Known non-blocking items (audited, deliberately left)
+## 11. Known non-blocking items (audited, deliberately left)
 
 - Typeform response fetch is single-page `page_size=1000` (no pagination) — fine, forms will never
   exceed 1000 responses.
