@@ -50,11 +50,14 @@ and where leads drop off.
   Unique Outbound CTR (small-dot scatter via tight `ZAxis range`).
 - `lib/format.ts` — `parseCampaignName` ("SP - REF - PROPERTY"), `formatDate`, `shortDay`,
   currency/number/percent helpers.
-- `app/compare/page.tsx` — **Compare**: pick an active campaign (pill selector), benchmark it
-  against its top 3 past campaigns of the same `campaign_type` across 6 metrics (spend, leads,
+- `app/compare/page.tsx` — **Compare**: pick a subject — an ACTIVE campaign or a verified PAST one
+  (two pill-selector groups; a campaign that's both only appears under Active) — benchmark it
+  against its top 3 OTHER campaigns of the same `campaign_type` across 6 metrics (spend, leads,
   CPL, CTR, click→form rate, completion rate) via `components/MetricCompareChart.tsx` (grouped
-  horizontal bars, direction-aware "▲/▼ N% vs avg" badge). Ranking logic in `lib/ranking.ts` —
-  see §6 for how the underlying historical data is populated and its real limitations.
+  horizontal bars, direction-aware "▲/▼ N% vs avg" badge). Ranking logic in `lib/ranking.ts`
+  (`rankHistoricalCampaigns` excludes the subject by id, so picking a past campaign as the subject
+  ranks the rest of the historical pool against it — same function, no special-casing needed) — see
+  §7 for how the underlying historical data is populated and its real limitations.
 - Nav: Overview, Campaign, and **Compare are functional**; **Patterns is still an intentionally
   dimmed / non-functional** placeholder. The purple **Update** button is in the nav.
 
