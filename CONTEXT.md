@@ -58,22 +58,34 @@ and where leads drop off.
   (`rankHistoricalCampaigns` excludes the subject by id, so picking a past campaign as the subject
   ranks the rest of the historical pool against it — same function, no special-casing needed) — see
   §7 for how the underlying historical data is populated and its real limitations.
-- **Shell (2026-07-14 rebuild):** the old pill Navbar is GONE. `components/Sidebar.tsx` is the
-  navigation (icon rail on mobile, labeled at lg+; brand block, pipeline-status dot, and the
-  **Update Data** button live here), wired in `app/layout.tsx` alongside
-  `components/CommandPalette.tsx` (**⌘K**: jump to any page/campaign, trigger sync). Ambient
-  mesh-glow background + `.shell-grid` texture + `.glass` / `.gradient-border` panel variants +
-  `.fade-up` staggered entrances live in `globals.css`. `components/viz.tsx` = shared primitives
-  (CountUp, Sparkline, DeltaChip, RingGauge).
+- **Shell (2026-07-14 rebuild, restyled same day):** the old pill Navbar is GONE.
+  `components/Sidebar.tsx` = grouped nav (Overview/Intelligence/Strategy sections, collapsible via
+  a real toggle, unread-insights badge count), brand block, pipeline-status dot, **Update Data**
+  button. `components/Topbar.tsx` = breadcrumb (Overview / Section) + a search bar that dispatches
+  a synthetic ⌘K keydown to open `components/CommandPalette.tsx` (jump to any page/campaign,
+  trigger sync). Both wired in `app/layout.tsx`.
+  **Visual language restyle (2026-07-14, matched to user-supplied reference decks — crypto/fleet/
+  trading dashboards):** softer graphite palette (`--bg:#101014`, `--panel2:#1e1e26`, NOT
+  near-black), starfield speckle (`body::after`) + mesh glow (`body::before`), bigger radii
+  (`--radius-lg:1.5rem`), `.glass`/`.gradient-border`/`.pill`/`.cta-light`/`.accent-bar` utility
+  classes in `globals.css`. `components/viz.tsx` = shared primitives (CountUp, **Sparkline** now
+  supports `markers` + `peakLabel` for the reference decks' signature dotted-marker +
+  floating-value-chip pattern, DeltaChip, RingGauge, Pill). **Gotcha hit once, fixed same session:**
+  the palette restyle briefly introduced `--panel-2` (hyphenated) while every existing component
+  reads `--panel2` (no hyphen) — always `grep -rn "panel2\|panel-2"` before touching that token if
+  editing globals.css again; a mismatch silently renders transparent backgrounds, no error thrown.
 - **New preview pages on MOCK data** (`lib/mock.ts` — one export per ARCHITECTURE.md phase, every
   mocked number visibly tagged "preview" in the UI; funnel/campaign/compare stay 100% live-data):
-  `app/page.tsx` is now **Mission Control** (gradient-border hero KPIs with count-ups + REAL
-  portfolio sparklines from live daily data; live-insight ticker; campaign cards with real lead
-  sparklines + mock quality strips — the hero delta chips and health gauge are also mock),
-  `/insights` (severity-coded analyst feed → Phase 3), `/demand` (buyer demand heatmap → Phase 5),
-  `/patterns` (Creative DNA library → Phase 7, tab finally functional). When a backend phase
-  ships, replace the corresponding `lib/mock.ts` export with a KV-backed API read and drop the
-  "preview" tags for that surface.
+  `app/page.tsx` is now **Mission Control** (greeting-style headline; price-card hero KPIs — colored
+  `.accent-bar`, 3-dot menu, DeltaChip, peak-tooltip Sparkline — count-ups + REAL portfolio
+  sparklines from live daily data; live-insight ticker; campaign cards with an identity gradient
+  wash + "Meta synced"/"Typeform synced" connection badges + a start→today lifecycle strip + real
+  lead sparklines + mock quality strips; a **Portfolio Leaderboard** table — REAL data, merges live
+  active campaigns with the verified `historical:campaigns` pool, ranked by leads, with per-row
+  trend sparklines), `/insights` (severity-coded analyst feed → Phase 3), `/demand` (buyer demand
+  heatmap → Phase 5), `/patterns` (Creative DNA library → Phase 7, tab finally functional). When a
+  backend phase ships, replace the corresponding `lib/mock.ts` export with a KV-backed API read and
+  drop the "preview" tags for that surface.
 
 ## 4. API routes (`app/api/*`)
 
