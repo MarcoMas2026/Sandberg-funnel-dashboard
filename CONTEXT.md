@@ -168,6 +168,20 @@ community campaigns" until more exist). To extend the pool: find candidates via 
 hidden-field attribution, compute `ctr`/`cpl`/`click_to_form_start_rate`/`form_completion_rate`,
 then `POST` the appended array to `https://maximum-anteater-96315.upstash.io/set/historical:campaigns`.
 
+**DEAD END — do not re-investigate (2026-07-14):** the 7 old `"...WAITLIST"`-named community
+campaigns (Santanyi ×2, Campos ×2, SA VINYA, Mardavall, Anchorage Waitlist) predate Typeform entirely
+— per the user, they went straight to an on-site form, not Typeform. Confirmed no Typeform form
+exists for any of them (searched all 139 forms by title for santanyi/campos/mardavall/waitlist/
+community — only the unused shared template `VCuyK1F1` and an unrelated property-listing form
+matched; the template itself has 0 responses). Meta's own on-site lead pixel DOES have a real,
+internally-consistent signal for them (`onsite_web_lead` = `lead` = `offsite_conversion.fb_pixel_lead`
+= `offsite_lead_add_20_s_calls`, identical across all 4 action types per campaign — no double-count
+ambiguity, unlike the aggregate-vs-daily issue elsewhere). Passing spend≥€250: SA VINYA (€590, 3
+leads), Mardavall (€592, 9 leads), Anchorage Waitlist (€1316, 8 leads) — would have exactly filled
+the community pool. **User explicitly declined to add them** (2026-07-14) to keep the pool
+single-methodology (Typeform-only) rather than mix lead sources. Do not add Meta-pixel-sourced
+historical entries unless the user asks again.
+
 ## 8. Secrets & access (where they live — NOT in this repo)
 
 - **KV creds** (`KV_REST_API_URL`, `KV_REST_API_TOKEN`) + `NEXT_PUBLIC_N8N_WEBHOOK_URL`: in
