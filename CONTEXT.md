@@ -33,9 +33,10 @@ and where leads drop off.
 
 - `lib/dashboard-context.tsx` — single client `DashboardProvider`; fetches `/api/funnel` once,
   exposes `triggerUpdate()` (POSTs `/api/update`, then polls `/api/funnel` until `last_updated`
-  changes). Navbar + both pages consume it via `useDashboard()`.
-- `app/page.tsx` — **Overview**: grid of ACTIVE-campaign cards (property, ref, spend, leads,
-  start date) → link to `/campaign/[id]`.
+  changes). Sidebar + Topbar + CommandPalette + every page consume it via `useDashboard()`.
+- `app/icon.svg` — custom favicon ("V Dashboard Logo", navy mark, transparent bg), added
+  2026-07-15. Next.js file-convention icon — auto-served, no `metadata.icons` config needed.
+  Browsers cache favicons aggressively; a hard refresh/re-bookmark may be needed to see it update.
 - `app/campaign/[id]/page.tsx` — **Campaign deep dive**: info bar + 2-col layout. Left 35%:
   `MetricsPanel` (4 daily charts) + `SummaryPanel` (2×2 KPIs). Right 65%: `MarketingFunnel`.
 - `components/MarketingFunnel.tsx` — fully code-drawn animated SVG cone (no image; the old
@@ -224,16 +225,29 @@ historical entries unless the user asks again.
 
 `NEXT_PUBLIC_N8N_WEBHOOK_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN` — in `.env.local` and Vercel.
 
-## 10. Current state (as of 2026-07-13)
+## 10. Current state (as of 2026-07-16)
 
 Campaigns in `CAMPAIGN_MAP`: Catalina Duplex `120249096771300071`/`pqBjw5Y6` (property), Finca
 Bugambilia `120248931370460071`/`d53a9GPD` (property), CAN VILA `120248754551970071`/`BZDwyYhN`
 (property) — all **PAUSED** as of 2026-07-01. Anchorage Club `120250284542490071`/`OEtGQCfj`
-(community) — **ACTIVE**, verified live (€314 spend, 55 leads via Typeform, engagement 655).
-Reactivating the paused ones repopulates automatically via the config-driven,
-id-safe pipeline.
+(community) — **ACTIVE** (live spend/leads change daily — check the dashboard itself for current
+numbers, don't trust any figure pinned in this file). Reactivating the paused ones repopulates
+automatically via the config-driven, id-safe pipeline.
 
-## 11. Known non-blocking items (audited, deliberately left)
+## 11. What to build next — Phase 1 (agreed, not yet built)
+
+Per `ARCHITECTURE.md`'s 7-phase roadmap (§8 there has the full table), **Phase 1 — daily history
+snapshots** is the agreed next step, decided 2026-07-16. Rationale: it's the cheapest phase AND
+the enabler — Phases 3–5 (anomaly detection, fatigue detection, lifecycle "winner curves", budget
+pacing advice) all need a day-by-day trend to read from, which doesn't exist yet (the pipeline
+only keeps *current* state). Concretely: a new small n8n workflow, same proven pattern as the
+existing 3 (see §5) — daily schedule trigger (e.g. 07:00), for each active campaign append that
+day's row to a new KV key `history:{campaign_id}`. No new Meta/Typeform API calls needed — Meta
+Sync already fetches this data, it just isn't retained over time. Cost: ~1 KV write per active
+campaign per day, negligible against the free tier. Nothing has been built for this yet — when
+picking this up, read `ARCHITECTURE.md` in full first (`§2.1` has the original spec).
+
+## 12. Known non-blocking items (audited, deliberately left)
 
 - Typeform response fetch is single-page `page_size=1000` (no pagination) — fine, forms will never
   exceed 1000 responses.
