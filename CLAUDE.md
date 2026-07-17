@@ -1,9 +1,9 @@
 # CLAUDE.md — Sandberg Estates · Funnel Intelligence
 
-This is the **Funnel Intelligence** marketing dashboard: a Next.js 14 app that visualizes each
-active property ad campaign's funnel (Meta Ad → Landing Page → Typeform → Qualified Lead), fed by
-3 n8n workflows that write to Upstash Redis (KV). Live at
-https://sandberg-funnel-dashboard.vercel.app.
+This is the **Funnel Intelligence** marketing dashboard: a Next.js 14 "command center" app
+(sidebar + breadcrumb/search topbar + ⌘K palette) that visualizes each active property ad
+campaign's funnel (Meta Ad → Landing Page → Typeform → Qualified Lead), fed by 3 n8n workflows
+that write to Upstash Redis (KV). Live at https://sandberg-funnel-dashboard.vercel.app.
 
 ## FUNNEL-CTX — full context trigger
 
@@ -30,13 +30,20 @@ value-based CAPI feedback loop) with build-order and zero-API-cost constraints.
   hardcode mappings in n8n.
 - **Vercel free-team build rule:** git commits must be authored as `MarcoMas2026` or the deploy
   won't build.
-- The **Compare** and **Patterns** nav tabs are intentionally non-functional placeholders.
+- **STALE NOTE, corrected 2026-07-16:** Compare is fully live/functional (real data). Insights,
+  Demand Map, and Patterns are real pages too, but currently render `lib/mock.ts` data pending
+  their ARCHITECTURE.md backend phases — every mocked number is tagged "preview" in the UI. Only
+  the **Patterns** nav item text used to be a true disabled placeholder; that's gone now. Don't
+  assume any nav item is inert — check `lib/mock.ts` vs live KV reads per page if unsure.
 
 ## The 3 n8n workflows (instance: n8n.srv980538.hstgr.cloud)
 
 - Meta Sync `VQfmLUJ8Ti434TBS` → KV `meta:campaigns`
 - Typeform Sync `8ddVaAR0TNyZkvGZ` → KV `typeform:forms`
 - Update (orchestrator) `g9vuAw5CwhWl6SXf` → webhook `/webhook/funnel-update` → KV `funnel:merged`
+
+**Next agreed build step: Phase 1 (daily history snapshots) — see CONTEXT.md §11 and
+ARCHITECTURE.md.** Not started yet as of 2026-07-16.
 
 Editing workflows needs the n8n API key (in the LANDINGS Claude memory `reference_n8n.md`, not in
 this repo) — ask the user for it if needed. KV token + webhook URL are in `.env.local`.
