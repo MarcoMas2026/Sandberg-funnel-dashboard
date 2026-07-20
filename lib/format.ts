@@ -39,3 +39,11 @@ export function formatNumber(n: number): string {
 export function formatPercent(fraction: number, decimals = 1): string {
   return `${(fraction * 100).toFixed(decimals)}%`;
 }
+
+// "Today" as YYYY-MM-DD in Europe/Madrid — the timezone the rest of this repo
+// already uses for day-boundary logic (see Typeform submission grouping in
+// CONTEXT.md). Used to keep OKR board generation, cron firing, and the sheet's
+// own date cells reasoning about "today" consistently.
+export function todayISOMadrid(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Madrid" });
+}

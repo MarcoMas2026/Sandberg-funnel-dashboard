@@ -109,3 +109,19 @@ export const MapIcon = ({ className }: P) => (
     <path d="M9 4v14M15 6v14" />
   </svg>
 );
+
+export const TargetIcon = ({ className }: P) => (
+  <svg {...base(className)}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="1" />
+  </svg>
+);
+
+export const KanbanIcon = ({ className }: P) => (
+  <svg {...base(className)}>
+    <rect x="3" y="4" width="5" height="16" rx="1.5" />
+    <rect x="9.5" y="4" width="5" height="10" rx="1.5" />
+    <rect x="16" y="4" width="5" height="13" rx="1.5" />
+  </svg>
+);

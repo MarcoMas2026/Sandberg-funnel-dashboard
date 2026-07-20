@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDashboard } from "@/lib/dashboard-context";
@@ -11,6 +11,8 @@ import {
   PatternsIcon,
   InsightIcon,
   MapIcon,
+  TargetIcon,
+  KanbanIcon,
 } from "./icons";
 import { formatDate } from "@/lib/format";
 import { MOCK_INSIGHTS } from "@/lib/mock";
@@ -31,6 +33,8 @@ const GROUPS = [
   {
     label: "Strategy",
     items: [
+      { href: "/okrs", label: "OKRs", icon: TargetIcon },
+      { href: "/tasks", label: "Tasks", icon: KanbanIcon, dotBadge: true },
       { href: "/demand", label: "Demand Map", icon: MapIcon },
       { href: "/patterns", label: "Patterns", icon: PatternsIcon },
     ],
@@ -42,7 +46,15 @@ export default function Sidebar() {
   const { data, updating, triggerUpdate } = useDashboard();
   const firstCampaignId = data?.campaigns?.[0]?.campaign_id;
   const [collapsed, setCollapsed] = useState(false);
+  const [checkinDue, setCheckinDue] = useState(false);
   const criticalCount = MOCK_INSIGHTS.filter((i) => i.severity === "critical" || i.severity === "warning").length;
+
+  useEffect(() => {
+    fetch("/api/tasks", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((board) => setCheckinDue(Boolean(board?.checkinDue)))
+      .catch(() => {});
+  }, []);
 
   return (
     <aside
@@ -87,6 +99,7 @@ export default function Sidebar() {
                 const active = "exact" in item && item.exact ? pathname === item.href : pathname.startsWith(item.href);
                 const Icon = item.icon;
                 const showBadge = "badge" in item && item.badge && criticalCount > 0;
+                const showDotBadge = "dotBadge" in item && item.dotBadge && checkinDue;
                 return (
                   <Link
                     key={item.href}
@@ -106,6 +119,7 @@ export default function Sidebar() {
                         {criticalCount}
                       </span>
                     )}
+                    {!collapsed && showDotBadge && <span className="h-2 w-2 rounded-full bg-red-500" />}
                   </Link>
                 );
               })}
