@@ -19,7 +19,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
   if (!campaign) {
     return (
       <div className="pt-2">
-        <Link href="/" className="text-sm text-[var(--text-muted)] hover:text-white">
+        <Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--text)]">
           ← Back to overview
         </Link>
         <p className="mt-6 text-sm text-[var(--text-muted)]">Campaign not found.</p>

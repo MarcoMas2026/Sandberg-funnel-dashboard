@@ -8,6 +8,8 @@ import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { CountUp, DeltaChip, Pill, RingGauge, Sparkline } from "@/components/viz";
 import { MOCK_INSIGHTS, MOCK_QUALITY, Severity } from "@/lib/mock";
 import { HomeIcon, InsightIcon } from "@/components/icons";
+import { GlowPanel } from "@/components/ui/glow-panel";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const SEV_COLOR: Record<Severity, string> = {
   critical: "#f87171",
@@ -64,7 +66,7 @@ export default function MissionControl() {
             <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
             {data?.last_updated ? `Last update ${formatDate(data.last_updated)}` : "No sync yet"}
           </p>
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">
             {greeting()}, team <span className="align-middle">👋</span>
           </h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -107,7 +109,7 @@ export default function MissionControl() {
             </>
           }
         />
-        <div className="gradient-border fade-up flex items-center justify-between p-5" style={{ animationDelay: "0.2s" }}>
+        <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.2s" }} className="panel flex items-center justify-between p-5">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Portfolio Health</p>
             <p className="mt-2 max-w-[120px] text-[11px] leading-snug text-[var(--text-faint)]">
@@ -115,7 +117,7 @@ export default function MissionControl() {
             </p>
           </div>
           <RingGauge value={health} />
-        </div>
+        </GlowPanel>
       </div>
 
       {/* insight ticker */}
@@ -129,7 +131,7 @@ export default function MissionControl() {
               {[...MOCK_INSIGHTS, ...MOCK_INSIGHTS].map((ins, i) => (
                 <span key={ins.id + i} className="flex items-center gap-2 whitespace-nowrap text-xs text-[var(--text-muted)]">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: SEV_COLOR[ins.severity] }} />
-                  <span className="font-medium text-white">{ins.campaign}:</span> {ins.title}
+                  <span className="font-medium text-[var(--text)]">{ins.campaign}:</span> {ins.title}
                 </span>
               ))}
             </div>
@@ -140,12 +142,12 @@ export default function MissionControl() {
 
       {/* campaigns */}
       <div className="fade-up" style={{ animationDelay: "0.3s" }}>
-        <h2 className="mb-3 text-sm font-semibold text-white">Active Campaigns</h2>
+        <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Active Campaigns</h2>
         {active.length === 0 ? (
-          <div className="panel flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-base font-medium text-white">No active campaigns</p>
+          <GlowPanel className="panel flex flex-col items-center justify-center py-20 text-center">
+            <p className="text-base font-medium text-[var(--text)]">No active campaigns</p>
             <p className="mt-1 text-sm text-[var(--text-muted)]">Hit Update Data once campaigns are live in Meta</p>
-          </div>
+          </GlowPanel>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {active.map((c) => {
@@ -153,11 +155,12 @@ export default function MissionControl() {
               const qTotal = q.hot + q.warm + q.cold || 1;
               const tint = TYPE_COLOR[c.campaign_type];
               return (
-                <Link
-                  key={c.campaign_id}
-                  href={`/campaign/${c.campaign_id}`}
-                  className="group panel relative overflow-hidden p-5 transition-colors hover:border-[var(--border-strong)]"
-                >
+                <div key={c.campaign_id} className="relative rounded-[var(--radius-lg)] p-1">
+                  <GlowingEffect spread={40} glow proximity={64} inactiveZone={0.01} borderWidth={2} disabled={false} />
+                  <Link
+                    href={`/campaign/${c.campaign_id}`}
+                    className="group panel relative block overflow-hidden p-5 transition-colors hover:border-[var(--border-strong)]"
+                  >
                   {/* soft identity gradient wash, echoing the vehicle-card imagery */}
                   <div
                     className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full opacity-25 blur-2xl transition-opacity group-hover:opacity-40"
@@ -170,7 +173,7 @@ export default function MissionControl() {
                         <HomeIcon className="h-5 w-5" />
                       </span>
                       <div>
-                        <p className="text-base font-semibold text-white">{c.property}</p>
+                        <p className="text-base font-semibold text-[var(--text)]">{c.property}</p>
                         <p className="text-xs text-[var(--text-muted)]">
                           Ref {c.ref} · {c.campaign_type === "community" ? "Community" : "Property"}
                         </p>
@@ -183,7 +186,7 @@ export default function MissionControl() {
 
                   <div className="relative mb-3 flex items-end justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-white">{formatCurrency(c.meta.spend)}</p>
+                      <p className="text-2xl font-bold text-[var(--text)]">{formatCurrency(c.meta.spend)}</p>
                       <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
                     </div>
                     <div className="text-right">
@@ -224,7 +227,8 @@ export default function MissionControl() {
                     <span className="h-px flex-1 bg-[var(--border-strong)]" />
                     <span>{data?.last_updated ? formatDate(data.last_updated) : "today"}</span>
                   </div>
-                </Link>
+                  </Link>
+                </div>
               );
             })}
           </div>
@@ -233,9 +237,9 @@ export default function MissionControl() {
 
       {/* leaderboard */}
       {leaderboard.length > 0 && (
-        <div className="panel fade-up p-5" style={{ animationDelay: "0.35s" }}>
+        <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.35s" }} className="panel p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white">Portfolio Leaderboard</h2>
+            <h2 className="text-sm font-semibold text-[var(--text)]">Portfolio Leaderboard</h2>
             <Pill label="All time" active={false} />
           </div>
           <div className="overflow-x-auto">
@@ -257,7 +261,7 @@ export default function MissionControl() {
                     <td className="py-3">
                       <div className="flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full" style={{ background: TYPE_COLOR[row.type] }} />
-                        <span className="font-medium text-white">{row.property}</span>
+                        <span className="font-medium text-[var(--text)]">{row.property}</span>
                         {row.isActive && (
                           <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-400">
                             Live
@@ -265,20 +269,20 @@ export default function MissionControl() {
                         )}
                       </div>
                     </td>
-                    <td className="py-3 text-right text-white">{formatCurrency(row.spend)}</td>
+                    <td className="py-3 text-right text-[var(--text)]">{formatCurrency(row.spend)}</td>
                     <td className="py-3 text-right font-semibold text-[#b7a6ff]">{formatNumber(row.leads)}</td>
                     <td className="py-3 text-right">
                       <div className="flex justify-end">
                         <Sparkline data={row.trend} stroke={TYPE_COLOR[row.type]} width={80} height={26} fill={false} />
                       </div>
                     </td>
-                    <td className="py-3 pr-1 text-right text-white">{formatCurrency(row.cpl, 2)}</td>
+                    <td className="py-3 pr-1 text-right text-[var(--text)]">{formatCurrency(row.cpl, 2)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </GlowPanel>
       )}
     </div>
   );
@@ -306,23 +310,25 @@ function PriceCard({
   footnote?: React.ReactNode;
 }) {
   return (
-    <div className="gradient-border fade-up relative overflow-hidden p-5" style={{ animationDelay: delay }}>
-      <span className="accent-bar" style={{ background: accent }} />
-      <div className="flex items-center justify-between pl-2">
-        <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
+    <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: delay }} className="panel relative overflow-hidden p-5">
+      <div className="flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: accent }} />
+          {label}
+        </p>
         <span className="icon-btn h-6 w-6 text-[var(--text-faint)]">
           <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
         </span>
       </div>
-      <p className="mt-1 pl-2 text-3xl font-bold" style={{ color: valueColor }}>
+      <p className="mt-1 text-3xl font-bold" style={{ color: valueColor }}>
         {value}
       </p>
-      <div className="mt-1.5 flex items-center gap-2 pl-2">
+      <div className="mt-1.5 flex items-center gap-2">
         {delta !== undefined && <DeltaChip pct={delta} goodWhenUp={goodWhenUp} />}
         {footnote && <span className="text-[11px] text-[var(--text-faint)]">{footnote}</span>}
       </div>
-      {spark && <div className="mt-2 pl-2">{spark}</div>}
-    </div>
+      {spark && <div className="mt-2">{spark}</div>}
+    </GlowPanel>
   );
 }
 

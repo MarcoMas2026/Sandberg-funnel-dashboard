@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FunnelCampaign } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { DotsIcon, FunnelIcon } from "./icons";
+import { GlowPanel } from "@/components/ui/glow-panel";
 
 // ---- geometry (SVG user units; scales to the panel) ----
 const VB_W = 760;
@@ -70,13 +71,13 @@ export default function MarketingFunnel({ campaign }: { campaign: FunnelCampaign
     i === 0 || stages[i - 1].value === 0 ? null : stages[i].value / stages[i - 1].value;
 
   return (
-    <div className="panel flex h-full flex-col p-5">
+    <GlowPanel wrapperClassName="h-full" className="panel flex h-full flex-col p-5">
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-[var(--accent)]">
             <FunnelIcon className="h-4 w-4" />
           </span>
-          <h2 className="text-sm font-semibold text-white">Marketing Funnel</h2>
+          <h2 className="text-sm font-semibold text-[var(--text)]">Marketing Funnel</h2>
         </div>
         <button className="icon-btn" aria-label="Options" disabled>
           <DotsIcon className="h-4 w-4" />
@@ -251,7 +252,7 @@ export default function MarketingFunnel({ campaign }: { campaign: FunnelCampaign
           {hover !== null && <DropoffTip stages={stages} i={hover} />}
         </svg>
       </div>
-    </div>
+    </GlowPanel>
   );
 }
 

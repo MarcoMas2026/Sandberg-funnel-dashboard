@@ -1,6 +1,0 @@
-{
-  "crons": [
-    { "path": "/api/cron/morning-board", "schedule": "30 7 * * *" },
-    { "path": "/api/cron/evening-reminder", "schedule": "30 14 * * *" }
-  ]
-}

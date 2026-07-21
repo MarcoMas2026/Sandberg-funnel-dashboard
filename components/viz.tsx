@@ -2,13 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-// Shared priority color scale — used by the Task Board cards and TaskTimeline.
-export const PRIORITY_COLOR: Record<"high" | "medium" | "low", string> = {
-  high: "#f87171",
-  medium: "#fbbf24",
-  low: "#34d399",
-};
-
 // Animated numeric ticker (rAF-driven, respects the value's formatter).
 export function CountUp({
   value,

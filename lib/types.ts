@@ -121,11 +121,9 @@ export interface SheetCellRef {
   col: number; // 1-indexed sheet column
 }
 
-// A single named, deadline-having task belonging to a Key Result. Authored
-// only in the platform (never hand-typed into the sheet) but mirrored into
-// the sheet's Aligned Tasks cell as a readable checklist — see
-// lib/sheets.ts's parseAlignedTasksCell/serializeAlignedTasksCell for the
-// exact on-cell format.
+// A single named, deadline-having task belonging to a Key Result, read from
+// the sheet's Aligned Tasks cell — see lib/sheets.ts's parseAlignedTasksCell
+// for the exact on-cell format. Read-only: this dashboard never writes here.
 export interface KrTask {
   id: string; // `${kr.id}::t${n}`, stable via the embedded {tN} token in the cell
   name: string;
@@ -147,12 +145,14 @@ export interface KeyResult {
   tasks: KrTask[];
   actualCell: SheetCellRef; // where to write back the computed Actual Percentage
   alignedTasksCell: SheetCellRef; // where to write back the serialized task checklist
+  nameCell: SheetCellRef; // the cell holding this KR's name, for rename/clear from the app
 }
 
 export interface Objective {
   id: string; // `${tabSlug}-o${objIndex}`
   index: number; // 1-based "Objective N"
-  title: string; // full heading text, e.g. "Objective 1: Build funnel visibility & measurement"
+  title: string; // display text only, "Objective N:" prefix already stripped
+  titleCell: SheetCellRef; // the "Objective N: <title>" row's title cell, for rename/clear
   keyResults: KeyResult[];
 }
 
@@ -172,65 +172,4 @@ export interface OkrData {
   fetchedAt: string; // ISO, when this GET ran
   connected: boolean; // false if Google Sheets creds are missing/invalid
   error?: string; // short message when connected=false due to a real API error
-}
-
-// ── Kanban / daily task automation ──────────────────────────────────────────
-
-// Candidates not selected for a given day simply don't appear on the board —
-// there's no "backlog" status; unselected KrTasks only ever surface in the
-// evening check-in's tomorrow-selection screen (see lib/okr-tasks.ts).
-export type TaskStatus = "todo" | "in_progress" | "done";
-export type TaskPriority = "high" | "medium" | "low";
-
-// A KrTask placed onto a specific day's board. `id`/`title`/`dueDate` mirror
-// the underlying KrTask directly (no more auto-synthesized titles) — this is
-// a thin projection, not a separate task-authoring concept.
-export interface KanbanTask {
-  id: string; // same id as the underlying KrTask
-  title: string; // the KrTask's own name
-  krId: string; // KeyResult.id this task targets
-  krLabel: string; // denormalized human label, e.g. "Paid Media · Build funnel visibility & measurement"
-  department: string; // tab name, denormalized for display/grouping
-  priority: TaskPriority; // recomputed fresh from the parent KR's pace gap every time the board is built
-  reasoning: string; // short generated string, e.g. "12% behind expected pace"
-  status: TaskStatus;
-  dueDate: string; // YYYY-MM-DD, the KrTask's own user-set deadline
-  createdAt: string; // ISO date this task was first placed on a board
-  carriedForwardFrom?: string; // ISO date it first appeared on a board, once carried over
-  lastCheckin?: {
-    date: string; // ISO
-    outcome: "done" | "in_progress" | "blocked";
-  };
-}
-
-export interface KanbanBoard {
-  date: string; // ISO date (YYYY-MM-DD, Europe/Madrid) this board was generated for
-  tasks: KanbanTask[];
-  checkinDue: boolean; // set by the evening cron, cleared by a check-in submission
-  lastGeneratedAt: string | null; // ISO timestamp of the last board-activation run
-  lastCheckinAt: string | null; // ISO timestamp of the last check-in submission
-}
-
-// Written by the evening check-in's "tomorrow" selection step, consumed once
-// by the morning cron (see activateNextBoard in lib/okr-tasks.ts).
-export interface PendingSelection {
-  date: string; // ISO date this selection is FOR (tomorrow, from the check-in's perspective)
-  taskIds: string[]; // chosen KrTask ids
-}
-
-// ── Check-in (afternoon) ─────────────────────────────────────────────────────
-
-// Renamed from "partial" — no longer a %-progress concept now that KR
-// progress is purely completed/total tasks.
-export type CheckinOutcome = "done" | "in_progress" | "blocked";
-
-export interface CheckinAnswer {
-  taskId: string;
-  outcome: CheckinOutcome; // "done" flips the underlying KrTask.done = true
-}
-
-export interface CheckinSubmission {
-  date: string; // ISO date of the check-in
-  answers: CheckinAnswer[];
-  tomorrowSelection: string[]; // KrTask ids chosen from the ranked candidate pool
 }

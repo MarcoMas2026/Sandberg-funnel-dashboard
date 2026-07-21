@@ -8,6 +8,7 @@ import { Pill, RingGauge } from "@/components/viz";
 import { ProgressBar } from "@/components/ProgressBar";
 import KrDetailModal from "@/components/KrDetailModal";
 import { KeyResult, OkrDepartment } from "@/lib/types";
+import { GlowPanel } from "@/components/ui/glow-panel";
 
 export default function OkrsPage() {
   const { data, loading, error, refresh } = useOkr();
@@ -21,9 +22,9 @@ export default function OkrsPage() {
   if (!data || !data.connected) {
     return (
       <div className="mt-8">
-        <h1 className="text-2xl font-semibold text-white">OKRs</h1>
-        <div className="panel mt-5 p-6">
-          <p className="text-sm font-medium text-white">Google Sheets isn&apos;t connected yet</p>
+        <h1 className="text-2xl font-semibold text-[var(--text)]">OKRs</h1>
+        <GlowPanel wrapperClassName="mt-5" className="panel p-6">
+          <p className="text-sm font-medium text-[var(--text)]">Google Sheets isn&apos;t connected yet</p>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
             {data?.error ?? error ?? "Missing service-account credentials or spreadsheet ID."}
           </p>
@@ -35,7 +36,7 @@ export default function OkrsPage() {
           <button onClick={() => void refresh()} className="cta-light mt-4 rounded-full px-4 py-2 text-sm font-semibold">
             Retry
           </button>
-        </div>
+        </GlowPanel>
       </div>
     );
   }
@@ -46,10 +47,12 @@ export default function OkrsPage() {
   return (
     <div className="mt-6 fade-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-white">OKRs</h1>
-        <button onClick={() => void refresh()} className="pill pill-off">
-          Sync now
-        </button>
+        <h1 className="text-2xl font-semibold text-[var(--text)]">OKRs</h1>
+        <div className="flex gap-2">
+          <button onClick={() => void refresh()} className="pill pill-off">
+            Sync now
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -60,17 +63,17 @@ export default function OkrsPage() {
 
       {dept && (
         <>
-          <div className="panel mt-5 flex flex-wrap items-center gap-8 p-6">
+          <GlowPanel wrapperClassName="mt-5" className="panel flex flex-wrap items-center gap-8 p-6">
             <div>
               <p className="text-xs uppercase tracking-wide text-[var(--text-faint)]">Cycle</p>
-              <p className="mt-1 text-lg font-semibold text-white">{dept.cycleLabel || "—"}</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--text)]">{dept.cycleLabel || "—"}</p>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
                 {formatDate(dept.startDate)} – {formatDate(dept.endDate)}
               </p>
             </div>
             <div>
               <p className="text-xs uppercase tracking-wide text-[var(--text-faint)]">Days Left</p>
-              <p className="mt-1 text-lg font-semibold text-white">{dept.daysLeft || "—"}</p>
+              <p className="mt-1 text-lg font-semibold text-[var(--text)]">{dept.daysLeft || "—"}</p>
             </div>
             <div className="flex items-center gap-3">
               <RingGauge value={dept.timeProgress * 100} size={64} />
@@ -80,15 +83,15 @@ export default function OkrsPage() {
               <RingGauge value={dept.overallProgress * 100} size={64} />
               <p className="text-xs text-[var(--text-muted)]">Overall Progress</p>
             </div>
-          </div>
+          </GlowPanel>
 
           <div className="mt-5 flex flex-col gap-4">
             {dept.objectives.length === 0 && (
               <p className="text-sm text-[var(--text-faint)]">No objectives found on this tab yet.</p>
             )}
             {dept.objectives.map((objective) => (
-              <div key={objective.id} className="panel p-6">
-                <h2 className="text-base font-semibold text-white">
+              <GlowPanel key={objective.id} className="panel p-6">
+                <h2 className="text-base font-semibold text-[var(--text)]">
                   {objective.title || `Objective ${objective.index} (not filled in yet)`}
                 </h2>
                 <div className="mt-4 flex flex-col gap-4">
@@ -102,14 +105,14 @@ export default function OkrsPage() {
                         className="block w-full rounded-lg text-left transition-colors hover:bg-[var(--panel2)]/60"
                       >
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-white">{kr.name || "Untitled Key Result"}</span>
-                          <span className="font-medium text-white">{formatPercent(kr.actual)}</span>
+                          <span className="text-[var(--text)]">{kr.name || "Untitled Key Result"}</span>
+                          <span className="font-medium text-[var(--text)]">{formatPercent(kr.actual)}</span>
                         </div>
                         <div className="mt-2">
                           <ProgressBar value={kr.actual} expected={expected} target={kr.target} />
                         </div>
                         <p className="mt-1.5 text-xs text-[var(--text-faint)]">
-                          {kr.tasks.length ? `${done} / ${kr.tasks.length} tasks done` : "No tasks yet — click to add"}
+                          {kr.tasks.length ? `${done} / ${kr.tasks.length} tasks done` : "No tasks logged yet"}
                         </p>
                       </button>
                     );
@@ -118,19 +121,14 @@ export default function OkrsPage() {
                     <p className="text-xs text-[var(--text-faint)]">No key results found.</p>
                   )}
                 </div>
-              </div>
+              </GlowPanel>
             ))}
           </div>
         </>
       )}
 
       {openKr && (
-        <KrDetailModal
-          keyResult={openKr.kr}
-          department={openKr.dept}
-          onClose={() => setOpenKr(null)}
-          onChange={() => void refresh()}
-        />
+        <KrDetailModal keyResult={openKr.kr} department={openKr.dept} onClose={() => setOpenKr(null)} />
       )}
     </div>
   );

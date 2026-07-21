@@ -256,141 +256,87 @@ picking this up, read `ARCHITECTURE.md` in full first (`§2.1` has the original 
 - Funnel conversion %s are cross-source ratios (Meta stage ÷ previous Meta stage; Typeform starts ÷
   Meta link clicks) — approximations, not strict subsets.
 
-## 13. OKR tracking + daily task automation (added 2026-07-17, reworked same day into current form)
+## 13. OKR view — read-only (added 2026-07-17, reworked into current form 2026-07-21)
 
-A second, independent pipeline — separate from the Meta/Typeform/n8n system above — that turns the
-team's manually-updated OKR Google Sheet into a live view plus a daily task-automation loop.
-**Uses Google Sheets API + Vercel Cron, NOT n8n** (n8n stays reserved for the funnel pipeline).
-This went through two build passes the same day: an initial version that auto-synthesized one
-generic "Advance X" task per behind-pace Key Result, then a full rework (below) once the user
-clarified they want each Key Result to hold its own named, deadline-having task checklist that
-lives in the sheet. The description below is the CURRENT architecture only — the generic-task /
-`"backlog"`-status / %-delta-bucket-checkin version it replaced is gone, not a fallback mode.
+A second, independent read path — separate from the Meta/Typeform/n8n system above — that
+visualizes the team's manually-updated OKR Google Sheet: Objectives, Key Results, their progress,
+and each KR's task checklist. **Uses the Google Sheets API directly, NOT n8n** (n8n stays reserved
+for the funnel pipeline). **The dashboard never writes back to the sheet — view only, by explicit
+user request on 2026-07-21** ("we won't make any changes through the dashboard, it will be only to
+visualize okrs and their progress").
+
+This went through several build passes before landing here: an initial auto-generated-task
+version, then a full rework into a platform-authored task-checklist + Kanban board + evening
+check-in flow (with cron-driven daily task selection), then an OKR-management (rename/clear)
+addition — all now **torn out entirely** on 2026-07-21. If you're looking for that history (Task
+Board, `CheckInModal`, `TaskTimeline`, `lib/okr-tasks.ts`, the two Vercel Cron jobs,
+`ManageOkrsModal`, `POST /api/okr/tasks`, `POST /api/okr/manage`, `okr:board`/
+`okr:pendingSelection` KV keys), it's in git history only — none of those files exist in the repo
+anymore, and re-adding any of them would violate the current "view only" requirement. The
+description below is the CURRENT (read-only) architecture only.
 
 - **Source of truth:** Google Sheet `1OJk2cqTmwS1_GBhJL_U67-fzH-gqkfqD2ODBzFb_0kU`, tabs
   "Marketing Dept", "Paid Media", "Organic Content". Each tab has a header stat block
   (Cycle/Start/End Date, Days Left, Time Progress, Overall Progress) then Objective blocks with
   variable-count Key Results (Metric/Initial %/Objective(target) %/Actual %/Progress/Aligned Tasks
   columns). **Column letters drift between tabs** — `lib/sheets.ts` locates every column
-  dynamically (header-stat labels, the KR table header row, and each KR's own name — see below)
-  by scanning, never hardcoding a letter.
+  dynamically (header-stat labels, the KR table header row, and each KR's own name) by scanning,
+  never hardcoding a letter.
 - **Key Result names** — each KR's real descriptive text sits in the sheet cell immediately after
   whichever cell in that row matches "Key Result N :" (verified live: e.g. Paid Media row 12 has
   "Key Result 1 :" then "Funnel visualization dashboard live & tracking metrics..." in the next
-  cell). `lib/sheets.ts` locates this per-row (not a fixed column) and populates `KeyResult.name`
-  — shown throughout the UI instead of the old generic "Key Result 1" label.
-- **Tasks are named, dated, and platform-authored only** (never hand-typed into the sheet — the
-  Aligned Tasks cell is a write-target the app keeps in sync, not something to edit directly).
-  Click a Key Result on `/okrs` to open `components/KrDetailModal.tsx` (portalled to
-  `document.body` like `CheckInModal.tsx`, same containing-block-bug fix — see below): shows the
-  KR's live "N / M done · X%" line, its task checklist (checkbox + name + due date + delete), and
-  an add-task form (name + date, prefilled via `computeDueDate` as a *suggestion* only — always
-  user-editable, no longer authoritative). Task mutations go through `POST /api/okr/tasks`
-  (`{krId, action: "add"|"toggle"|"delete", ...}`), which also patches today's Kanban board in KV
-  if that task is already on it, so the two views never drift apart.
-- **Aligned Tasks cell format** — one task per line inside the single cell (Sheets cells support
-  `\n`), parsed/serialized by `lib/sheets.ts`'s `parseAlignedTasksCell`/`serializeAlignedTasksCell`:
-  ```
-  [x] Create video campaign brief (due 2026-07-19) {t1}
-  [ ] Record voiceover (due 2026-07-19) {t2}
-  ```
-  Parsed by stripping fixed-shape suffixes right-to-left (checkbox → trailing `{tN}` id → trailing
-  `(due YYYY-MM-DD)` → whatever remains is the name), so punctuation inside a task name never
-  causes ambiguity. Lines that don't start with a checkbox (pre-existing free-text notes some KRs
-  already had, e.g. Meta campaign ID references like `"32242, 32254, 31740"`) are skipped, not
-  force-parsed — confirmed with the user as fine to silently overwrite on first real task add to
-  that KR (informal notes, not tracked data). **Verified live**: adding two tasks and toggling one
-  done via the UI produced exactly this format in the real sheet, and the Actual Percentage cell
-  updated to match (`50%` → `100%`) — the sheet's own "Progress" column is a live formula off
-  Actual/Initial/Objective, so nothing else needs writing.
+  cell). `lib/sheets.ts` locates this per-row (not a fixed column) and populates `KeyResult.name`.
+- **Tasks are read-only.** Each KR's task checklist lives in the sheet's Aligned Tasks cell —
+  `[x] Create video campaign brief (due 2026-07-19) {t1}` per line — parsed by `lib/sheets.ts`'s
+  `parseAlignedTasksCell` (strip checkbox → trailing `{tN}` id → trailing `(due YYYY-MM-DD)` →
+  whatever remains is the name; lines without a leading checkbox are skipped, not force-parsed).
+  Clicking a Key Result on `/okrs` opens `components/KrDetailModal.tsx` (portalled to
+  `document.body`, same containing-block-bug fix as `CommandPalette.tsx` — a page-level `.fade-up`
+  entrance animation makes an inline-rendered modal's ancestor a new containing block for
+  `position: fixed`, breaking its positioning) showing the KR's "N / M done · X%" line and its
+  task list (name, done/not-done state, due date) — **no checkboxes, no add-task form, no delete
+  button**. Nothing on this page performs a write.
 - **Key Result progress = completed / total tasks**, always — `computeKrActualFromTasks` in
   `lib/okr-pace.ts`, `0` if a KR has no tasks yet. This is the sole source for `kr.actual`; the
-  sheet's Actual Percentage cell is write-only from the app's perspective. The old %-delta-bucket
-  afternoon check-in step (`none/+5/+10/+20/complete`) is gone entirely, fully replaced.
-- **`lib/okr-pace.ts`** (client-safe — split from `lib/okr-tasks.ts` so client components, e.g.
-  `/okrs` and the check-in modal, can use pacing/candidate-pool logic without pulling in
-  `googleapis`/Node-only code; this split caused a real client-bundle-breaking bug once already
-  when violated — keep it that way): `computeExpectedPace`, `scoreGap`, `priorityForGap`,
-  `computeKrActualFromTasks`, date helpers (`addDays`/`daysBetween`/`computeDueDate`), and
-  `buildCandidatePool(okr)` — every not-done `KrTask` across every KR (skipping blank-title
-  objectives), priority **recomputed fresh from the parent KR's current pace gap every time**
-  (never frozen at task-creation time), sorted by priority then due date. `DAILY_CAPACITY = 10` —
-  an explicit placeholder, expected to change once real per-KR task volume from the (not yet
-  built) task-breakdown system is known; the user said 8–12/day felt right for now.
-- **Daily flow is evening-driven, not morning-auto-generated**: the afternoon/evening check-in
-  (`components/CheckInModal.tsx`, two steps) — step 1: mark each of today's active tasks
-  Done/In Progress/Blocked (buttons only, no free text); "Done" flips the underlying
-  `KrTask.done = true`. Step 2: the ranked candidate pool (excluding anything just marked done),
-  each with a checkbox, top `DAILY_CAPACITY` pre-checked, user adjusts freely, confirms → written
-  as a `PendingSelection` (KV key `okr:pendingSelection`, `{date, taskIds}` where `date` is
-  *tomorrow's* date) for the morning cron to activate. `lib/okr-tasks.ts`'s `activateNextBoard()`
-  (used by both the morning cron and the manual "Auto-fill today" button): if a `PendingSelection`
-  exists for today, activates it as the board (validated against **freshly-parsed `kr.tasks`, not
-  just that the `krId` still exists** — closes the monthly-reset gap, see below); otherwise falls
-  back to auto-selecting the top `DAILY_CAPACITY` from `buildCandidatePool` (covers day one, a
-  skipped evening step, or first deploy — a board is never silently empty).
-- **Monthly reset handling**: the user manually rewrites Objectives/Key Results in the sheet at
-  the start of every month. `KeyResult.id` is positional (`${tab}-o${n}-kr${n}`), so a same-shaped
-  rewrite reuses the same ids for entirely different content — a naive "does this krId still
-  exist" check would wrongly keep last month's stale tasks. The fix costs nothing extra: since
-  `KrTask` data lives *inside* the Aligned Tasks cell itself, retyping that row for the new month
-  naturally clears its task list back to empty, so validating against `kr.tasks.some(t => t.id ===
-  taskId)` (not just KR existence) makes a stale reference simply not be found — handled by
-  `activateNextBoard` automatically, no explicit "is this a new month" detection needed.
-- **`TaskStatus`** is `"todo" | "in_progress" | "done"` — no `"backlog"` status anymore; a
-  not-yet-selected candidate simply doesn't exist on the board, it only appears in the check-in's
-  step-2 pool.
-- **KV:** `okr:board` (current `KanbanBoard`, mirrors `funnel:merged`'s pattern) and
-  `okr:pendingSelection` (cleared once consumed) — no per-day history key for either, since the
-  sheet is the durable OKR/task record.
-- **API routes:** `GET /api/okr` (live tree), `POST /api/okr/tasks` (task CRUD, see above),
-  `GET/POST /api/tasks` (board read / manual column move — moving a card is pure organizational
-  state, never touches the sheet), `POST /api/tasks/generate` (manual "Auto-fill today" override —
-  wraps `activateNextBoard`'s fallback path, not the primary daily flow anymore), `POST
-  /api/tasks/checkin` (applies step-1 outcomes, batches one sheet write per affected KR — not per
-  task, writes the `PendingSelection` from step 2), `GET /api/cron/morning-board` (calls
-  `activateNextBoard`) + `GET /api/cron/evening-reminder` (flags `checkinDue` if the board has open
-  tasks) — both Vercel Cron-only, gated on a `CRON_SECRET` bearer header.
-- **Scheduling:** `vercel.json` crons — `morning-board` at `30 7 * * *` UTC (09:30 Mallorca time in
-  July's CEST/UTC+2 offset), `evening-reminder` at `30 14 * * *` UTC (16:30 Mallorca). **Fixed UTC
-  times, not timezone-aware** — when Spain switches back to CET/UTC+1 (last Sunday of October),
-  these same UTC crons fire an hour later in local time (10:30/17:30) until manually adjusted.
-  Vercel Hobby allows cron jobs (confirmed via Vercel's docs/changelog: up to 100/project, each
-  fires at most once/day, may land anywhere within its scheduled hour not the exact minute).
-- **Frontend:** `/okrs` and `/tasks` under the `app/(okr)/` route group so `lib/okr-context.tsx`'s
-  `OkrProvider` (a live Sheets fetch) only runs on those two pages. `/okrs` — dept pill tabs,
-  header stat card, Objective cards listing Key Results (real name, `components/ProgressBar.tsx`
-  with an expected-pace tick mark, task-count summary), click a KR to open `KrDetailModal`. `/tasks`
-  — Board/Timeline `Pill` toggle, 3-column Kanban (To Do/In Progress/Done, manual "move to →" per
-  card — organizational only, never writes the sheet), an "Auto-fill today" override button
-  (relabeled from "Generate today's tasks" to reflect it's no longer the primary flow), check-in
-  banner. `components/TaskTimeline.tsx` — hand-rolled div/CSS Gantt-style view, no chart library,
-  one row per task on a shared date axis, dept-cycle band per row, "Today" marker.
-- **New env vars** (`.env.local` + Vercel): `GOOGLE_SHEETS_CLIENT_EMAIL`,
-  `GOOGLE_SHEETS_PRIVATE_KEY`, `GOOGLE_SHEETS_SPREADSHEET_ID`, `CRON_SECRET`.
-- **Bugs found and fixed during live verification against the real sheet (2026-07-17, both still
-  relevant lessons for this codebase)**: (1) `lib/sheets.ts`'s objective/KR row scan used
+  sheet's own Actual Percentage cell is never read by the app (and, since there's no write path
+  either, is simply irrelevant to this dashboard).
+- **`lib/okr-pace.ts`** (client-safe — no `googleapis`/Node-only imports, so `/okrs` can use it
+  directly without pulling server-only code into the client bundle; this split caused a real
+  client-bundle-breaking bug once already when violated — keep it that way): just two exports now,
+  `computeKrActualFromTasks` and `computeExpectedPace` (linear pacing model — where a KR's actual %
+  "should" be today given the cycle's elapsed time, drives `ProgressBar`'s pace tick mark).
+- **API routes:** `GET /api/okr` — the only OKR route. Returns the live department/objective/KR
+  tree (each KR includes its parsed `tasks[]`). No `POST` anywhere in the OKR surface.
+- **Frontend:** `/okrs` lives under the `app/(okr)/` route group so `lib/okr-context.tsx`'s
+  `OkrProvider` (a live Sheets fetch) only runs on that one page. Dept pill tabs, a header stat
+  card (cycle/days-left, time/overall progress rings), Objective cards listing Key Results (real
+  name, `components/ProgressBar.tsx` with the expected-pace tick mark, task-count summary), click
+  a KR to open the read-only `KrDetailModal`. A "Sync now" button re-fetches the sheet — still
+  read-only, just forces a fresh GET instead of waiting for `OkrProvider`'s own refresh.
+- **Env vars** (`.env.local` + Vercel): `GOOGLE_SHEETS_CLIENT_EMAIL`, `GOOGLE_SHEETS_PRIVATE_KEY`,
+  `GOOGLE_SHEETS_SPREADSHEET_ID`. The service account only needs **Viewer** access to the sheet now
+  (previously needed Editor for the write paths that no longer exist).
+- **Bug fixed during original live verification against the real sheet (2026-07-17, still a
+  relevant lesson for this codebase)**: `lib/sheets.ts`'s objective/KR row scan used
   `row[0] ?? row[1] ?? ""` to fall through an empty column A to the real content in column B —
   `??` only falls back on `null`/`undefined`, not `""`, and column A is `""` (not undefined) in
   almost every row, so this silently produced zero objectives/KRs on every tab until changed to
-  `||`. (2) `components/CheckInModal.tsx` (and now `KrDetailModal.tsx`) render inline inside a
-  page's `.fade-up`-animated wrapper would break — per the CSS spec, any non-`none` `transform`
-  value (even a resolved identity transform from a finished entrance animation) makes that
-  ancestor a new containing block for `position: fixed` descendants. Both modals are portalled to
-  `document.body` instead — the pattern to reach for if any future modal is nested inside an
-  animated wrapper rather than mounted at the layout root like `CommandPalette.tsx`.
-- **Current state (2026-07-17):** fully built, credentials supplied, and verified end-to-end
-  against the real sheet — added real tasks to a live Key Result via the UI, confirmed the exact
-  sheet cell format, confirmed Actual % + the sheet's own Progress formula update correctly,
-  walked the full two-step check-in (outcome → tomorrow selection), confirmed the morning cron
-  correctly activates a `PendingSelection` (validated with a manual KV write + cron trigger), and
-  confirmed the "Auto-fill today" fallback path picks only genuinely-open tasks. All test data was
-  reset afterward (sheet cells back to empty/0%, KV board and pending selection cleared) since it
-  was verification, not real work. **Nothing has been pushed to `main`/Vercel yet** — this is all
-  still local, uncommitted work as of this writing. Remaining before production use: (1) set the
-  same 4 env vars in Vercel (Production + Preview); (2) push to `main` (commit author must be
-  `MarcoMas2026` per the Vercel free-team build rule) so the two cron jobs start actually firing.
-- **Known deliberate gap**: no per-KR task-breakdown *template* system exists yet (e.g. a reusable
-  "launch campaign" checklist auto-applied to matching KRs) — the user described this as future
-  work to define once real campaign task patterns are clearer; today every task is added one at a
-  time per KR through the detail modal.
+  `||`.
+- **Torn out on 2026-07-21 (view-only requirement):** the Task Board (`/tasks`), evening check-in
+  flow, cron-driven daily task selection, and OKR management (rename/clear) — everything that used
+  to write to the sheet. Concretely removed: `app/(okr)/tasks/page.tsx`, `CheckInModal.tsx`,
+  `TaskTimeline.tsx`, `ManageOkrsModal.tsx`, `lib/okr-tasks.ts`, `app/api/tasks/*`,
+  `app/api/cron/*`, `app/api/okr/tasks/route.ts`, `app/api/okr/manage/route.ts`, `vercel.json`
+  (both cron entries), the `okr:board`/`okr:pendingSelection` KV keys and their functions in
+  `lib/kv.ts`, `writeKeyResultTasks`/`writeObjectiveTitle`/`writeKrName`/`colToA1`/
+  `serializeAlignedTasksCell` in `lib/sheets.ts`, and every Kanban/check-in type in `lib/types.ts`
+  (`TaskStatus`, `TaskPriority`, `KanbanTask`, `KanbanBoard`, `CheckinAnswer`, `CheckinOutcome`,
+  `CheckinSubmission`, `PendingSelection`). `KrTask`/`KeyResult`/`Objective`/`OkrDepartment`/
+  `OkrData`/`SheetCellRef` all stay — still needed to read and display progress. Note:
+  `KeyResult.titleCell`/`nameCell`/`actualCell`/`alignedTasksCell` (sheet coordinates, captured
+  during parsing) are still populated but now genuinely unused metadata — nothing writes to them
+  anymore; left in place since removing them means touching the parser for a cosmetic-only win.
+- **Current state (2026-07-21):** rebuilt as read-only, verified via `npx tsc --noEmit` and a
+  browser walkthrough of `/okrs`. **Not yet pushed to Vercel** — this cleanup happened specifically
+  in preparation for that push (per the user: "let's make the OKRs view only before pushing to
+  vercel").

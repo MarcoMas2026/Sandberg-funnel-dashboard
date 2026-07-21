@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDashboard } from "@/lib/dashboard-context";
@@ -12,7 +12,6 @@ import {
   InsightIcon,
   MapIcon,
   TargetIcon,
-  KanbanIcon,
 } from "./icons";
 import { formatDate } from "@/lib/format";
 import { MOCK_INSIGHTS } from "@/lib/mock";
@@ -34,7 +33,6 @@ const GROUPS = [
     label: "Strategy",
     items: [
       { href: "/okrs", label: "OKRs", icon: TargetIcon },
-      { href: "/tasks", label: "Tasks", icon: KanbanIcon, dotBadge: true },
       { href: "/demand", label: "Demand Map", icon: MapIcon },
       { href: "/patterns", label: "Patterns", icon: PatternsIcon },
     ],
@@ -46,19 +44,11 @@ export default function Sidebar() {
   const { data, updating, triggerUpdate } = useDashboard();
   const firstCampaignId = data?.campaigns?.[0]?.campaign_id;
   const [collapsed, setCollapsed] = useState(false);
-  const [checkinDue, setCheckinDue] = useState(false);
   const criticalCount = MOCK_INSIGHTS.filter((i) => i.severity === "critical" || i.severity === "warning").length;
-
-  useEffect(() => {
-    fetch("/api/tasks", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((board) => setCheckinDue(Boolean(board?.checkinDue)))
-      .catch(() => {});
-  }, []);
 
   return (
     <aside
-      className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[rgba(16,16,20,0.9)] backdrop-blur transition-[width] duration-200 ${
+      className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] backdrop-blur transition-[width] duration-200 ${
         collapsed ? "w-[72px]" : "w-64"
       }`}
     >
@@ -69,7 +59,7 @@ export default function Sidebar() {
         </span>
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-white">Sandberg Estates</p>
+            <p className="truncate text-sm font-semibold text-[var(--text)]">Sandberg Estates</p>
             <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">Funnel Intelligence</p>
           </div>
         )}
@@ -99,14 +89,13 @@ export default function Sidebar() {
                 const active = "exact" in item && item.exact ? pathname === item.href : pathname.startsWith(item.href);
                 const Icon = item.icon;
                 const showBadge = "badge" in item && item.badge && criticalCount > 0;
-                const showDotBadge = "dotBadge" in item && item.dotBadge && checkinDue;
                 return (
                   <Link
                     key={item.href}
                     href={href}
                     title={item.label}
                     className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                      active ? "bg-[var(--panel2)] text-white" : "text-[var(--text-muted)] hover:bg-[var(--panel)] hover:text-white"
+                      active ? "bg-[var(--panel2)] text-[var(--text)]" : "text-[var(--text-muted)] hover:bg-[var(--panel)] hover:text-[var(--text)]"
                     }`}
                   >
                     {active && <span className="accent-gradient absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full" />}
@@ -119,7 +108,6 @@ export default function Sidebar() {
                         {criticalCount}
                       </span>
                     )}
-                    {!collapsed && showDotBadge && <span className="h-2 w-2 rounded-full bg-red-500" />}
                   </Link>
                 );
               })}

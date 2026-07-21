@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MOCK_INSIGHTS, Severity } from "@/lib/mock";
 import { Sparkline } from "@/components/viz";
 import { InsightIcon } from "@/components/icons";
+import { GlowPanel } from "@/components/ui/glow-panel";
 
 const SEV: Record<Severity, { label: string; color: string; bg: string }> = {
   critical: { label: "Critical", color: "#f87171", bg: "rgba(248,113,113,0.1)" },
@@ -24,7 +25,7 @@ export default function InsightsPage() {
       <div className="fade-up flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-faint)]">AI Analyst</p>
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Insights</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">Insights</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             Findings computed nightly from your own data — anomalies, fatigue, pacing and opportunities
           </p>
@@ -53,12 +54,13 @@ export default function InsightsPage() {
         {insights.map((ins, i) => {
           const sev = SEV[ins.severity];
           return (
-            <article
+            <GlowPanel
               key={ins.id}
-              className="panel fade-up relative overflow-hidden p-5"
+              as="article"
+              wrapperClassName="fade-up"
               style={{ animationDelay: `${0.08 + i * 0.05}s` }}
+              className="panel relative overflow-hidden p-5"
             >
-              <span className="absolute inset-y-0 left-0 w-[3px]" style={{ background: sev.color }} />
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span
@@ -76,7 +78,7 @@ export default function InsightsPage() {
                 </span>
               </div>
 
-              <h3 className="text-base font-semibold text-white">{ins.title}</h3>
+              <h3 className="text-base font-semibold text-[var(--text)]">{ins.title}</h3>
 
               <div className="mt-3 flex items-start gap-4">
                 <p className="min-w-0 flex-1 text-sm leading-relaxed text-[var(--text-muted)]">{ins.evidence}</p>
@@ -89,9 +91,9 @@ export default function InsightsPage() {
                 <span className="text-[#9a7cff]">
                   <InsightIcon className="h-4 w-4" />
                 </span>
-                <p className="text-sm text-white">{ins.recommendation}</p>
+                <p className="text-sm text-[var(--text)]">{ins.recommendation}</p>
               </div>
-            </article>
+            </GlowPanel>
           );
         })}
       </div>
@@ -114,7 +116,7 @@ function FilterChip({
     <button
       onClick={onClick}
       className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-        active ? "accent-gradient text-white" : "bg-[var(--panel2)] text-[var(--text-muted)] hover:text-white"
+        active ? "accent-gradient text-white" : "bg-[var(--panel2)] text-[var(--text-muted)] hover:text-[var(--text)]"
       }`}
     >
       {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />}

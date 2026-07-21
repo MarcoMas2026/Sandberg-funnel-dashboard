@@ -1,6 +1,6 @@
 import { google, sheets_v4 } from "googleapis";
 import { computeKrActualFromTasks } from "./okr-pace";
-import { KeyResult, KrTask, Objective, OkrData, OkrDepartment, SheetCellRef } from "./types";
+import { KeyResult, KrTask, Objective, OkrData, OkrDepartment } from "./types";
 
 const TABS = ["Marketing Dept", "Paid Media", "Organic Content"] as const;
 
@@ -43,18 +43,6 @@ export function parsePercent(raw: unknown): number {
   if (!s) return 0;
   const n = parseFloat(s.replace("%", ""));
   return isNaN(n) ? 0 : n / 100;
-}
-
-// 1-indexed column number -> A1 letter(s). 1->A, 26->Z, 27->AA.
-export function colToA1(n: number): string {
-  let s = "";
-  let x = n;
-  while (x > 0) {
-    const rem = (x - 1) % 26;
-    s = String.fromCharCode(65 + rem) + s;
-    x = Math.floor((x - 1) / 26);
-  }
-  return s;
 }
 
 // One task per line inside the single Aligned Tasks cell (Sheets cells
@@ -105,17 +93,6 @@ export function parseAlignedTasksCell(raw: string, krId: string): KrTask[] {
   }
 
   return tasks;
-}
-
-export function serializeAlignedTasksCell(tasks: KrTask[]): string {
-  return tasks
-    .map((t) => {
-      const n = t.id.split("::t")[1] ?? "0";
-      const checkbox = t.done ? "[x]" : "[ ]";
-      const due = t.dueDate ? ` (due ${t.dueDate})` : "";
-      return `${checkbox} ${t.name}${due} {t${n}}`;
-    })
-    .join("\n");
 }
 
 function getAuth(): sheets_v4.Sheets | null {
@@ -188,17 +165,19 @@ function parseTab(tab: string, rows: string[][]): OkrDepartment {
       const row = rows[r] ?? [];
       // `||`, not `??` — column A is an empty string ("") in almost every row
       // here, not undefined, so `??` would never fall through to column B.
-      const firstCell = String(row[0] || row[1] || "").trim();
+      // Title text can live in column A or B depending on the tab's layout.
+      const titleColIdx = row[0] ? 0 : 1;
+      const firstCell = String(row[titleColIdx] || "").trim();
       const objMatch = firstCell.match(/^Objective\s+(\d+)/i);
 
       if (objMatch) {
         // Left empty (not falling back to the "Objective N:" label) when the
-        // sheet hasn't filled this objective in yet — lib/okr-tasks.ts uses
-        // an empty title to skip generating tasks for still-blank templates.
+        // sheet hasn't filled this objective in yet.
         current = {
           id: `${tabSlug(tab)}-o${objMatch[1]}`,
           index: parseInt(objMatch[1], 10),
           title: firstCell.replace(/^Objective\s+\d+:?\s*/i, "").trim(),
+          titleCell: { tab, row: r + 1, col: titleColIdx + 1 },
           keyResults: [],
         };
         objectives.push(current);
@@ -215,6 +194,7 @@ function parseTab(tab: string, rows: string[][]): OkrDepartment {
         // dynamically per-row (not a hardcoded column) for the same reason
         // the metric-table columns are, since column drift already exists.
         const labelIdx = row.findIndex((c) => KEY_RESULT_LABEL_RE.test(norm(c)));
+        const nameColIdx = labelIdx >= 0 ? labelIdx + 1 : titleColIdx + 1;
         const name = labelIdx >= 0 ? String(row[labelIdx + 1] ?? "").trim() : "";
 
         const tasks = alignedCol !== undefined ? parseAlignedTasksCell(String(row[alignedCol] ?? ""), krId) : [];
@@ -230,6 +210,7 @@ function parseTab(tab: string, rows: string[][]): OkrDepartment {
           tasks,
           actualCell: { tab, row: r + 1, col: actualCol + 1 }, // 1-indexed for the Sheets API
           alignedTasksCell: { tab, row: r + 1, col: (alignedCol ?? actualCol) + 1 },
+          nameCell: { tab, row: r + 1, col: nameColIdx + 1 },
         };
         current.keyResults.push(kr);
       }
@@ -297,30 +278,4 @@ export async function getOkrData(): Promise<OkrData> {
     const message = err instanceof Error ? err.message : "Unknown error reading the sheet";
     return { departments: [], fetchedAt, connected: false, error: message };
   }
-}
-
-// The only sheet write path for a Key Result: updates its task checklist and
-// its (computed) Actual Percentage in one atomic batchUpdate, so a mark-done
-// action never leaves the sheet with the list updated but the percentage
-// stale (or vice versa). The sheet's own "Progress" column is a live formula
-// off Actual/Initial/Objective, so nothing else needs writing.
-export async function writeKeyResultTasks(kr: KeyResult, tasks: KrTask[]): Promise<void> {
-  const sheets = getAuth();
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
-  if (!sheets || !spreadsheetId) throw new Error("Google Sheets is not configured");
-
-  const newActual = computeKrActualFromTasks(tasks);
-  const alignedRange = `'${kr.alignedTasksCell.tab}'!${colToA1(kr.alignedTasksCell.col)}${kr.alignedTasksCell.row}`;
-  const actualRange = `'${kr.actualCell.tab}'!${colToA1(kr.actualCell.col)}${kr.actualCell.row}`;
-
-  await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      valueInputOption: "USER_ENTERED",
-      data: [
-        { range: alignedRange, values: [[serializeAlignedTasksCell(tasks)]] },
-        { range: actualRange, values: [[`${Math.round(newActual * 1000) / 10}%`]] },
-      ],
-    },
-  });
 }

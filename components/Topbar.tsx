@@ -1,12 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 const LABELS: Record<string, string> = {
   "": "Mission Control",
   campaign: "Campaign",
   insights: "Insights",
   compare: "Compare",
+  okrs: "OKRs",
   demand: "Demand Map",
   patterns: "Patterns",
 };
@@ -23,17 +25,20 @@ export default function Topbar() {
         <HomeGlyph />
         <span>Overview</span>
         <span className="text-[var(--text-faint)]">/</span>
-        <span className="font-medium text-white">{label}</span>
+        <span className="font-medium text-[var(--text)]">{label}</span>
       </div>
 
-      <button
-        onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
-        className="flex w-56 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel2)] px-4 py-2 text-left text-xs text-[var(--text-faint)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-muted)]"
-      >
-        <SearchGlyph />
-        <span className="flex-1">Search…</span>
-        <kbd className="rounded border border-[var(--border-strong)] px-1.5 py-0.5 text-[10px] text-[var(--text-faint)]">⌘K</kbd>
-      </button>
+      <div className="flex items-center gap-2">
+        <AnimatedThemeToggler />
+        <button
+          onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+          className="flex w-56 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel2)] px-4 py-2 text-left text-xs text-[var(--text-faint)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-muted)]"
+        >
+          <SearchGlyph />
+          <span className="flex-1">Search…</span>
+          <kbd className="rounded border border-[var(--border-strong)] px-1.5 py-0.5 text-[10px] text-[var(--text-faint)]">⌘K</kbd>
+        </button>
+      </div>
     </div>
   );
 }

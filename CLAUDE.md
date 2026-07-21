@@ -48,16 +48,18 @@ ARCHITECTURE.md.** Not started yet as of 2026-07-16.
 Editing workflows needs the n8n API key (in the LANDINGS Claude memory `reference_n8n.md`, not in
 this repo) — ask the user for it if needed. KV token + webhook URL are in `.env.local`.
 
-## OKR tracking (added 2026-07-17, separate from the n8n pipeline above)
+## OKR view (added 2026-07-17, read-only as of 2026-07-21, separate from the n8n pipeline above)
 
-`/okrs` and `/tasks` read/write a Google Sheet directly via the Sheets API (service account, NOT
-n8n). Each Key Result holds a named, dated task checklist (added via clicking the KR on `/okrs`),
-synced to the sheet's Aligned Tasks cell; KR progress = completed/total tasks. Tasks for tomorrow
-are chosen the evening before (in the check-in flow), not auto-generated each morning — Vercel
-Cron (`vercel.json`) just activates that choice, or falls back to an auto-picked ranked list if
-none was made. See CONTEXT.md §13 for the full design. Credentials are set locally in `.env.local`
-and verified working; still need to be added to Vercel's env vars, and this whole feature is still
-unpushed (local-only) as of 2026-07-17.
+`/okrs` reads a Google Sheet directly via the Sheets API (service account, NOT n8n) to visualize
+Objectives, Key Results, and their progress. **View-only by design — the dashboard never writes
+back to the sheet.** Each Key Result's tasks (name/done/due-date) are read from the sheet's Aligned
+Tasks cell and shown read-only in a detail modal; KR progress = completed/total tasks, computed
+from that same read. There is no Task Board, no check-in flow, no cron jobs, and no rename/clear —
+that whole write-capable "Tasks" feature (Kanban board, evening check-in, daily-task cron) was
+torn out on 2026-07-21 at the user's request ("only to visualize okrs and their progress"). "Sync
+now" on `/okrs` just re-fetches the sheet — still read-only. See CONTEXT.md §13 for the current
+design. Credentials are set locally in `.env.local` and verified working; still need to be added to
+Vercel's env vars, and this feature is still unpushed (local-only) as of 2026-07-21.
 
 ## Verifying changes
 

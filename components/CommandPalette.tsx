@@ -79,7 +79,7 @@ export default function CommandPalette() {
             }
           }}
           placeholder="Jump to page, campaign, or action…"
-          className="w-full border-b border-[var(--border)] bg-transparent px-5 py-4 text-sm text-white outline-none placeholder:text-[var(--text-faint)]"
+          className="w-full border-b border-[var(--border)] bg-transparent px-5 py-4 text-sm text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
         />
         <ul className="max-h-72 overflow-y-auto p-2">
           {filtered.length === 0 && <li className="px-3 py-4 text-sm text-[var(--text-faint)]">No matches</li>}
@@ -92,7 +92,7 @@ export default function CommandPalette() {
                   setOpen(false);
                 }}
                 className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm ${
-                  i === idx ? "bg-[var(--panel2)] text-white" : "text-[var(--text-muted)]"
+                  i === idx ? "bg-[var(--panel2)] text-[var(--text)]" : "text-[var(--text-muted)]"
                 }`}
               >
                 <span>{c.label}</span>

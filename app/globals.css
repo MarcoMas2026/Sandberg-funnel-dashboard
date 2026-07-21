@@ -3,6 +3,34 @@
 @tailwind utilities;
 
 :root {
+  /* Light theme — the default when <html> has no "dark" class. The app
+     itself defaults <html> to "dark" (app/layout.tsx) to preserve its
+     original look; these values only take effect once AnimatedThemeToggler
+     (components/ui) is used to switch to light. */
+  --bg: #f5f5f7;
+  --bg-2: #ffffff;
+  --panel: #ffffff;
+  --panel2: #eeeef2;
+  --panel3: #e2e2e8;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  --text: #16161a;
+  --text-muted: #5c5c66;
+  --text-faint: #8b8b96;
+  --accent: #6c4bdb;
+  --accent-2: #4f7cf7;
+  --radius-lg: 1.5rem;
+  --radius-md: 1.1rem;
+  --sidebar-bg: rgba(255, 255, 255, 0.9);
+  /* used by components/ui/glowing-effect.tsx's variant="white" gradient */
+  --black: #000000;
+}
+
+/* Dark theme (default look of the app — see app/layout.tsx). `:root.dark`
+   beats a plain `:root` on specificity regardless of source order, so this
+   reliably overrides the light values above whenever the "dark" class is
+   present on <html>. */
+:root.dark {
   /* softer graphite, not near-black — matches the reference platforms' perceived depth */
   --bg: #101014;
   --bg-2: #16161c;
@@ -14,16 +42,14 @@
   --text: #f0f0f4;
   --text-muted: #9494a3;
   --text-faint: #63636f;
-  --accent: #6c4bdb;
-  --accent-2: #4f7cf7;
-  --radius-lg: 1.5rem;
-  --radius-md: 1.1rem;
+  --sidebar-bg: rgba(16, 16, 20, 0.9);
 }
 
 html,
 body {
   background-color: var(--bg);
   color: var(--text);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 body {
@@ -58,15 +84,24 @@ body {
   box-shadow: 0 0 0 1px rgba(108, 75, 219, 0.4), 0 8px 24px rgba(108, 75, 219, 0.25);
 }
 
-/* Solid white pill CTA (the "Deposit"-style primary action from the reference decks) */
+/* Primary CTA pill (the "Deposit"-style action from the reference decks).
+   Dark mode: a solid near-white pill pops against the dark panels. Light
+   mode: panels are near-white too, so a dark pill is what pops instead. */
 .cta-light {
-  background: #f4f4f8;
-  color: #111116;
+  background: #16161a;
+  color: #f5f5f7;
   transition: transform 0.15s ease, background 0.15s ease;
 }
 .cta-light:hover {
-  background: #ffffff;
+  background: #000000;
   transform: translateY(-1px);
+}
+:root.dark .cta-light {
+  background: #f4f4f8;
+  color: #111116;
+}
+:root.dark .cta-light:hover {
+  background: #ffffff;
 }
 
 /* Pill filter/segmented-control chip */
@@ -91,16 +126,6 @@ body {
 }
 .pill-on {
   color: #fff;
-}
-
-/* Colored left accent bar used on identity/price-style cards */
-.accent-bar {
-  position: absolute;
-  left: 0;
-  top: 0.9rem;
-  bottom: 0.9rem;
-  width: 3px;
-  border-radius: 4px;
 }
 
 /* Recharts dark tweaks */
@@ -172,8 +197,9 @@ body::before {
   pointer-events: none;
 }
 
-/* faint starfield speckle, reads as depth rather than noise */
-body::after {
+/* Faint starfield speckle — a "depth on a dark sky" effect that reads as
+   noise on a light background, so it's dark-mode only. */
+:root.dark body::after {
   content: "";
   position: fixed;
   inset: 0;
@@ -191,39 +217,27 @@ body::after {
   pointer-events: none;
 }
 
-/* faint grid texture on the shell */
+/* faint grid texture on the shell — dark lines on light, light lines on dark */
 .shell-grid {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+:root.dark .shell-grid {
   background-image: linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 42px 42px;
 }
 
 /* glass panel variant */
 .glass {
-  background: rgba(20, 20, 23, 0.72);
+  background: rgba(255, 255, 255, 0.72);
   border: 1px solid var(--border);
   border-radius: 1.25rem;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
-
-/* gradient hairline border (for hero cards) */
-.gradient-border {
-  position: relative;
-  background: var(--panel);
-  border-radius: 1.25rem;
-}
-.gradient-border::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(108, 75, 219, 0.55), rgba(255, 255, 255, 0.06) 40%, rgba(79, 124, 247, 0.4));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+:root.dark .glass {
+  background: rgba(20, 20, 23, 0.72);
 }
 
 /* staggered entrance */
@@ -281,9 +295,12 @@ body::after {
   }
 }
 
-/* slim dark scrollbars */
+/* slim scrollbars, themed to match */
 * {
   scrollbar-width: thin;
+  scrollbar-color: #d0d0d6 transparent;
+}
+:root.dark * {
   scrollbar-color: #2a2a31 transparent;
 }
 *::-webkit-scrollbar {
@@ -291,6 +308,9 @@ body::after {
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #2a2a31;
+  background: #d0d0d6;
   border-radius: 8px;
+}
+:root.dark *::-webkit-scrollbar-thumb {
+  background: #2a2a31;
 }

@@ -8,6 +8,7 @@ import {
   MOCK_DEMAND_FEATURES,
   MOCK_DEMAND_TIMELINE,
 } from "@/lib/mock";
+import { GlowPanel } from "@/components/ui/glow-panel";
 
 export default function DemandPage() {
   const [hover, setHover] = useState<{ area: string; band: string } | null>(null);
@@ -23,7 +24,7 @@ export default function DemandPage() {
       <div className="fade-up flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-faint)]">Market Intelligence</p>
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Buyer Demand Map</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">Buyer Demand Map</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             What your paid traffic is telling you buyers want — aggregated from every form submission
           </p>
@@ -35,8 +36,8 @@ export default function DemandPage() {
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[62fr_38fr]">
         {/* heatmap */}
-        <div className="panel fade-up p-5" style={{ animationDelay: "0.05s" }}>
-          <h2 className="mb-4 text-sm font-semibold text-white">Demand by area × budget band</h2>
+        <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.05s" }} className="panel p-5">
+          <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Demand by area × budget band</h2>
           <div className="overflow-x-auto">
             <table className="w-full border-separate" style={{ borderSpacing: 4 }}>
               <thead>
@@ -75,7 +76,7 @@ export default function DemandPage() {
                           >
                             {v}
                             {isHover && (
-                              <span className="absolute -top-7 z-10 whitespace-nowrap rounded-md border border-[var(--border-strong)] bg-[var(--panel2)] px-2 py-1 text-[10px] font-normal text-white">
+                              <span className="absolute -top-7 z-10 whitespace-nowrap rounded-md border border-[var(--border-strong)] bg-[var(--panel2)] px-2 py-1 text-[10px] font-normal text-[var(--text)]">
                                 {v} buyers · {area} · {band}
                               </span>
                             )}
@@ -88,17 +89,17 @@ export default function DemandPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </GlowPanel>
 
         {/* side rails */}
         <div className="space-y-5">
-          <div className="panel fade-up p-5" style={{ animationDelay: "0.1s" }}>
-            <h2 className="mb-3 text-sm font-semibold text-white">Hottest areas</h2>
+          <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.1s" }} className="panel p-5">
+            <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Hottest areas</h2>
             <ul className="space-y-2">
               {areaTotals.slice(0, 5).map((a, i) => (
                 <li key={a.area} className="flex items-center gap-3">
                   <span className="w-4 text-[11px] font-semibold text-[var(--text-faint)]">{i + 1}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-white">{a.area}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-[var(--text)]">{a.area}</span>
                   <div className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--panel2)]">
                     <div
                       className="accent-gradient h-full rounded-full"
@@ -109,16 +110,16 @@ export default function DemandPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </GlowPanel>
 
-          <div className="panel fade-up p-5" style={{ animationDelay: "0.15s" }}>
-            <h2 className="mb-3 text-sm font-semibold text-white">Most requested features</h2>
+          <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.15s" }} className="panel p-5">
+            <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Most requested features</h2>
             <ul className="space-y-2.5">
               {MOCK_DEMAND_FEATURES.map((f) => (
                 <li key={f.label}>
                   <div className="mb-1 flex justify-between text-xs">
                     <span className="text-[var(--text-muted)]">{f.label}</span>
-                    <span className="font-semibold text-white">{f.pct}%</span>
+                    <span className="font-semibold text-[var(--text)]">{f.pct}%</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-[var(--panel2)]">
                     <div className="h-full rounded-full bg-[#4f7cf7]" style={{ width: `${f.pct}%` }} />
@@ -126,10 +127,10 @@ export default function DemandPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </GlowPanel>
 
-          <div className="panel fade-up p-5" style={{ animationDelay: "0.2s" }}>
-            <h2 className="mb-3 text-sm font-semibold text-white">Buying timeline</h2>
+          <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.2s" }} className="panel p-5">
+            <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Buying timeline</h2>
             <div className="flex h-3 overflow-hidden rounded-full">
               {MOCK_DEMAND_TIMELINE.map((t, i) => (
                 <div
@@ -149,11 +150,11 @@ export default function DemandPage() {
                     style={{ background: ["#c026d3", "#8b5cf6", "#4f7cf7", "#3b3b46"][i] }}
                   />
                   <span className="text-[var(--text-muted)]">{t.label}</span>
-                  <span className="ml-auto font-semibold text-white">{t.pct}%</span>
+                  <span className="ml-auto font-semibold text-[var(--text)]">{t.pct}%</span>
                 </div>
               ))}
             </div>
-          </div>
+          </GlowPanel>
         </div>
       </div>
     </div>

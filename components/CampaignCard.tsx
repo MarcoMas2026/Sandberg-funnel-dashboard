@@ -16,7 +16,7 @@ export default function CampaignCard({ campaign }: { campaign: FunnelCampaign })
             <HomeIcon className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-base font-semibold text-white">{campaign.property}</p>
+            <p className="text-base font-semibold text-[var(--text)]">{campaign.property}</p>
             <p className="text-xs text-[var(--text-muted)]">Ref {campaign.ref}</p>
           </div>
         </div>
@@ -52,7 +52,7 @@ function Stat({
 }) {
   return (
     <div className="rounded-xl bg-[var(--panel2)] p-3">
-      <p className={`text-xl font-semibold ${accent ? "text-[var(--accent)]" : "text-white"}`}>
+      <p className={`text-xl font-semibold ${accent ? "text-[var(--accent)]" : "text-[var(--text)]"}`}>
         {value}
       </p>
       <p className="mt-0.5 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">

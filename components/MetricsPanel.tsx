@@ -23,6 +23,7 @@ import {
   shortDay,
 } from "@/lib/format";
 import { CplIcon, CtrIcon, DotsIcon, LeadIcon, PieIcon, SpendIcon } from "./icons";
+import { GlowPanel } from "@/components/ui/glow-panel";
 
 const axis = {
   stroke: "transparent",
@@ -59,7 +60,7 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
   }));
 
   return (
-    <div className="panel p-5">
+    <GlowPanel className="panel p-5">
       <PanelHeader icon={<PieIcon className="h-4 w-4" />} title="Metrics" />
 
       <div className="mt-2 divide-y divide-[var(--border)]">
@@ -166,7 +167,7 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
           </ResponsiveContainer>
         </MetricBlock>
       </div>
-    </div>
+    </GlowPanel>
   );
 }
 
@@ -182,7 +183,7 @@ function CplTooltip({
   if (!active || !payload || !payload.length) return null;
   const row = payload[0].payload;
   return (
-    <div className="rounded-[10px] border border-[var(--border-strong)] bg-[var(--panel2)] px-3 py-2 text-xs text-white">
+    <div className="rounded-[10px] border border-[var(--border-strong)] bg-[var(--panel2)] px-3 py-2 text-xs text-[var(--text)]">
       <p className="mb-0.5">{label}</p>
       <p>Leads: {row.leads}</p>
       <p>CPL: {row.leads > 0 ? formatCurrency(row.cpl, 2) : "N/A"}</p>
@@ -195,7 +196,7 @@ function PanelHeader({ icon, title }: { icon: React.ReactNode; title: string }) 
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className="text-[var(--accent)]">{icon}</span>
-        <h2 className="text-sm font-semibold text-white">{title}</h2>
+        <h2 className="text-sm font-semibold text-[var(--text)]">{title}</h2>
       </div>
       <button className="icon-btn" aria-label="Options" disabled>
         <DotsIcon className="h-4 w-4" />
@@ -220,9 +221,9 @@ function MetricBlock({
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-center gap-2 text-[var(--text-muted)]">
           <span>{icon}</span>
-          <span className="text-sm text-white">{name}</span>
+          <span className="text-sm text-[var(--text)]">{name}</span>
         </div>
-        <span className="text-sm font-semibold text-white">{value}</span>
+        <span className="text-sm font-semibold text-[var(--text)]">{value}</span>
       </div>
       {children}
     </div>

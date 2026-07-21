@@ -18,8 +18,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Defaults to dark to preserve the app's existing look for anyone who
+  // hasn't toggled the theme yet — AnimatedThemeToggler (components/ui)
+  // flips this class; light-mode CSS vars live in app/globals.css.
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={`${inter.variable} font-sans`}>
         <DashboardProvider>
           <div className="shell-grid flex min-h-screen">

@@ -7,6 +7,7 @@ import { rankHistoricalCampaigns, MIN_HISTORICAL_SPEND } from "@/lib/ranking";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 import MetricCompareChart, { CompareBar } from "@/components/MetricCompareChart";
 import { HomeIcon } from "@/components/icons";
+import { GlowPanel } from "@/components/ui/glow-panel";
 
 interface ComparableMetrics {
   spend: number;
@@ -104,16 +105,16 @@ export default function ComparePage() {
   if (subjects.length === 0) {
     return (
       <div className="pt-2">
-        <h1 className="mb-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">Compare</h1>
+        <h1 className="mb-1 text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">Compare</h1>
         <p className="mb-6 text-sm text-[var(--text-muted)]">
           Compare a campaign against your best-performing past campaigns of the same type
         </p>
-        <div className="panel flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-base font-medium text-white">No campaigns to compare yet</p>
+        <GlowPanel className="panel flex flex-col items-center justify-center py-24 text-center">
+          <p className="text-base font-medium text-[var(--text)]">No campaigns to compare yet</p>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             Compare needs at least one active or verified past campaign
           </p>
-        </div>
+        </GlowPanel>
       </div>
     );
   }
@@ -152,7 +153,7 @@ export default function ComparePage() {
   return (
     <div className="pt-2">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Compare</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">Compare</h1>
         <p className="text-sm text-[var(--text-muted)]">
           Benchmark any campaign against your best past campaigns of the same type
         </p>
@@ -170,14 +171,14 @@ export default function ComparePage() {
       {selected && activeMetrics && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[30fr_70fr]">
           {/* Left: selected campaign profile */}
-          <div className="panel h-fit p-5">
+          <GlowPanel className="panel h-fit p-5">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--panel2)] text-[var(--accent)]">
                   <HomeIcon className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="text-base font-semibold text-white">{selected.property}</p>
+                  <p className="text-base font-semibold text-[var(--text)]">{selected.property}</p>
                   <p className="text-xs text-[var(--text-muted)]">
                     Ref {selected.ref} · {selected.campaign_type === "property" ? "Property" : "Community"}
                   </p>
@@ -199,7 +200,7 @@ export default function ComparePage() {
                 </p>
                 <ul className="space-y-1.5">
                   {ranked.map((r, i) => (
-                    <li key={r.campaign_id} className="flex items-center gap-2 text-sm text-white">
+                    <li key={r.campaign_id} className="flex items-center gap-2 text-sm text-[var(--text)]">
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--panel)] text-[10px] font-semibold text-[var(--text-muted)]">
                         {i + 1}
                       </span>
@@ -209,13 +210,13 @@ export default function ComparePage() {
                 </ul>
               </div>
             )}
-          </div>
+          </GlowPanel>
 
           {/* Right: metric comparison charts */}
           <div>
             {ranked.length === 0 ? (
-              <div className="panel flex flex-col items-center justify-center py-20 text-center">
-                <p className="text-base font-medium text-white">
+              <GlowPanel className="panel flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-base font-medium text-[var(--text)]">
                   Not enough historical {selected.campaign_type} campaigns yet
                 </p>
                 <p className="mt-1 max-w-sm text-sm text-[var(--text-muted)]">
@@ -223,7 +224,7 @@ export default function ComparePage() {
                   {formatCurrency(MIN_HISTORICAL_SPEND)} spent to qualify as a fair comparison. As more{" "}
                   {selected.campaign_type} campaigns finish running, they&apos;ll show up here automatically.
                 </p>
-              </div>
+              </GlowPanel>
             ) : (
               <>
                 {ranked.length < 3 && (
@@ -280,7 +281,7 @@ function SubjectRow({
             className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               s.id === selectedId
                 ? "accent-gradient text-white"
-                : "bg-[var(--panel2)] text-[var(--text-muted)] hover:text-white"
+                : "bg-[var(--panel2)] text-[var(--text-muted)] hover:text-[var(--text)]"
             }`}
           >
             {s.property}
@@ -307,7 +308,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 function MiniStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="rounded-lg bg-[var(--panel2)] p-3">
-      <p className={`text-lg font-semibold ${accent ? "text-[var(--accent)]" : "text-white"}`}>{value}</p>
+      <p className={`text-lg font-semibold ${accent ? "text-[var(--accent)]" : "text-[var(--text)]"}`}>{value}</p>
       <p className="mt-0.5 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
     </div>
   );

@@ -38,7 +38,7 @@ export default function MetricCompareChart({
   return (
     <div className="rounded-xl bg-[var(--panel2)] p-4">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-medium text-white">{label}</span>
+        <span className="text-sm font-medium text-[var(--text)]">{label}</span>
         {delta !== null && (
           <span
             className={`text-xs font-semibold ${
