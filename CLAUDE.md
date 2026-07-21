@@ -58,8 +58,11 @@ from that same read. There is no Task Board, no check-in flow, no cron jobs, and
 that whole write-capable "Tasks" feature (Kanban board, evening check-in, daily-task cron) was
 torn out on 2026-07-21 at the user's request ("only to visualize okrs and their progress"). "Sync
 now" on `/okrs` just re-fetches the sheet — still read-only. See CONTEXT.md §13 for the current
-design. Credentials are set locally in `.env.local` and verified working; still need to be added to
-Vercel's env vars, and this feature is still unpushed (local-only) as of 2026-07-21.
+design. Credentials are set locally in `.env.local` and verified working; pushed to `main` on
+2026-07-21 — **confirm `GOOGLE_SHEETS_CLIENT_EMAIL`/`GOOGLE_SHEETS_PRIVATE_KEY`/
+`GOOGLE_SHEETS_SPREADSHEET_ID` are set in Vercel's project env vars**, or `/okrs` will render the
+"not connected" empty state on the live site. `CRON_SECRET` is no longer needed (the cron jobs it
+gated were removed) — safe to leave in Vercel unused or delete it.
 
 ## Verifying changes
 
