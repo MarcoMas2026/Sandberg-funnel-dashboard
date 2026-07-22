@@ -43,15 +43,10 @@ const GROUPS = [
   },
 ];
 
-// Anchorage Club's historical record — see app/page.tsx's `previewActive`.
-// No live active campaigns exist right now, so "Campaigns" falls back to
-// this preview instead of a dead end at Mission Control.
-const PREVIEW_CAMPAIGN_ID = "120250284542490071";
-
 export default function Sidebar() {
   const pathname = usePathname();
   const { data, updating, triggerUpdate } = useDashboard();
-  const firstCampaignId = data?.campaigns?.[0]?.campaign_id ?? PREVIEW_CAMPAIGN_ID;
+  const firstCampaignId = data?.campaigns?.[0]?.campaign_id;
   const [collapsed, setCollapsed] = useState(false);
   const criticalCount = MOCK_INSIGHTS.filter((i) => i.severity === "critical" || i.severity === "warning").length;
 
