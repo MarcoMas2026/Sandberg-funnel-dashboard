@@ -40,6 +40,13 @@ export default function MissionControl() {
 
   const active = (data?.campaigns ?? []).filter((c) => c.status === "ACTIVE");
 
+  // Anchorage Club isn't in the live funnel feed right now, but its verified
+  // historical record (used for Compare benchmarks) has real totals — shown
+  // here as a preview card so the "active campaign" layout can be visualized
+  // without inventing any numbers. Clearly tagged, never mixed into the real
+  // `active` totals/leaderboard-as-live logic above.
+  const previewActive = historical.find((h) => h.campaign_id === "120250284542490071") ?? null;
+
   const totalSpend = active.reduce((s, c) => s + c.meta.spend, 0);
   const totalLeads = active.reduce((s, c) => s + c.meta.leads, 0);
   const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
@@ -143,13 +150,14 @@ export default function MissionControl() {
       {/* campaigns */}
       <div className="fade-up" style={{ animationDelay: "0.3s" }}>
         <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Active Campaigns</h2>
-        {active.length === 0 ? (
+        {active.length === 0 && !previewActive ? (
           <GlowPanel className="panel flex flex-col items-center justify-center py-20 text-center">
             <p className="text-base font-medium text-[var(--text)]">No active campaigns</p>
             <p className="mt-1 text-sm text-[var(--text-muted)]">Hit Update Data once campaigns are live in Meta</p>
           </GlowPanel>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {active.length === 0 && previewActive && <HistoricalPreviewCard campaign={previewActive} />}
             {active.map((c) => {
               const q = qualityFor(c.campaign_id);
               const qTotal = q.hot + q.warm + q.cold || 1;
@@ -329,6 +337,72 @@ function PriceCard({
       </div>
       {spark && <div className="mt-2">{spark}</div>}
     </GlowPanel>
+  );
+}
+
+// Visualizes a historical-only campaign (real totals, no live daily/video
+// data) as if it were an active card — clearly tagged "Preview" rather than
+// "Live", and every number shown is real (spend/leads/cpl/ctr from the
+// verified historical record). No sparkline/lead-quality/lifecycle-dates
+// since those need live daily data this record doesn't have.
+function HistoricalPreviewCard({ campaign: c }: { campaign: HistoricalCampaign }) {
+  const tint = TYPE_COLOR[c.campaign_type];
+  return (
+    <div className="relative rounded-[var(--radius-lg)] p-1">
+      <GlowingEffect spread={40} glow proximity={64} inactiveZone={0.01} borderWidth={2} disabled={false} />
+      <Link
+        href={`/campaign/${c.campaign_id}`}
+        className="group panel relative block overflow-hidden p-5 transition-colors hover:border-[var(--border-strong)]"
+      >
+        <div
+          className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full opacity-25 blur-2xl transition-opacity group-hover:opacity-40"
+          style={{ background: tint }}
+        />
+
+        <div className="relative mb-4 flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--panel2)]" style={{ color: tint }}>
+              <HomeIcon className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-base font-semibold text-[var(--text)]">{c.property}</p>
+              <p className="text-xs text-[var(--text-muted)]">
+                Ref {c.ref} · {c.campaign_type === "community" ? "Community" : "Property"}
+              </p>
+            </div>
+          </div>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--panel2)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-faint)]"
+            title="Shown from verified historical data, not the live Meta feed"
+          >
+            Preview
+          </span>
+        </div>
+
+        <div className="relative mb-3 flex items-end justify-between">
+          <div>
+            <p className="text-2xl font-bold text-[var(--text)]">{formatCurrency(c.spend)}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-[#b7a6ff]">{formatNumber(c.leads)}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
+          </div>
+        </div>
+
+        <div className="relative mb-1 flex gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--panel2)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+            Historical snapshot
+          </span>
+        </div>
+        <div className="relative flex items-center justify-between text-[10px] text-[var(--text-faint)]">
+          <span>Verified past performance, used as a Compare benchmark</span>
+          <span className="text-[var(--accent2)] opacity-0 transition-opacity group-hover:opacity-100">
+            open →
+          </span>
+        </div>
+      </Link>
+    </div>
   );
 }
 
