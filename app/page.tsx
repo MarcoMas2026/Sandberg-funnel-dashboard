@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useDashboard } from "@/lib/dashboard-context";
 import { HistoricalCampaign } from "@/lib/types";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
+import { formatCurrency, formatDate, formatNumber, todayISOMadrid } from "@/lib/format";
+import { buildPreviewFunnelCampaign } from "@/lib/historical-preview";
 import { CountUp, DeltaChip, Pill, RingGauge, Sparkline } from "@/components/viz";
 import { MOCK_INSIGHTS, MOCK_QUALITY, Severity } from "@/lib/mock";
 import { HomeIcon, InsightIcon } from "@/components/icons";
@@ -340,13 +341,17 @@ function PriceCard({
   );
 }
 
-// Visualizes a historical-only campaign (real totals, no live daily/video
-// data) as if it were an active card — clearly tagged "Preview" rather than
-// "Live", and every number shown is real (spend/leads/cpl/ctr from the
-// verified historical record). No sparkline/lead-quality/lifecycle-dates
-// since those need live daily data this record doesn't have.
-function HistoricalPreviewCard({ campaign: c }: { campaign: HistoricalCampaign }) {
-  const tint = TYPE_COLOR[c.campaign_type];
+// Visualizes a historical-only campaign as if it were an active card,
+// matching the real active-card layout (sparkline, connection badges, lead
+// quality strip, lifecycle timeline) — every total shown is real; the daily
+// curve behind the sparkline/timeline is modeled (see lib/historical-preview),
+// so it's always clearly tagged "Preview" rather than "Live".
+function HistoricalPreviewCard({ campaign: h }: { campaign: HistoricalCampaign }) {
+  const tint = TYPE_COLOR[h.campaign_type];
+  const c = buildPreviewFunnelCampaign(h, todayISOMadrid());
+  const q = qualityFor(c.campaign_id);
+  const qTotal = q.hot + q.warm + q.cold || 1;
+
   return (
     <div className="relative rounded-[var(--radius-lg)] p-1">
       <GlowingEffect spread={40} glow proximity={64} inactiveZone={0.01} borderWidth={2} disabled={false} />
@@ -373,7 +378,7 @@ function HistoricalPreviewCard({ campaign: c }: { campaign: HistoricalCampaign }
           </div>
           <span
             className="inline-flex items-center gap-1.5 rounded-full bg-[var(--panel2)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-faint)]"
-            title="Shown from verified historical data, not the live Meta feed"
+            title="Real totals; the daily curve is modeled since this campaign isn't in the live Meta feed right now"
           >
             Preview
           </span>
@@ -381,25 +386,40 @@ function HistoricalPreviewCard({ campaign: c }: { campaign: HistoricalCampaign }
 
         <div className="relative mb-3 flex items-end justify-between">
           <div>
-            <p className="text-2xl font-bold text-[var(--text)]">{formatCurrency(c.spend)}</p>
+            <p className="text-2xl font-bold text-[var(--text)]">{formatCurrency(c.meta.spend)}</p>
             <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold text-[#b7a6ff]">{formatNumber(c.leads)}</p>
+            <p className="text-2xl font-bold text-[#b7a6ff]">{formatNumber(c.meta.leads)}</p>
             <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
           </div>
+          <Sparkline data={c.meta.daily.map((d) => d.leads)} stroke="#9a7cff" width={110} height={40} />
         </div>
 
-        <div className="relative mb-1 flex gap-1.5">
+        <div className="relative mb-3 flex gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-full bg-[var(--panel2)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
-            Historical snapshot
+            Historical record
           </span>
         </div>
+
+        <div className="relative mb-1 flex h-1.5 overflow-hidden rounded-full bg-[var(--panel2)]">
+          <span className="bg-[#c026d3]" style={{ width: `${(q.hot / qTotal) * 100}%` }} />
+          <span className="bg-[#8b5cf6]" style={{ width: `${(q.warm / qTotal) * 100}%` }} />
+          <span className="bg-[#3b3b46]" style={{ width: `${(q.cold / qTotal) * 100}%` }} />
+        </div>
         <div className="relative flex items-center justify-between text-[10px] text-[var(--text-faint)]">
-          <span>Verified past performance, used as a Compare benchmark</span>
+          <span>
+            {q.hot} hot · {q.warm} warm · {q.cold} cold <MockTag />
+          </span>
           <span className="text-[var(--accent2)] opacity-0 transition-opacity group-hover:opacity-100">
             open →
           </span>
+        </div>
+
+        <div className="relative mt-3 flex items-center gap-2 border-t border-[var(--border)] pt-3 text-[10px] text-[var(--text-faint)]">
+          <span>{formatDate(c.meta.start_date)}</span>
+          <span className="h-px flex-1 bg-[var(--border-strong)]" />
+          <span>modeled range</span>
         </div>
       </Link>
     </div>
