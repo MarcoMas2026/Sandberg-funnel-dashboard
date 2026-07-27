@@ -15,8 +15,9 @@ const PAD_TOP = 74;
 const SEG_H = 150; // per-stage height
 const N = 5;
 
-// blue → fuchsia progression (top of funnel is cool, the lead glows warm/bright)
-const HUES = ["#4f7cf7", "#6366f1", "#8b5cf6", "#a855f7", "#c026d3"];
+// light → near-black progression (top of funnel is a glance, the qualified
+// lead at the bottom is the highest-contrast, most emphasized stage)
+const HUES = ["#c7cfe0", "#98a3c9", "#6e7aab", "#4a5786", "#1b2540"];
 
 // boundary widths: clean, always-narrowing silhouette (magnitude lives in the
 // numbers + conversion %, so a 0-value stage never breaks the shape).
@@ -113,8 +114,8 @@ export default function MarketingFunnel({
           <defs>
             {HUES.map((h, i) => (
               <linearGradient key={i} id={`fnl-fill-${i}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={h} stopOpacity={0.34} />
-                <stop offset="100%" stopColor={HUES[Math.min(i + 1, N - 1)]} stopOpacity={0.12} />
+                <stop offset="0%" stopColor={h} stopOpacity={0.85} />
+                <stop offset="100%" stopColor={HUES[Math.min(i + 1, N - 1)]} stopOpacity={0.45} />
               </linearGradient>
             ))}
             <filter id="fnl-glow" x="-60%" y="-60%" width="220%" height="220%">
@@ -131,7 +132,7 @@ export default function MarketingFunnel({
 
           {/* recessive backdrop grid */}
           {Array.from({ length: 9 }, (_, i) => PAD_TOP + i * ((SEG_H * N) / 8)).map((y, i) => (
-            <line key={i} x1={40} x2={VB_W - 40} y1={y} y2={y} stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
+            <line key={i} x1={40} x2={VB_W - 40} y1={y} y2={y} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />
           ))}
 
           {/* flowing "data stream" lines clipped to the cone */}
@@ -145,9 +146,9 @@ export default function MarketingFunnel({
                 y1={PAD_TOP}
                 x2={CX + dx}
                 y2={PAD_TOP + SEG_H * N}
-                stroke="#a9b6ff"
+                stroke="#6e7aab"
                 strokeWidth={1.4}
-                strokeOpacity={0.5}
+                strokeOpacity={0.4}
                 strokeDasharray="2 10"
                 style={{ animationDelay: `${i * 0.18}s` }}
               />
@@ -206,7 +207,7 @@ export default function MarketingFunnel({
             const shown = Math.round(s.value * prog[i]);
             return (
               <g key={`l-${s.name}`}>
-                <text x={30} y={cy - 12} fontSize={16} letterSpacing={0.5} fill="#ededf2" fontWeight={500}>
+                <text x={30} y={cy - 12} fontSize={16} letterSpacing={0.5} fill="var(--text)" fontWeight={500}>
                   {s.name}
                 </text>
                 <text
@@ -214,12 +215,12 @@ export default function MarketingFunnel({
                   y={cy + 22}
                   fontSize={30}
                   fontWeight={700}
-                  fill="#ffffff"
+                  fill="var(--text)"
                   style={{ fontVariantNumeric: "tabular-nums" }}
                 >
                   {formatNumber(shown)}
                 </text>
-                <text x={30} y={cy + 42} fontSize={12} letterSpacing={1} fill="#5c5c66">
+                <text x={30} y={cy + 42} fontSize={12} letterSpacing={1} fill="var(--text-faint)">
                   {s.sub.toUpperCase()}
                 </text>
               </g>
@@ -233,11 +234,11 @@ export default function MarketingFunnel({
             const yTop = PAD_TOP + i * SEG_H;
             return (
               <g key={`r-${s.name}`} opacity={prog[i]}>
-                <line x1={CX + boundaryWidth(i) / 2 + 6} y1={yTop} x2={690} y2={yTop} stroke="rgba(255,255,255,0.10)" strokeWidth={1} />
-                <text x={730} y={yTop - 8} textAnchor="end" fontSize={22} fontWeight={700} fill="#b7a6ff">
+                <line x1={CX + boundaryWidth(i) / 2 + 6} y1={yTop} x2={690} y2={yTop} stroke="rgba(0,0,0,0.10)" strokeWidth={1} />
+                <text x={730} y={yTop - 8} textAnchor="end" fontSize={22} fontWeight={700} fill="var(--text)">
                   {formatPercent(r)}
                 </text>
-                <text x={730} y={yTop + 12} textAnchor="end" fontSize={11} letterSpacing={1} fill="#5c5c66">
+                <text x={730} y={yTop + 12} textAnchor="end" fontSize={11} letterSpacing={1} fill="var(--text-faint)">
                   CONVERT
                 </text>
               </g>
@@ -246,19 +247,20 @@ export default function MarketingFunnel({
 
           {/* "QUALIFIED" chip on the final stage */}
           <g opacity={prog[N - 1]}>
-            <rect x={628} y={PAD_TOP + (N - 1) * SEG_H + SEG_H / 2 - 14} width={104} height={26} rx={13} fill="#c026d3" fillOpacity={0.16} stroke="#c026d3" strokeOpacity={0.5} />
-            <text x={680} y={PAD_TOP + (N - 1) * SEG_H + SEG_H / 2 + 4} textAnchor="middle" fontSize={12} letterSpacing={2} fill="#e9a7f5" fontWeight={600}>
+            <rect x={628} y={PAD_TOP + (N - 1) * SEG_H + SEG_H / 2 - 14} width={104} height={26} rx={13} fill="#1b2540" />
+            <text x={680} y={PAD_TOP + (N - 1) * SEG_H + SEG_H / 2 + 4} textAnchor="middle" fontSize={12} letterSpacing={2} fill="#ffffff" fontWeight={600}>
               QUALIFIED
             </text>
           </g>
 
-          {/* manual red/orange/blue qualification breakdown, from /leads tagging */}
+          {/* manual red/orange/blue qualification breakdown, from /leads tagging
+              (kept in color — this is the one place hue still encodes meaning) */}
           {tagCounts && (
             <g opacity={prog[N - 1]}>
               {(["red", "orange", "blue"] as const).map((color, i) => (
                 <g key={color} transform={`translate(${628 + i * 36}, ${PAD_TOP + (N - 1) * SEG_H + SEG_H / 2 + 22})`}>
                   <circle r={5} fill={TAG_COLORS[color]} />
-                  <text x={10} y={4} fontSize={12} fontWeight={600} fill="#ededf2">
+                  <text x={10} y={4} fontSize={12} fontWeight={600} fill="var(--text)">
                     {tagCounts[color]}
                   </text>
                 </g>
@@ -318,8 +320,8 @@ function DropoffTip({
     : `${formatNumber(dropped)} drop off before the next step (${formatPercent(dropRate)})`;
   return (
     <g pointerEvents="none">
-      <rect x={CX - 168} y={cy - 20} width={336} height={40} rx={9} fill="#1a1a1f" stroke="rgba(255,255,255,0.14)" />
-      <text x={CX} y={cy + 5} textAnchor="middle" fontSize={14} fill="#ededf2">
+      <rect x={CX - 168} y={cy - 20} width={336} height={40} rx={9} fill="#1b2540" />
+      <text x={CX} y={cy + 5} textAnchor="middle" fontSize={14} fill="#ffffff">
         {label}
       </text>
     </g>

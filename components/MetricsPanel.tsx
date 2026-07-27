@@ -27,7 +27,7 @@ import { GlowPanel } from "@/components/ui/glow-panel";
 
 const axis = {
   stroke: "transparent",
-  tick: { fill: "#5c5c66", fontSize: 10 },
+  tick: { fill: "#5b6579", fontSize: 10 },
   tickLine: false,
   axisLine: false,
 };
@@ -35,14 +35,14 @@ const axis = {
 function tooltipStyle() {
   return {
     contentStyle: {
-      background: "#1a1a1f",
-      border: "1px solid rgba(255,255,255,0.12)",
+      background: "#1b2540",
+      border: "none",
       borderRadius: 10,
       fontSize: 12,
     },
-    labelStyle: { color: "#ededf2" },
-    itemStyle: { color: "#ededf2" },
-    cursor: { fill: "rgba(255,255,255,0.04)" },
+    labelStyle: { color: "#ffffff" },
+    itemStyle: { color: "#ffffff" },
+    cursor: { fill: "rgba(0,0,0,0.045)" },
   };
 }
 
@@ -73,11 +73,11 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
             <BarChart data={data} margin={{ top: 6, right: 4, left: -28, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad-leads" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#d4e84a" />
-                  <stop offset="100%" stopColor="#7bbf3f" />
+                  <stop offset="0%" stopColor="#2f3b63" />
+                  <stop offset="100%" stopColor="#8b93a6" />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="2 4" vertical horizontal={false} />
+              <CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray="2 4" vertical horizontal={false} />
               <XAxis dataKey="label" {...axis} interval="preserveStartEnd" />
               <YAxis {...axis} width={36} allowDecimals={false} />
               <Tooltip {...tooltipStyle()} />
@@ -95,11 +95,11 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
             <BarChart data={data} margin={{ top: 6, right: 4, left: -28, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad-spend" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4fd3e8" />
-                  <stop offset="100%" stopColor="#3b7cf7" />
+                  <stop offset="0%" stopColor="#4a5786" />
+                  <stop offset="100%" stopColor="#98a3c9" />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="2 4" vertical horizontal={false} />
+              <CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray="2 4" vertical horizontal={false} />
               <XAxis dataKey="label" {...axis} interval="preserveStartEnd" />
               <YAxis {...axis} width={36} />
               <Tooltip {...tooltipStyle()} formatter={(v: number) => formatCurrency(v, 2)} />
@@ -117,18 +117,18 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
             <AreaChart data={data} margin={{ top: 6, right: 4, left: -28, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad-cpl" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6c4bdb" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="#6c4bdb" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#1b2540" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#1b2540" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="2 4" vertical horizontal={false} />
+              <CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray="2 4" vertical horizontal={false} />
               <XAxis dataKey="label" {...axis} interval="preserveStartEnd" />
               <YAxis {...axis} width={36} />
-              <Tooltip cursor={{ stroke: "rgba(255,255,255,0.15)" }} content={<CplTooltip />} />
+              <Tooltip cursor={{ stroke: "rgba(0,0,0,0.14)" }} content={<CplTooltip />} />
               <Area
                 type="monotone"
                 dataKey="cplLine"
-                stroke="#9a7cff"
+                stroke="#1b2540"
                 strokeWidth={2}
                 fill="url(#grad-cpl)"
                 connectNulls
@@ -153,14 +153,14 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
         >
           <ResponsiveContainer width="100%" height={110}>
             <ScatterChart margin={{ top: 6, right: 4, left: -28, bottom: 0 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="2 4" vertical horizontal={false} />
+              <CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray="2 4" vertical horizontal={false} />
               <XAxis dataKey="label" {...axis} interval="preserveStartEnd" allowDuplicatedCategory={false} />
               <YAxis dataKey="ctr" {...axis} width={36} unit="%" />
               <ZAxis range={[10, 10]} />
               <Tooltip {...tooltipStyle()} formatter={(v: number) => `${v}%`} />
-              <Scatter data={data} fill="#4f7cf7">
+              <Scatter data={data} fill="#4a5786">
                 {data.map((_, i) => (
-                  <Cell key={i} fill="#7a9bff" />
+                  <Cell key={i} fill="#6e7aab" />
                 ))}
               </Scatter>
             </ScatterChart>

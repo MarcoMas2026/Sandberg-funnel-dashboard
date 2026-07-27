@@ -33,7 +33,7 @@ export default function CampaignCard({ campaign }: { campaign: FunnelCampaign })
 
       <div className="flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
         <span>Started {formatDate(meta.start_date)}</span>
-        <span className="text-[var(--accent2)] opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100">
           View funnel →
         </span>
       </div>

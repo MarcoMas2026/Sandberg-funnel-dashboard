@@ -9,7 +9,6 @@ import { CountUp, DeltaChip, Pill, RingGauge, Sparkline } from "@/components/viz
 import { MOCK_INSIGHTS, MOCK_QUALITY, Severity } from "@/lib/mock";
 import { HomeIcon, InsightIcon } from "@/components/icons";
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 const SEV_COLOR: Record<Severity, string> = {
   critical: "#f87171",
@@ -18,7 +17,7 @@ const SEV_COLOR: Record<Severity, string> = {
   info: "#7a9bff",
 };
 
-const TYPE_COLOR = { property: "#4f7cf7", community: "#c026d3" } as const;
+const TYPE_COLOR = { property: "#2f3b63", community: "#6e7aab" } as const;
 
 function greeting() {
   const h = new Date().getHours();
@@ -79,26 +78,25 @@ export default function MissionControl() {
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <PriceCard
           label="Total Spend"
-          accent="#4f7cf7"
+          accent="#2f3b63"
           delay="0.05s"
           value={<CountUp value={totalSpend} format={(v) => formatCurrency(v)} />}
           delta={8}
           goodWhenUp
-          spark={<Sparkline data={spendSpark} stroke="#4f7cf7" width={130} height={44} markers peakLabel={(v) => `€${Math.round(v)}`} />}
+          spark={<Sparkline data={spendSpark} stroke="#4a5786" width={130} height={44} markers peakLabel={(v) => `€${Math.round(v)}`} />}
         />
         <PriceCard
           label="Leads (submissions)"
-          accent="#9a7cff"
+          accent="#4a5786"
           delay="0.1s"
           value={<CountUp value={totalLeads} format={(v) => formatNumber(v)} />}
-          valueColor="#c9b8ff"
           delta={12}
           goodWhenUp
-          spark={<Sparkline data={leadsSpark} stroke="#9a7cff" width={130} height={44} markers peakLabel={(v) => `${Math.round(v)}`} />}
+          spark={<Sparkline data={leadsSpark} stroke="#6e7aab" width={130} height={44} markers peakLabel={(v) => `${Math.round(v)}`} />}
         />
         <PriceCard
           label="Avg Cost / Lead"
-          accent="#34d399"
+          accent="#98a3c9"
           delay="0.15s"
           value={<CountUp value={avgCpl} format={(v) => formatCurrency(v, 2)} />}
           delta={-6}
@@ -123,7 +121,7 @@ export default function MissionControl() {
       {/* insight ticker */}
       <Link href="/insights" className="glass fade-up block overflow-hidden" style={{ animationDelay: "0.25s" }}>
         <div className="flex items-center gap-3 px-4 py-2.5">
-          <span className="flex shrink-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-[#9a7cff]">
+          <span className="flex shrink-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--text)]">
             <InsightIcon className="h-4 w-4" /> Live insights
           </span>
           <div className="relative min-w-0 flex-1 overflow-hidden">
@@ -155,12 +153,11 @@ export default function MissionControl() {
               const qTotal = q.hot + q.warm + q.cold || 1;
               const tint = TYPE_COLOR[c.campaign_type];
               return (
-                <div key={c.campaign_id} className="relative rounded-[var(--radius-lg)] p-1">
-                  <GlowingEffect spread={40} glow proximity={64} inactiveZone={0.01} borderWidth={2} disabled={false} />
-                  <Link
-                    href={`/campaign/${c.campaign_id}`}
-                    className="group panel relative block overflow-hidden p-5 transition-colors hover:border-[var(--border-strong)]"
-                  >
+                <Link
+                  key={c.campaign_id}
+                  href={`/campaign/${c.campaign_id}`}
+                  className="group panel relative block overflow-hidden p-5 transition-colors hover:border-[var(--border-strong)]"
+                >
                   {/* soft identity gradient wash, echoing the vehicle-card imagery */}
                   <div
                     className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full opacity-25 blur-2xl transition-opacity group-hover:opacity-40"
@@ -190,10 +187,10 @@ export default function MissionControl() {
                       <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold text-[#b7a6ff]">{formatNumber(c.meta.leads)}</p>
+                      <p className="text-2xl font-bold text-[var(--text)]">{formatNumber(c.meta.leads)}</p>
                       <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
                     </div>
-                    <Sparkline data={c.meta.daily.map((d) => d.leads)} stroke="#9a7cff" width={110} height={40} />
+                    <Sparkline data={c.meta.daily.map((d) => d.leads)} stroke="#6e7aab" width={110} height={40} />
                   </div>
 
                   {/* connection badges, echoing the GPS/LTE chips from the reference */}
@@ -208,15 +205,15 @@ export default function MissionControl() {
 
                   {/* lead quality strip — MOCK until Phase 2 */}
                   <div className="relative mb-1 flex h-1.5 overflow-hidden rounded-full bg-[var(--panel2)]">
-                    <span className="bg-[#c026d3]" style={{ width: `${(q.hot / qTotal) * 100}%` }} />
-                    <span className="bg-[#8b5cf6]" style={{ width: `${(q.warm / qTotal) * 100}%` }} />
-                    <span className="bg-[#3b3b46]" style={{ width: `${(q.cold / qTotal) * 100}%` }} />
+                    <span className="bg-[#1b2540]" style={{ width: `${(q.hot / qTotal) * 100}%` }} />
+                    <span className="bg-[#6e7aab]" style={{ width: `${(q.warm / qTotal) * 100}%` }} />
+                    <span className="bg-[#c7cfe0]" style={{ width: `${(q.cold / qTotal) * 100}%` }} />
                   </div>
                   <div className="relative flex items-center justify-between text-[10px] text-[var(--text-faint)]">
                     <span>
                       {q.hot} hot · {q.warm} warm · {q.cold} cold <MockTag />
                     </span>
-                    <span className="text-[var(--accent2)] opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100">
                       open →
                     </span>
                   </div>
@@ -227,8 +224,7 @@ export default function MissionControl() {
                     <span className="h-px flex-1 bg-[var(--border-strong)]" />
                     <span>{data?.last_updated ? formatDate(data.last_updated) : "today"}</span>
                   </div>
-                  </Link>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -270,7 +266,7 @@ export default function MissionControl() {
                       </div>
                     </td>
                     <td className="py-3 text-right text-[var(--text)]">{formatCurrency(row.spend)}</td>
-                    <td className="py-3 text-right font-semibold text-[#b7a6ff]">{formatNumber(row.leads)}</td>
+                    <td className="py-3 text-right font-semibold text-[var(--text)]">{formatNumber(row.leads)}</td>
                     <td className="py-3 text-right">
                       <div className="flex justify-end">
                         <Sparkline data={row.trend} stroke={TYPE_COLOR[row.type]} width={80} height={26} fill={false} />
@@ -293,7 +289,7 @@ function PriceCard({
   accent,
   delay,
   value,
-  valueColor = "#fff",
+  valueColor = "var(--text)",
   delta,
   goodWhenUp,
   spark,

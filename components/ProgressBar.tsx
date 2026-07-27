@@ -24,8 +24,8 @@ export function ProgressBar({
       />
       {tickPct !== null && (
         <div
-          className="absolute top-1/2 h-3 w-[2px] -translate-y-1/2 rounded-full bg-white/70"
-          style={{ left: `${tickPct}%` }}
+          className="absolute top-1/2 h-3 w-[2px] -translate-y-1/2 rounded-full"
+          style={{ left: `${tickPct}%`, background: "rgba(0,0,0,0.55)" }}
           title="Expected pace"
         />
       )}

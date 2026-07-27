@@ -2,8 +2,8 @@
 
 import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-const RANK_COLORS = ["#4f7cf7", "#7c93f0", "#a5b4ec"]; // historical #1 -> #3, lightening
-const ACTIVE_COLOR = "#c026d3";
+const RANK_COLORS = ["#98a3c9", "#b3bcd8", "#c7cfe0"]; // historical #1 -> #3, lightening
+const ACTIVE_COLOR = "#1b2540";
 
 export interface CompareBar {
   name: string;
@@ -56,18 +56,19 @@ export default function MetricCompareChart({
             type="category"
             dataKey="name"
             width={100}
-            tick={{ fill: "#8b8b96", fontSize: 11 }}
+            tick={{ fill: "#8b93a6", fontSize: 11 }}
             tickLine={false}
             axisLine={false}
           />
           <Tooltip
             contentStyle={{
-              background: "#1a1a1f",
-              border: "1px solid rgba(255,255,255,0.12)",
+              background: "#1b2540",
+              border: "none",
               borderRadius: 10,
               fontSize: 12,
             }}
-            labelStyle={{ color: "#ededf2" }}
+            labelStyle={{ color: "#ffffff" }}
+            itemStyle={{ color: "#ffffff" }}
             formatter={(v: number) => formatter(v)}
           />
           <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={18}>
@@ -78,7 +79,7 @@ export default function MetricCompareChart({
               dataKey="value"
               position="right"
               formatter={(v: number) => formatter(v)}
-              fill="#ededf2"
+              fill="#1b2540"
               fontSize={11}
             />
           </Bar>

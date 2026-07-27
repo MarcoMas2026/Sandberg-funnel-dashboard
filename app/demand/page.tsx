@@ -67,11 +67,10 @@ export default function DemandPage() {
                             onMouseLeave={() => setHover(null)}
                             className="relative flex h-11 min-w-[76px] cursor-default items-center justify-center rounded-lg text-sm font-semibold transition-transform"
                             style={{
-                              background: `rgba(108,75,219,${0.06 + t * 0.55})`,
-                              boxShadow: t > 0.7 ? "0 0 14px rgba(154,124,255,0.35)" : undefined,
-                              color: t > 0.35 ? "#fff" : "var(--text-muted)",
+                              background: `rgba(27,37,64,${0.05 + t * 0.65})`,
+                              color: t > 0.4 ? "#ffffff" : "var(--text-muted)",
                               transform: isHover ? "scale(1.06)" : undefined,
-                              outline: isHover ? "1px solid rgba(154,124,255,0.6)" : undefined,
+                              outline: isHover ? "1px solid rgba(27,37,64,0.5)" : undefined,
                             }}
                           >
                             {v}
@@ -106,7 +105,7 @@ export default function DemandPage() {
                       style={{ width: `${(a.total / areaTotals[0].total) * 100}%` }}
                     />
                   </div>
-                  <span className="w-7 text-right text-xs font-semibold text-[#b7a6ff]">{a.total}</span>
+                  <span className="w-7 text-right text-xs font-semibold text-[var(--text)]">{a.total}</span>
                 </li>
               ))}
             </ul>
@@ -122,7 +121,7 @@ export default function DemandPage() {
                     <span className="font-semibold text-[var(--text)]">{f.pct}%</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-[var(--panel2)]">
-                    <div className="h-full rounded-full bg-[#4f7cf7]" style={{ width: `${f.pct}%` }} />
+                    <div className="h-full rounded-full bg-[#2f3b63]" style={{ width: `${f.pct}%` }} />
                   </div>
                 </li>
               ))}
@@ -137,7 +136,7 @@ export default function DemandPage() {
                   key={t.label}
                   style={{
                     width: `${t.pct}%`,
-                    background: ["#c026d3", "#8b5cf6", "#4f7cf7", "#3b3b46"][i],
+                    background: ["#1b2540", "#4a5786", "#98a3c9", "#dde3ee"][i],
                   }}
                 />
               ))}
@@ -147,7 +146,7 @@ export default function DemandPage() {
                 <div key={t.label} className="flex items-center gap-2 text-xs">
                   <span
                     className="h-2 w-2 rounded-full"
-                    style={{ background: ["#c026d3", "#8b5cf6", "#4f7cf7", "#3b3b46"][i] }}
+                    style={{ background: ["#1b2540", "#4a5786", "#98a3c9", "#dde3ee"][i] }}
                   />
                   <span className="text-[var(--text-muted)]">{t.label}</span>
                   <span className="ml-auto font-semibold text-[var(--text)]">{t.pct}%</span>

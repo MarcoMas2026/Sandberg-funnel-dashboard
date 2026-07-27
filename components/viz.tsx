@@ -35,7 +35,7 @@ export function Sparkline({
   data,
   width = 120,
   height = 34,
-  stroke = "#9a7cff",
+  stroke = "#4a5786",
   fill = true,
   markers = false,
   peakLabel,
@@ -80,13 +80,13 @@ export function Sparkline({
       <polyline points={line} fill="none" stroke={stroke} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" />
       {markers &&
         pts.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={i === pts.length - 1 || i === peakIdx ? 2.6 : 1.6} fill={i === peakIdx ? "#fff" : stroke} stroke={i === peakIdx ? stroke : "none"} strokeWidth={1.5} />
+          <circle key={i} cx={x} cy={y} r={i === pts.length - 1 || i === peakIdx ? 2.6 : 1.6} fill={i === peakIdx ? "var(--panel)" : stroke} stroke={i === peakIdx ? stroke : "none"} strokeWidth={1.5} />
         ))}
       {!markers && <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r={2.4} fill={stroke} />}
       {peakLabel && (
         <g transform={`translate(${pts[peakIdx][0]}, ${pts[peakIdx][1] - 8})`}>
-          <rect x={-20} y={-13} width={40} height={15} rx={7} fill="rgba(255,255,255,0.94)" />
-          <text x={0} y={-2} textAnchor="middle" fontSize={9} fontWeight={700} fill="#111116">
+          <rect x={-20} y={-13} width={40} height={15} rx={7} fill="#1b2540" />
+          <text x={0} y={-2} textAnchor="middle" fontSize={9} fontWeight={700} fill="#ffffff">
             {peakLabel(max)}
           </text>
         </g>
@@ -118,7 +118,7 @@ export function RingGauge({ value, size = 84 }: { value: number; size?: number }
   const color = clamped >= 70 ? "#34d399" : clamped >= 45 ? "#fbbf24" : "#f87171";
   return (
     <svg width={size} height={size} className="block">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={7} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={7} />
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -131,7 +131,7 @@ export function RingGauge({ value, size = 84 }: { value: number; size?: number }
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
         style={{ transition: "stroke-dasharray 1s cubic-bezier(0.2,0.7,0.3,1)" }}
       />
-      <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fontSize={size * 0.24} fontWeight={700} fill="#fff">
+      <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fontSize={size * 0.24} fontWeight={700} fill="var(--text)">
         {Math.round(clamped)}
       </text>
     </svg>

@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 const LABELS: Record<string, string> = {
   "": "Mission Control",
@@ -29,7 +28,6 @@ export default function Topbar() {
       </div>
 
       <div className="flex items-center gap-2">
-        <AnimatedThemeToggler />
         <button
           onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
           className="flex w-56 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel2)] px-4 py-2 text-left text-xs text-[var(--text-faint)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-muted)]"

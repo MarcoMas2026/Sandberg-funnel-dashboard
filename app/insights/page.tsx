@@ -88,7 +88,7 @@ export default function InsightsPage() {
               </div>
 
               <div className="mt-4 flex items-center gap-2 rounded-xl bg-[var(--panel2)] px-4 py-3">
-                <span className="text-[#9a7cff]">
+                <span className="text-[var(--text)]">
                   <InsightIcon className="h-4 w-4" />
                 </span>
                 <p className="text-sm text-[var(--text)]">{ins.recommendation}</p>

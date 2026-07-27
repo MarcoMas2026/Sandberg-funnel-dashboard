@@ -36,14 +36,14 @@ export default function PatternsPage() {
                     <div className="mb-3 flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold text-[var(--text)]">{t.tag}</p>
                       {winner && (
-                        <span className="shrink-0 rounded-full bg-[#c026d3]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#e9a7f5]">
+                        <span className="shrink-0 rounded-full bg-[#1b2540]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1b2540]">
                           Top pattern
                         </span>
                       )}
                     </div>
                     <div className="flex items-end justify-between">
                       <div>
-                        <p className={`text-3xl font-bold ${t.qlsX >= 1 ? "text-[#b7a6ff]" : "text-[var(--text-muted)]"}`}>
+                        <p className={`text-3xl font-bold ${t.qlsX >= 1 ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
                           {t.qlsX.toFixed(1)}×
                         </p>
                         <p className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">quality-lead multiplier</p>
