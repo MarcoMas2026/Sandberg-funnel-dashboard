@@ -106,17 +106,28 @@ Instance: `https://n8n.srv980538.hstgr.cloud`. Three workflows, all ACTIVE, owne
 |---|---|---|
 | Funnel Dashboard - Meta Sync | `VQfmLUJ8Ti434TBS` | Pull Meta insights → KV `meta:campaigns` |
 | Funnel Dashboard - Typeform Sync | `8ddVaAR0TNyZkvGZ` | Pull Typeform responses → KV `typeform:forms` |
-| Funnel Dashboard - Update | `g9vuAw5CwhWl6SXf` | Orchestrator; webhook → runs both → merge → KV `funnel:merged` + `funnel:last_updated` |
+| Funnel Dashboard - Update | `g9vuAw5CwhWl6SXf` | Orchestrator; webhook OR schedule → runs both → merge → KV `funnel:merged` + `funnel:last_updated` |
 
-- **Webhook (Update):** `POST https://n8n.srv980538.hstgr.cloud/webhook/funnel-update`
-  (= `NEXT_PUBLIC_N8N_WEBHOOK_URL`). Fire-and-forget (responds 200 immediately, chain runs async).
+- **Two triggers on the orchestrator (as of 2026-07-27):** a **Schedule Trigger, every 30 min**
+  (`node "Schedule Trigger (every 30 min)"`) runs the full chain automatically with zero manual
+  action — this is what makes a brand-new Meta campaign (and its Typeform auto-pairing, §6) show up
+  in the dashboard on its own, within 30 min of going live, with nobody touching anything. The
+  original **Webhook** `POST https://n8n.srv980538.hstgr.cloud/webhook/funnel-update`
+  (= `NEXT_PUBLIC_N8N_WEBHOOK_URL`) still exists too, fired by the dashboard's "Update Data" button
+  for an on-demand refresh — both triggers feed the same downstream chain, they just start
+  independent runs. Fire-and-forget either way (chain runs async). **Reminder if this workflow is
+  edited again:** after a PUT that adds/changes a trigger node, you MUST deactivate→reactivate via
+  the API (`POST /workflows/{id}/deactivate` then `/activate`) or the new/changed trigger silently
+  never registers — confirmed via `triggerCount` in the workflow GET response (should read `2` with
+  both triggers present).
 - **n8n credentials to reuse** (IDs, not secrets): Meta `Meta Ads Insights` = `1tUtE81YWW5i1QDz`
   (never-expiring System User token, ads_read, ad account `act_908802846497778`); Typeform
   `Typeform account 3` = `zxf4hkaMaCINOMtm`; KV `Upstash KV Auth` = `FtPesyt3E1pd9ItX`
   (httpHeaderAuth `Authorization: Bearer <KV_REST_API_TOKEN>`).
 - **KV (Upstash):** base `https://maximum-anteater-96315.upstash.io`; keys `meta:campaigns`,
-  `typeform:forms`, `funnel:merged`, `funnel:last_updated`. REST: `POST /set/<key>` (raw body),
-  `GET /get/<key>` → `{"result": "<string|null>"}`.
+  `typeform:forms`, `funnel:merged`, `funnel:last_updated`, `typeform:auto_pairings`,
+  `typeform:discovery_attempts` (the last two added 2026-07-27, see §6). REST: `POST /set/<key>`
+  (raw body), `GET /get/<key>` → `{"result": "<string|null>"}`.
 
 ### Data-accuracy rules (LEARNED THE HARD WAY — keep these)
 
@@ -154,8 +165,43 @@ Instance: `https://n8n.srv980538.hstgr.cloud`. Three workflows, all ACTIVE, owne
   partial). Per-day submissions grouped by `submitted_at` in Europe/Madrid (`en-CA` date).
 - Typeform Build joins responses to forms by **`form_id`** (via `pairedItem`, fallback index) —
   never by raw array position.
+- **An HTTP Request node's output REPLACES `$json` with its own response** — chaining two KV
+  writes in sequence means the second node's `$json` is the first write's Upstash response, NOT
+  whatever the upstream Code node produced. Hit this 2026-07-27 building the auto-pairing
+  discovery chain (see §6): "Write typeform:discovery_attempts to KV" needed
+  `$('Match & Persist Pairings').first().json.updatedAttempts`, not `$json.updatedAttempts` —
+  the latter silently sent an empty body (`JSON.stringify(undefined)`), which Upstash rejected
+  with `ERR wrong number of arguments for 'set' command`. Always reference the data-producing
+  Code node by name across any HTTP node hop, never assume `$json` survives one.
 
-## 6. Single source of truth: adding a campaign
+## 6. Adding a campaign — now automatic (as of 2026-07-27)
+
+**Typeform pairing no longer requires a manual `CAMPAIGN_MAP` entry.** A new active Meta campaign
+is detected and paired with its Typeform form automatically, via a discovery step added to the
+Typeform Sync workflow (`8ddVaAR0TNyZkvGZ`):
+
+- For each active campaign (from `meta:campaigns`) not found in `CAMPAIGN_MAP`, check the KV cache
+  **`typeform:auto_pairings`** (`{ [campaign_id]: { form_id, form_name, resolved_at } }`). If
+  still unresolved, run discovery: list all Typeform forms, then scan each unclaimed candidate
+  form's latest responses for a **verified hidden-field match** — the same method used for the
+  historical Compare pool (§7): community campaigns match `hidden.utm_campaign` === the Meta
+  campaign id exactly; property campaigns match `hidden.campaign_name` or
+  `hidden.listing_reference` === the parsed ref number. First match wins, gets cached in
+  `typeform:auto_pairings`, and is used immediately in that run's `funnel:merged`.
+- If no match is found (e.g. a campaign with zero submissions so far — no hidden-field data
+  exists anywhere yet), the attempt timestamp is recorded in **`typeform:discovery_attempts`** and
+  retried only after 6h, so an unresolved campaign doesn't trigger a full form-by-form response
+  scan on every sync.
+- The orchestrator's `Merge & Finalize` (`g9vuAw5CwhWl6SXf`) resolves each campaign's Typeform
+  form id in this order: `CAMPAIGN_MAP` override → `typeform:auto_pairings` cache → none.
+
+**`CAMPAIGN_MAP` in `lib/config.ts` is now an optional override, not a requirement** — still useful
+to hand-correct a mispairing or pin a campaign explicitly, but the pipeline no longer depends on
+it to surface a campaign's Typeform data. Verified live 2026-07-27: two campaigns launched without
+any `CAMPAIGN_MAP` entry (`CW - SA VINYA - ENG` → auto-paired to form `QlXsNtIY` "Sa Vinya
+SA-VINYA"; `SP - 31653 - S'OLIVERA` → auto-paired to form `OigsrlQl` "Villa S'Olivera 31653") and
+both showed full funnel data (Enters Typeform / Fills Typeform stages populated) with zero manual
+steps.
 
 Edit **`lib/config.ts`** `CAMPAIGN_MAP` (add `meta_campaign_id`, `typeform_form_id`, property,
 ref, names, and **`campaign_type`**: `"property"` or `"community"` — controls the funnel's 2nd
@@ -225,14 +271,21 @@ historical entries unless the user asks again.
 
 `NEXT_PUBLIC_N8N_WEBHOOK_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN` — in `.env.local` and Vercel.
 
-## 10. Current state (as of 2026-07-16)
+## 10. Current state (as of 2026-07-27)
 
 Campaigns in `CAMPAIGN_MAP`: Catalina Duplex `120249096771300071`/`pqBjw5Y6` (property), Finca
 Bugambilia `120248931370460071`/`d53a9GPD` (property), CAN VILA `120248754551970071`/`BZDwyYhN`
-(property) — all **PAUSED** as of 2026-07-01. Anchorage Club `120250284542490071`/`OEtGQCfj`
-(community) — **ACTIVE** (live spend/leads change daily — check the dashboard itself for current
-numbers, don't trust any figure pinned in this file). Reactivating the paused ones repopulates
-automatically via the config-driven, id-safe pipeline.
+(property), Anchorage Club `120250284542490071`/`OEtGQCfj` (community) — status of each (paused vs.
+active) changes independently of this file now; check the dashboard for current numbers, don't
+trust any figure pinned in this file. Reactivating a paused one repopulates automatically via the
+config-driven, id-safe pipeline.
+
+**Two campaigns are currently live WITHOUT a `CAMPAIGN_MAP` entry**, resolved entirely by the
+auto-pairing discovery described in §6: `CW - SA VINYA - ENG` `120250902680730071` (community,
+auto-paired to Typeform form `QlXsNtIY`) and `SP - 31653 - S'OLIVERA` `120250902138830071`
+(property, auto-paired to form `OigsrlQl`) — both cached in KV `typeform:auto_pairings`. This is
+expected going forward: new campaigns no longer need a `lib/config.ts` push before their funnel
+data appears.
 
 ## 11. What to build next — Phase 1 (agreed, not yet built)
 
