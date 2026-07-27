@@ -126,8 +126,9 @@ Instance: `https://n8n.srv980538.hstgr.cloud`. Three workflows, all ACTIVE, owne
   (httpHeaderAuth `Authorization: Bearer <KV_REST_API_TOKEN>`).
 - **KV (Upstash):** base `https://maximum-anteater-96315.upstash.io`; keys `meta:campaigns`,
   `typeform:forms`, `funnel:merged`, `funnel:last_updated`, `typeform:auto_pairings`,
-  `typeform:discovery_attempts` (the last two added 2026-07-27, see §6). REST: `POST /set/<key>`
-  (raw body), `GET /get/<key>` → `{"result": "<string|null>"}`.
+  `typeform:discovery_attempts` (added 2026-07-27, see §6), `leads:all`, `leads:tags` (added
+  2026-07-27, see §14). REST: `POST /set/<key>` (raw body), `GET /get/<key>` →
+  `{"result": "<string|null>"}`.
 
 ### Data-accuracy rules (LEARNED THE HARD WAY — keep these)
 
@@ -393,3 +394,47 @@ description below is the CURRENT (read-only) architecture only.
   browser walkthrough of `/okrs`. **Not yet pushed to Vercel** — this cleanup happened specifically
   in preparation for that push (per the user: "let's make the OKRs view only before pushing to
   vercel").
+
+## 14. Leads — individual lead capture + manual qualification tagging (added 2026-07-27)
+
+A new `/leads` page shows every individual Typeform submission (not just aggregate counts), lets
+the user manually tag each one **red/orange/blue** (red = most qualified), and surfaces that
+tagging as a real breakdown on the campaign funnel's final "Fills Typeform" stage (replacing what
+used to be a purely static "QUALIFIED" label chip).
+
+- **Capture (n8n, Typeform Sync `8ddVaAR0TNyZkvGZ`):** a new `Build Leads` code node, wired as a
+  parallel fan-out off the existing `Get Started Responses` node (NOT a merge — `Build
+  TypeformForms`'s existing aggregate-counting branch is untouched), extracts
+  `{response_id, campaign_id, campaign_name, form_id, submitted_at, first_name, language, budget,
+  stage}` per completed response. Field extraction matches by **normalized question title**
+  (`"preferred language"`, `"invest"/"budget"`, `"stage"` + `"search"/"property"`) plus the
+  `contact_info` field's stable `subfield_key: "first_name"` — verified against the live forms
+  (`OigsrlQl` S'Olivera, `QlXsNtIY` Sa Vinya), which share identical field wording from a common
+  template. `form_id → {campaign_id, campaign_name}` is resolved the same way the Merge step
+  resolves Typeform pairings: `CAMPAIGN_MAP` override → `typeform:auto_pairings` cache → live
+  `meta:campaigns` name lookup. Writes the full array to KV **`leads:all`** (full replace every
+  ~30-min sync, same scope as `typeform:forms` — currently-active campaigns only).
+- **Tags are a SEPARATE KV key, `leads:tags`** (`{ [response_id]: "red"|"orange"|"blue" }`),
+  written **only by this Next.js app** (`lib/kv.ts`'s `setLeadTag`), never by n8n — this is what
+  lets a tag survive `leads:all` being fully overwritten every sync (matched back by the stable
+  Typeform `response_id`). This is the **first direct write-path in the main app** (distinct from
+  the OKR view, which stays read-only by explicit prior decision — this is a different feature
+  with an explicit write requirement).
+- **API:** `GET /api/leads?campaign_id=<optional>` merges `leads:all` + `leads:tags`; `POST
+  /api/leads/tag` `{response_id, tag}` (tag `null` clears it) does a read-modify-write on
+  `leads:tags`.
+- **Frontend:** `app/leads/page.tsx` — table (first name/language/budget/stage/campaign/submitted
+  date), campaign-chip + timeframe-preset (7d/30d/90d/all) filters (client-side, no date-picker
+  dependency added), three-dot red/orange/blue tag control per row (optimistic update + POST).
+  `components/MarketingFunnel.tsx` takes an optional `tagCounts` prop rendered under the
+  "QUALIFIED" chip on the final stage; `app/campaign/[id]/page.tsx` fetches
+  `/api/leads?campaign_id=` and reduces by tag to build it.
+- **Known limitation, not solved:** like `typeform:forms`, `leads:all` only covers currently-active
+  campaigns — pausing a campaign drops its leads (and any tags) out of `leads:all` on the next
+  sync, mirroring the same accepted limitation elsewhere in the pipeline (paused campaigns already
+  disappear from `funnel:merged` entirely). Revisit if the user wants tagged-lead history retained
+  across a pause.
+- **Verified live 2026-07-27:** triggered the pipeline, confirmed 31 real lead records in
+  `leads:all` for the two active campaigns with correct field extraction; tagged a lead red via the
+  UI, confirmed it persisted in `leads:tags` and the campaign page's funnel showed the updated
+  `1/0/0` red/orange/blue breakdown.

@@ -41,7 +41,25 @@ function useElapsed(runMs = 2000) {
   return ms;
 }
 
-export default function MarketingFunnel({ campaign }: { campaign: FunnelCampaign }) {
+interface TagCounts {
+  red: number;
+  orange: number;
+  blue: number;
+}
+
+const TAG_COLORS: Record<keyof TagCounts, string> = {
+  red: "#ef4444",
+  orange: "#f59e0b",
+  blue: "#3b82f6",
+};
+
+export default function MarketingFunnel({
+  campaign,
+  tagCounts,
+}: {
+  campaign: FunnelCampaign;
+  tagCounts?: TagCounts;
+}) {
   const { meta, typeform } = campaign;
   const [hover, setHover] = useState<number | null>(null);
   const elapsed = useElapsed();
@@ -226,13 +244,27 @@ export default function MarketingFunnel({ campaign }: { campaign: FunnelCampaign
             );
           })}
 
-          {/* "GOAL" chip on the final stage */}
+          {/* "QUALIFIED" chip on the final stage */}
           <g opacity={prog[N - 1]}>
             <rect x={628} y={PAD_TOP + (N - 1) * SEG_H + SEG_H / 2 - 14} width={104} height={26} rx={13} fill="#c026d3" fillOpacity={0.16} stroke="#c026d3" strokeOpacity={0.5} />
             <text x={680} y={PAD_TOP + (N - 1) * SEG_H + SEG_H / 2 + 4} textAnchor="middle" fontSize={12} letterSpacing={2} fill="#e9a7f5" fontWeight={600}>
               QUALIFIED
             </text>
           </g>
+
+          {/* manual red/orange/blue qualification breakdown, from /leads tagging */}
+          {tagCounts && (
+            <g opacity={prog[N - 1]}>
+              {(["red", "orange", "blue"] as const).map((color, i) => (
+                <g key={color} transform={`translate(${628 + i * 36}, ${PAD_TOP + (N - 1) * SEG_H + SEG_H / 2 + 22})`}>
+                  <circle r={5} fill={TAG_COLORS[color]} />
+                  <text x={10} y={4} fontSize={12} fontWeight={600} fill="#ededf2">
+                    {tagCounts[color]}
+                  </text>
+                </g>
+              ))}
+            </g>
+          )}
 
           {/* hover hit-areas + drop-off tooltip */}
           {stages.map((s, i) => {

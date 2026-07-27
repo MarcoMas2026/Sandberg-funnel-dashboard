@@ -13,6 +13,7 @@ import {
   InsightIcon,
   MapIcon,
   TargetIcon,
+  LeadIcon,
 } from "./icons";
 import { formatDate } from "@/lib/format";
 import { MOCK_INSIGHTS } from "@/lib/mock";
@@ -26,6 +27,7 @@ const GROUPS = [
     label: "Intelligence",
     items: [
       { href: "/campaign", label: "Campaigns", icon: BarIcon },
+      { href: "/leads", label: "Leads", icon: LeadIcon },
       { href: "/insights", label: "Insights", icon: InsightIcon, badge: true },
     ],
   },

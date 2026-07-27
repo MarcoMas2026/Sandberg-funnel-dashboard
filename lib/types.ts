@@ -97,6 +97,25 @@ export interface HistoricalCampaign {
   form_completion_rate: number; // 0..1
 }
 
+// A single Typeform submission, captured by the Typeform Sync workflow's
+// "Build Leads" node (leads:all in KV) and manually qualified in the /leads
+// page. Tags live in a SEPARATE KV key (leads:tags, keyed by response_id) so
+// they survive the 30-min resync that fully replaces leads:all.
+export type LeadTag = "red" | "orange" | "blue" | null;
+
+export interface LeadRecord {
+  response_id: string;
+  campaign_id: string;
+  campaign_name: string;
+  form_id: string;
+  submitted_at: string | null; // ISO
+  first_name: string;
+  language: string;
+  budget: string;
+  stage: string;
+  tag: LeadTag;
+}
+
 export interface CampaignMapEntry {
   meta_campaign_id: string;
   meta_campaign_name: string;
