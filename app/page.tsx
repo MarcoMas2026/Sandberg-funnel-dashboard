@@ -107,7 +107,7 @@ export default function MissionControl() {
             </>
           }
         />
-        <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.2s" }} className="panel flex items-center justify-between p-5">
+        <GlowPanel wrapperClassName="fade-up h-full" style={{ animationDelay: "0.2s" }} className="panel flex h-full items-center justify-between p-5">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Portfolio Health</p>
             <p className="mt-2 max-w-[120px] text-[11px] leading-snug text-[var(--text-faint)]">
@@ -306,7 +306,7 @@ function PriceCard({
   footnote?: React.ReactNode;
 }) {
   return (
-    <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: delay }} className="panel relative overflow-hidden p-5">
+    <GlowPanel wrapperClassName="fade-up h-full" style={{ animationDelay: delay }} className="panel relative flex h-full flex-col overflow-hidden p-5">
       <div className="flex items-center justify-between">
         <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: accent }} />
