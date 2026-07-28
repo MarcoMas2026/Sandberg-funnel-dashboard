@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useDashboard } from "@/lib/dashboard-context";
 import { HistoricalCampaign } from "@/lib/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
-import { CountUp, DeltaChip, Pill, RingGauge, Sparkline } from "@/components/viz";
+import { CountUp, DeltaChip, LeadQualityDonut, Pill, RingGauge, Sparkline } from "@/components/viz";
 import { MOCK_INSIGHTS, MOCK_QUALITY, Severity } from "@/lib/mock";
 import { HomeIcon, InsightIcon } from "@/components/icons";
+import { LeadRecord } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
 
 const SEV_COLOR: Record<Severity, string> = {
@@ -29,6 +30,7 @@ function greeting() {
 export default function MissionControl() {
   const { data, loading } = useDashboard();
   const [historical, setHistorical] = useState<HistoricalCampaign[]>([]);
+  const [tagCounts, setTagCounts] = useState<Record<string, { red: number; orange: number; blue: number }>>({});
 
   useEffect(() => {
     fetch("/api/historical", { cache: "no-store" })
@@ -38,6 +40,29 @@ export default function MissionControl() {
   }, []);
 
   const active = (data?.campaigns ?? []).filter((c) => c.status === "ACTIVE");
+  const activeIds = active.map((c) => c.campaign_id).join(",");
+
+  // real qualified-lead composition, per campaign — same red/orange/blue
+  // tags set on the Leads page, not the mock hot/warm/cold placeholder.
+  useEffect(() => {
+    active.forEach((c) => {
+      fetch(`/api/leads?campaign_id=${encodeURIComponent(c.campaign_id)}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((json) => {
+          const leads: LeadRecord[] = json.leads ?? [];
+          setTagCounts((prev) => ({
+            ...prev,
+            [c.campaign_id]: {
+              red: leads.filter((l) => l.tag === "red").length,
+              orange: leads.filter((l) => l.tag === "orange").length,
+              blue: leads.filter((l) => l.tag === "blue").length,
+            },
+          }));
+        })
+        .catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIds]);
 
   const totalSpend = active.reduce((s, c) => s + c.meta.spend, 0);
   const totalLeads = active.reduce((s, c) => s + c.meta.leads, 0);
@@ -149,8 +174,8 @@ export default function MissionControl() {
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {active.map((c) => {
-              const q = qualityFor(c.campaign_id);
-              const qTotal = q.hot + q.warm + q.cold || 1;
+              const t = tagCounts[c.campaign_id] ?? { red: 0, orange: 0, blue: 0 };
+              const tTotal = t.red + t.orange + t.blue;
               const tint = TYPE_COLOR[c.campaign_type];
               return (
                 <Link
@@ -203,17 +228,27 @@ export default function MissionControl() {
                     </span>
                   </div>
 
-                  {/* lead quality strip — MOCK until Phase 2 */}
-                  <div className="relative mb-1 flex h-1.5 overflow-hidden rounded-full bg-[var(--panel2)]">
-                    <span className="bg-[#1b2540]" style={{ width: `${(q.hot / qTotal) * 100}%` }} />
-                    <span className="bg-[#6e7aab]" style={{ width: `${(q.warm / qTotal) * 100}%` }} />
-                    <span className="bg-[#c7cfe0]" style={{ width: `${(q.cold / qTotal) * 100}%` }} />
-                  </div>
-                  <div className="relative flex items-center justify-between text-[10px] text-[var(--text-faint)]">
-                    <span>
-                      {q.hot} hot · {q.warm} warm · {q.cold} cold <MockTag />
-                    </span>
-                    <span className="text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100">
+                  {/* qualified-lead composition — real red/orange/blue tags from the Leads page */}
+                  <div className="relative mb-1 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <LeadQualityDonut red={t.red} orange={t.orange} blue={t.blue} />
+                      <div className="flex flex-col gap-1 text-[10px] text-[var(--text-faint)]">
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" />
+                          {t.red} high
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#f59e0b]" />
+                          {t.orange} mid
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#3b82f6]" />
+                          {t.blue} low
+                        </span>
+                      </div>
+                    </div>
+                    {tTotal === 0 && <span className="self-start text-[10px] text-[var(--text-faint)]">no tagged leads yet</span>}
+                    <span className="self-start text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100">
                       open →
                     </span>
                   </div>

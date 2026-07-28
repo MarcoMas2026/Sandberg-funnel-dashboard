@@ -138,6 +138,64 @@ export function RingGauge({ value, size = 84 }: { value: number; size?: number }
   );
 }
 
+// Donut with an empty nucleus, ring thickness matching the bar charts'
+// maxBarSize proportions. Segment order is fixed red → orange → blue
+// (high → mid → low) so campaigns are visually comparable at a glance.
+export function LeadQualityDonut({
+  red,
+  orange,
+  blue,
+  size = 52,
+  thickness = 9,
+}: {
+  red: number;
+  orange: number;
+  blue: number;
+  size?: number;
+  thickness?: number;
+}) {
+  const total = red + orange + blue;
+  const r = size / 2 - thickness / 2;
+  const c = 2 * Math.PI * r;
+  const segments =
+    total > 0
+      ? [
+          { value: red, color: "#ef4444" },
+          { value: orange, color: "#f59e0b" },
+          { value: blue, color: "#3b82f6" },
+        ]
+      : [{ value: 1, color: "var(--panel2)" }];
+  const gap = total > 0 ? 3 : 0;
+
+  let offset = 0;
+  return (
+    <svg width={size} height={size} className="block shrink-0">
+      <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+        {segments.map((s, i) => {
+          const frac = s.value / total || 1;
+          const len = Math.max(0, frac * c - gap);
+          const dashoffset = -offset;
+          offset += frac * c;
+          return (
+            <circle
+              key={i}
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={thickness}
+              strokeDasharray={`${len} ${c - len}`}
+              strokeDashoffset={dashoffset}
+              strokeLinecap={total > 0 ? "round" : "butt"}
+            />
+          );
+        })}
+      </g>
+    </svg>
+  );
+}
+
 // Reusable pill filter / segmented-control chip.
 export function Pill({
   label,

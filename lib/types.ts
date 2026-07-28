@@ -12,6 +12,26 @@ export interface MetaDailyRow {
   cpl: number; // cost per lead that day
 }
 
+// One row of a single-dimension Meta Insights breakdown call (its own
+// date_preset(maximum) request — never derived from daily rows, and never
+// combined with a second breakdown dimension in the same call, to avoid
+// Meta's small-cell thresholding). `platform`/`device` are whatever Meta
+// actually returns for that campaign (e.g. "facebook"/"instagram"/"threads",
+// "desktop"/"mobile_app"/"mobile_web") — not a fixed enum, since not every
+// campaign serves on every platform/device.
+export interface MetaBreakdownRow {
+  platform?: string;
+  device?: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  link_clicks: number;
+  video_plays: number;
+  engagement: number;
+  ctr: number; // 0..1
+  outbound_ctr: number; // 0..1
+}
+
 export interface MetaCampaign {
   id: string;
   name: string;
@@ -30,6 +50,8 @@ export interface MetaCampaign {
   cpl: number; // cost per lead (spend / leads)
   outbound_ctr: number; // 0..1
   daily: MetaDailyRow[];
+  by_platform: MetaBreakdownRow[];
+  by_device: MetaBreakdownRow[];
 }
 
 export interface TypeformField {

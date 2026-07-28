@@ -22,8 +22,15 @@ import {
   formatPercent,
   shortDay,
 } from "@/lib/format";
-import { CplIcon, CtrIcon, DotsIcon, LeadIcon, PieIcon, SpendIcon } from "./icons";
+import { CplIcon, CtrIcon, DotsIcon, LeadIcon, PieIcon, SpendIcon, TargetIcon } from "./icons";
 import { GlowPanel } from "@/components/ui/glow-panel";
+import { LeadQualityDonut } from "@/components/viz";
+
+interface TagCounts {
+  red: number;
+  orange: number;
+  blue: number;
+}
 
 const axis = {
   stroke: "transparent",
@@ -46,7 +53,7 @@ function tooltipStyle() {
   };
 }
 
-export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
+export default function MetricsPanel({ meta, tagCounts }: { meta: MetaCampaign; tagCounts?: TagCounts }) {
   const data = meta.daily.map((d) => ({
     label: shortDay(d.date),
     leads: d.leads,
@@ -166,6 +173,37 @@ export default function MetricsPanel({ meta }: { meta: MetaCampaign }) {
             </ScatterChart>
           </ResponsiveContainer>
         </MetricBlock>
+
+        {tagCounts && (
+          <div className="py-4 first:pt-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[var(--text-muted)]">
+                <TargetIcon className="h-4 w-4" />
+                <span className="text-sm text-[var(--text)]">Lead Qualification</span>
+              </div>
+              <span className="text-sm font-semibold text-[var(--text)]">
+                {formatNumber(tagCounts.red + tagCounts.orange + tagCounts.blue)} tagged
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <LeadQualityDonut red={tagCounts.red} orange={tagCounts.orange} blue={tagCounts.blue} />
+              <div className="flex flex-col gap-1 text-[11px] text-[var(--text-faint)]">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" />
+                  {tagCounts.red} high
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#f59e0b]" />
+                  {tagCounts.orange} mid
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#3b82f6]" />
+                  {tagCounts.blue} low
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </GlowPanel>
   );
