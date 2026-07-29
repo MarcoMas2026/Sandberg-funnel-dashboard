@@ -264,21 +264,25 @@ export default function IsometricFunnel({ campaign, tagCounts }: { campaign: Fun
             );
           })}
 
-          {/* click-through zones: each stage opens its own 2D drill-down page */}
-          {LAYER_Y.map((y0, i) => (
-            <rect
-              key={`hit-${i}`}
-              x={leftPad}
-              y={topPad + y0}
-              width={DISPLAY_W}
-              height={PLANE_H}
-              fill={hoverLayer === i ? "rgba(0,0,0,0.04)" : "transparent"}
-              style={{ cursor: "pointer" }}
-              onMouseEnter={() => setHoverLayer(i)}
-              onMouseLeave={() => setHoverLayer(null)}
-              onClick={() => router.push(`/campaign/${campaign.campaign_id}/layer/${i + 1}`)}
-            />
-          ))}
+          {/* click-through zones: each stage opens its own 2D drill-down page.
+              Shaped as the plane's own diamond (not a bounding rect) so the
+              hover highlight follows the actual grid silhouette. */}
+          {LAYER_Y.map((y0, i) => {
+            const cx = leftPad + DISPLAY_W / 2;
+            const cy = topPad + y0 + PLANE_H / 2;
+            const diamond = `${cx},${topPad + y0} ${leftPad + DISPLAY_W},${cy} ${cx},${topPad + y0 + PLANE_H} ${leftPad},${cy}`;
+            return (
+              <polygon
+                key={`hit-${i}`}
+                points={diamond}
+                fill={hoverLayer === i ? "rgba(0,0,0,0.03)" : "transparent"}
+                style={{ cursor: "pointer" }}
+                onMouseEnter={() => setHoverLayer(i)}
+                onMouseLeave={() => setHoverLayer(null)}
+                onClick={() => router.push(`/campaign/${campaign.campaign_id}/layer/${i + 1}`)}
+              />
+            );
+          })}
         </svg>
       </div>
     </GlowPanel>

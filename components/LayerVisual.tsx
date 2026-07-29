@@ -123,8 +123,8 @@ export function LeadsLayerGrid({
     <div className="relative mx-auto aspect-square w-full max-w-[560px]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/funnel/vertical/empty-grid.png" alt="" className="absolute inset-0 h-full w-full object-contain" />
-      {leads.slice(0, GRID_SIZE * GRID_SIZE).map((lead, i) => {
-        const { left, top } = cellPos(i);
+      {leads.slice(0, SCATTER_ORDER.length).map((lead, i) => {
+        const { left, top } = cellPos(SCATTER_ORDER[i][0] * GRID_SIZE + SCATTER_ORDER[i][1]);
         const asset = colorByTag && lead.tag ? TAG_ASSET[lead.tag] : STANDARD_ASSET;
         const Tag = onTagChange ? "button" : "div";
         return (
@@ -132,7 +132,7 @@ export function LeadsLayerGrid({
             key={lead.response_id}
             type={onTagChange ? "button" : undefined}
             className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{ left, top, width: `${CELL * 0.74}%`, height: `${CELL * 0.74}%` }}
+            style={{ left, top, width: `${CELL * 1.15}%`, height: `${CELL * 1.15}%` }}
             onMouseEnter={() => setHover(lead.response_id)}
             onMouseLeave={() => setHover(null)}
             onClick={
