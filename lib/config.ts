@@ -1,5 +1,17 @@
 import { CampaignMapEntry } from "./types";
 
+// Order sections appear in property-landing-template/index.html's data-fnl-section
+// attributes — drives the display order of LandingEngagement.steps.
+export const LANDING_SECTION_ORDER = [
+  "hero",
+  "intro",
+  "specs",
+  "gallery",
+  "features",
+  "location",
+  "cta",
+] as const;
+
 // Maps a Meta Ads campaign to its corresponding Typeform qualifier.
 // SINGLE SOURCE OF TRUTH: this is exposed at /api/config and read live by both
 // n8n workflows (Typeform Sync + Merge). To add a campaign, append an entry here
@@ -43,5 +55,6 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     property: "Anchorage Club",
     ref: "Community",
     campaign_type: "community",
+    landing_slug: "Anchorage-Club",
   },
 ];

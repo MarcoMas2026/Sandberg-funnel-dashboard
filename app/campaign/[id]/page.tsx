@@ -7,6 +7,7 @@ import CampaignInfoBar from "@/components/CampaignInfoBar";
 import MetricsPanel from "@/components/MetricsPanel";
 import SummaryPanel from "@/components/SummaryPanel";
 import IsometricFunnel from "@/components/IsometricFunnel";
+import LandingEngagementPanel from "@/components/LandingEngagementPanel";
 import { LeadRecord } from "@/lib/types";
 
 export default function CampaignPage({ params }: { params: { id: string } }) {
@@ -55,6 +56,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
         <div className="space-y-5">
           <MetricsPanel meta={campaign.meta} tagCounts={tagCounts} />
           <SummaryPanel meta={campaign.meta} />
+          <LandingEngagementPanel engagement={campaign.landing_engagement} />
         </div>
         <div className="flex flex-col gap-3">
           <div className="min-h-0 flex-1">

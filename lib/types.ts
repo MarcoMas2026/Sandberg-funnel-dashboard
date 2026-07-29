@@ -74,6 +74,31 @@ export interface TypeformForm {
 
 export type CampaignType = "property" | "community";
 
+// Raw per-slug aggregate written by the "Funnel Dashboard - Landing Engagement Sync" n8n
+// workflow into KV key `landing:funnel`. Section names match the `data-fnl-section` values
+// in property-landing-template/index.html (hero, intro, specs, gallery, features, location, cta).
+export interface LandingEngagementRaw {
+  page_views: number;
+  section_views: Record<string, number>;
+  scroll_depth: Record<string, number>; // keys "25"|"50"|"75"|"100"
+  cta_clicks: Record<string, number>; // keys "main_cta"|"sticky_cta"
+}
+
+// One funnel step derived from LandingEngagementRaw for display — a section's view
+// count plus the percentage of total page_views that reached it, in template order.
+export interface LandingEngagementStep {
+  section: string;
+  views: number;
+  pct_of_page_views: number; // 0..1
+}
+
+export interface LandingEngagement {
+  page_views: number;
+  steps: LandingEngagementStep[];
+  cta_clicks: number; // main_cta + sticky_cta combined
+  cta_click_rate: number; // 0..1 of page_views
+}
+
 export interface FunnelCampaign {
   campaign_id: string;
   campaign_name: string;
@@ -83,6 +108,9 @@ export interface FunnelCampaign {
   status: "ACTIVE" | "PAUSED" | "ARCHIVED";
   meta: MetaCampaign;
   typeform: TypeformForm;
+  // Section-level landing page drop-off, joined in at read-time (not part of the n8n
+  // Merge & Finalize step) from KV key `landing:funnel` — absent if no events collected yet.
+  landing_engagement?: LandingEngagement;
   derived: {
     click_to_form_start_rate: number;
     form_completion_rate: number;
@@ -148,6 +176,10 @@ export interface CampaignMapEntry {
   // "property" = a specific-listing campaign (funnel shows video views);
   // "community" = a community waitlist campaign (funnel shows engagement instead).
   campaign_type: CampaignType;
+  // Folder name under sandbergestates.es/<slug>/ that the landing-engagement tracker
+  // derives from window.location.pathname. Only needed when it differs from `ref`
+  // (e.g. community campaigns whose ref is a display label like "Community").
+  landing_slug?: string;
 }
 
 // ── OKRs (Google Sheet-backed, see lib/sheets.ts) ───────────────────────────
