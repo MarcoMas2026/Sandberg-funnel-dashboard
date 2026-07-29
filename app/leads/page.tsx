@@ -65,23 +65,33 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-5 pt-2">
-      <GlowPanel className="panel flex items-center justify-between p-5">
+      <GlowPanel className="panel flex flex-col items-stretch gap-3 p-5 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex items-center gap-2">
           <span className="text-[var(--accent)]">
             <LeadIcon className="h-4 w-4" />
           </span>
           <h1 className="text-sm font-semibold text-[var(--text)]">Leads</h1>
           <span className="text-xs text-[var(--text-faint)]">
-            {loading ? "Loading…" : `${filtered.length} of ${leads.length}`}
+            {loading ? (
+              "Loading…"
+            ) : (
+              <>
+                <span className="md:hidden">
+                  {filtered.length === leads.length ? `${leads.length} leads` : `${filtered.length} of ${leads.length}`}
+                </span>
+                <span className="hidden md:inline">{`${filtered.length} of ${leads.length}`}</span>
+              </>
+            )}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center">
           {TIMEFRAMES.map((t) => (
             <Pill
               key={t.label}
               label={t.label}
               active={timeframeDays === t.days}
               onClick={() => setTimeframeDays(t.days)}
+              className="w-full justify-center md:w-auto"
             />
           ))}
         </div>
@@ -100,7 +110,46 @@ export default function LeadsPage() {
           ))}
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile: one card per lead, all fields visible without horizontal
+            scroll. Desktop (md+): unchanged wide table. */}
+        <div className="space-y-3 md:hidden">
+          {filtered.map((lead) => (
+            <div key={lead.response_id} className="rounded-2xl border border-[var(--border)] bg-[var(--panel2)] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-semibold text-[var(--text)]">{lead.first_name || "—"}</p>
+                <div className="flex shrink-0 gap-1.5 pt-1">
+                  {(["red", "orange", "blue"] as const).map((color) => (
+                    <button
+                      key={color}
+                      aria-label={`Tag ${lead.first_name || "lead"} ${color}`}
+                      onClick={() => setTag(lead.response_id, lead.tag === color ? null : color)}
+                      className="h-4 w-4 rounded-full transition"
+                      style={{
+                        background: TAG_COLORS[color],
+                        opacity: lead.tag === color ? 1 : 0.25,
+                        boxShadow: lead.tag === color ? `0 0 8px ${TAG_COLORS[color]}` : "none",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                <LeadField label="Language" value={lead.language} />
+                <LeadField label="Budget" value={lead.budget} />
+                <LeadField label="Stage" value={lead.stage} />
+                <LeadField label="Campaign" value={lead.campaign_name} />
+              </div>
+              <p className="mt-3 border-t border-[var(--border)] pt-2 text-[10px] text-[var(--text-faint)]">
+                {formatDate(lead.submitted_at)}
+              </p>
+            </div>
+          ))}
+          {!loading && filtered.length === 0 && (
+            <p className="py-8 text-center text-sm text-[var(--text-faint)]">No leads in this range.</p>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
@@ -152,6 +201,15 @@ export default function LeadsPage() {
           </table>
         </div>
       </GlowPanel>
+    </div>
+  );
+}
+
+function LeadField({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div>
+      <p className="text-[9px] uppercase tracking-wide text-[var(--text-faint)]">{label}</p>
+      <p className="text-[var(--text)]">{value || "—"}</p>
     </div>
   );
 }

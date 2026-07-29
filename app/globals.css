@@ -182,9 +182,19 @@ body::before {
 .glass {
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid var(--border);
-  border-radius: 1.25rem;
+  border-radius: var(--radius-md);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+}
+
+/* Mobile view only: slightly squarer panels than the desktop glassmorphism
+   look — same vars used by .panel/.glass everywhere, so this scales the
+   whole platform's card corners in one place instead of per-component. */
+@media (max-width: 767px) {
+  :root {
+    --radius-lg: 1.15rem;
+    --radius-md: 0.85rem;
+  }
 }
 
 /* staggered entrance */
@@ -254,4 +264,11 @@ body::before {
 *::-webkit-scrollbar-thumb {
   background: #d0d0d6;
   border-radius: 8px;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

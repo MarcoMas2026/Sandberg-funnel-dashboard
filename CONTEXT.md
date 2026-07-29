@@ -79,14 +79,15 @@ and where leads drop off.
   mocked number visibly tagged "preview" in the UI; funnel/campaign/compare stay 100% live-data):
   `app/page.tsx` is now **Mission Control** (greeting-style headline; price-card hero KPIs — colored
   `.accent-bar`, 3-dot menu, DeltaChip, peak-tooltip Sparkline — count-ups + REAL portfolio
-  sparklines from live daily data; live-insight ticker; campaign cards with an identity gradient
-  wash + "Meta synced"/"Typeform synced" connection badges + a start→today lifecycle strip + real
-  lead sparklines + mock quality strips; a **Portfolio Leaderboard** table — REAL data, merges live
-  active campaigns with the verified `historical:campaigns` pool, ranked by leads, with per-row
-  trend sparklines), `/insights` (severity-coded analyst feed → Phase 3), `/demand` (buyer demand
-  heatmap → Phase 5), `/patterns` (Creative DNA library → Phase 7, tab finally functional). When a
-  backend phase ships, replace the corresponding `lib/mock.ts` export with a KV-backed API read and
-  drop the "preview" tags for that surface.
+  sparklines from live daily data; REAL live-insight ticker (see §11.1); campaign cards with an
+  identity gradient wash + "Meta synced"/"Typeform synced" connection badges + a start→today
+  lifecycle strip + real lead sparklines + mock quality strips; a REAL Portfolio Health ring (see
+  §11.1); a **Portfolio Leaderboard** table — REAL data, merges live active campaigns with the
+  verified `historical:campaigns` pool, ranked by leads, with per-row trend sparklines), `/demand`
+  (buyer demand heatmap → Phase 5), `/patterns` (Creative DNA library → Phase 7, tab finally
+  functional). `/insights` (§11.1) is REAL, not mock. When a backend phase ships, replace the
+  corresponding `lib/mock.ts` export with a KV-backed API read and drop the "preview" tags for
+  that surface.
 
 ## 4. API routes (`app/api/*`)
 
@@ -292,14 +293,54 @@ data appears.
 
 Per `ARCHITECTURE.md`'s 7-phase roadmap (§8 there has the full table), **Phase 1 — daily history
 snapshots** is the agreed next step, decided 2026-07-16. Rationale: it's the cheapest phase AND
-the enabler — Phases 3–5 (anomaly detection, fatigue detection, lifecycle "winner curves", budget
-pacing advice) all need a day-by-day trend to read from, which doesn't exist yet (the pipeline
-only keeps *current* state). Concretely: a new small n8n workflow, same proven pattern as the
-existing 3 (see §5) — daily schedule trigger (e.g. 07:00), for each active campaign append that
-day's row to a new KV key `history:{campaign_id}`. No new Meta/Typeform API calls needed — Meta
-Sync already fetches this data, it just isn't retained over time. Cost: ~1 KV write per active
-campaign per day, negligible against the free tier. Nothing has been built for this yet — when
-picking this up, read `ARCHITECTURE.md` in full first (`§2.1` has the original spec).
+the enabler — Phases 4–5 (per-ad fatigue detection, lifecycle "winner curves", budget pacing
+advice at ad granularity) all need a day-by-day trend to read from, which doesn't exist yet (the
+pipeline only keeps *current* state). Concretely: a new small n8n workflow, same proven pattern as
+the existing 3 (see §5) — daily schedule trigger (e.g. 07:00), for each active campaign append
+that day's row to a new KV key `history:{campaign_id}`. No new Meta/Typeform API calls needed —
+Meta Sync already fetches this data, it just isn't retained over time. Cost: ~1 KV write per
+active campaign per day, negligible against the free tier. Nothing has been built for this yet —
+when picking this up, read `ARCHITECTURE.md` in full first (`§2.1` has the original spec). Note:
+Phase 3 (the Insight Feed) shipped ahead of Phase 1 via a different, lighter path — see §11.1.
+
+### 11.1 Insights (Phase 3, shipped 2026-07-29 — a lighter path than the original spec)
+
+`ARCHITECTURE.md`'s original Phase 3 spec computes insights in n8n Code nodes into an
+`insights:feed` KV key, gated on Phase 1's `history:{campaign_id}` snapshots for day-of-week-aware
+rolling baselines. Neither of those got built. Instead, `/insights` and Mission Control's live-
+insight ticker + Portfolio Health ring read `lib/insights.ts`'s `computeInsights()` /
+`computePortfolioHealth()`, which run entirely client-side against data already present in
+`FunnelData` (from `useDashboard()`, i.e. `/api/funnel` → `funnel:merged`) — no new KV key, no n8n
+changes, recomputed fresh on every render (nothing is stored, so there's no staleness to manage;
+new data lands via the normal 30-min sync or "Update Data").
+
+Seven rule-based detectors, each a template filled with computed numbers (same "no LLM, deterministic,
+auditable" L4 design principle as the original spec):
+- **Tracking break** — a day with `spend > €5` and `link_clicks === 0` (pixel/page outage signal).
+- **Zero-lead day** — a spend-day with 0 leads that's ≥1.5σ below that campaign's own mean leads/spend-day.
+- **CTR fatigue** — last-7-days avg CTR vs the prior 7 days, ≥15% decline. Explicitly labeled
+  campaign-level in its own copy — there's no ad-level breakdown yet (that's Phase 4), so it can't
+  claim per-ad precision.
+- **CPL efficiency** — trailing-7-day CPL vs the live portfolio average across active campaigns;
+  ≤70% → opportunity, ≥140% → warning.
+- **Landing page friction** — Clarity's own rage-click/dead-click/quickback percentages (real
+  session data, ≥20 sessions required), not modeled.
+- **Form drop-off** — a Typeform field whose `dropoff_rate` is both ≥15% absolute and ≥2× the
+  form's other fields' average.
+- **Spend pacing** — today's spend vs the trailing 7-day average, ≥40% either direction.
+
+**Portfolio Health** (`computePortfolioHealth`): each active campaign starts at 100, loses fixed
+points per open finding scoped to it (critical −30, warning −15, opportunity/info −5), portfolio
+score is the average across active campaigns, `null` (not `0`) when there are no active campaigns
+— every point lost traces back to a specific `/insights` card.
+
+**Known limitation, not a bug:** day-count-gated detectors (CTR fatigue needs 14 days, spend
+pacing needs 8, zero-lead-day needs 5) stay dormant on young campaigns — expected, not broken;
+they activate on their own as `meta.daily[]` accumulates more rows.
+
+Genuinely still gated on Phases 1/4/5 and NOT approximated by this: per-ad fatigue tagging,
+lifecycle "winner curve" day-N comparisons, and day-of-week-aware statistical baselines. If those
+get built later, they're additive — this lighter engine doesn't need to be torn out.
 
 ## 12. Known non-blocking items (audited, deliberately left)
 

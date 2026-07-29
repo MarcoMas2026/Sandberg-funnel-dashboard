@@ -14,11 +14,11 @@ export default function PatternsPage() {
           <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-faint)]">Creative Intelligence</p>
           <h1 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">Creative DNA</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            In the Andromeda era, creative is the targeting — these are the patterns that win across your campaigns
+            In the Andromeda era, creative is the targeting. These are the patterns that win across your campaigns
           </p>
         </div>
         <span className="rounded-full bg-[var(--panel2)] px-3 py-1.5 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-          Preview — tagging engine ships in Phase 7
+          Preview: tagging engine ships in Phase 7
         </span>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 
 // Animated numeric ticker (rAF-driven, respects the value's formatter).
 export function CountUp({
@@ -196,20 +197,71 @@ export function LeadQualityDonut({
   );
 }
 
+// Thick horizontal segmented bar — same red/orange/blue (high/mid/low) tag
+// composition as LeadQualityDonut, just as a single wide bar instead of a
+// ring. Segment widths are proportional to count; a zero/small segment still
+// gets a guaranteed minWidth so its "N high"/"N mid"/"N low" label always has
+// somewhere to sit, directly on its own color.
+export function LeadQualityBar({
+  red,
+  orange,
+  blue,
+  height = 40,
+}: {
+  red: number;
+  orange: number;
+  blue: number;
+  height?: number;
+}) {
+  const total = red + orange + blue;
+  const segments = [
+    { value: red, color: "#ef4444", label: "high" },
+    { value: orange, color: "#f59e0b", label: "mid" },
+    { value: blue, color: "#3b82f6", label: "low" },
+  ];
+
+  if (total === 0) {
+    return (
+      <div
+        className="flex w-full items-center justify-center rounded-xl bg-[var(--panel2)] text-xs text-[var(--text-faint)]"
+        style={{ height }}
+      >
+        No leads tagged yet
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full overflow-hidden rounded-xl" style={{ height }}>
+      {segments.map((s) => (
+        <div
+          key={s.label}
+          className="flex items-center justify-center whitespace-nowrap text-xs font-semibold text-white"
+          style={{ background: s.color, flexGrow: s.value, flexShrink: 0, flexBasis: 0, minWidth: 64 }}
+        >
+          {formatNumber(s.value)} {s.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Reusable pill filter / segmented-control chip.
 export function Pill({
   label,
   active,
   onClick,
   dot,
+  className,
 }: {
   label: string;
   active: boolean;
   onClick?: () => void;
   dot?: string;
+  className?: string;
 }) {
   return (
-    <button onClick={onClick} className={`pill ${active ? "pill-on accent-gradient" : "pill-off"}`}>
+    <button onClick={onClick} className={`pill ${active ? "pill-on accent-gradient" : "pill-off"}${className ? ` ${className}` : ""}`}>
       {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />}
       {label}
     </button>

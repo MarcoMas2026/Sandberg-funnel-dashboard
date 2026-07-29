@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { MOCK_INSIGHTS, Severity } from "@/lib/mock";
+import { useMemo, useState } from "react";
+import { useDashboard } from "@/lib/dashboard-context";
+import { computeInsights, Severity } from "@/lib/insights";
 import { Sparkline } from "@/components/viz";
 import { InsightIcon } from "@/components/icons";
 import { GlowPanel } from "@/components/ui/glow-panel";
@@ -15,10 +16,11 @@ const SEV: Record<Severity, { label: string; color: string; bg: string }> = {
 const ORDER: Severity[] = ["critical", "warning", "opportunity", "info"];
 
 export default function InsightsPage() {
+  const { data, loading } = useDashboard();
   const [filter, setFilter] = useState<Severity | "all">("all");
-  const insights = MOCK_INSIGHTS.filter((i) => filter === "all" || i.severity === filter).sort(
-    (a, b) => ORDER.indexOf(a.severity) - ORDER.indexOf(b.severity)
-  );
+
+  const allInsights = useMemo(() => computeInsights(data?.campaigns ?? []), [data]);
+  const insights = allInsights.filter((i) => filter === "all" || i.severity === filter);
 
   return (
     <div className="space-y-6">
@@ -27,27 +29,36 @@ export default function InsightsPage() {
           <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-faint)]">AI Analyst</p>
           <h1 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">Insights</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Findings computed nightly from your own data — anomalies, fatigue, pacing and opportunities
+            Rule-based findings computed live from your own Meta, Typeform and Clarity data: anomalies, fatigue, pacing and opportunities
           </p>
         </div>
         <span className="rounded-full bg-[var(--panel2)] px-3 py-1.5 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-          Preview — engine ships in Phase 3
+          {loading ? "Loading…" : `Live · ${allInsights.length} finding${allInsights.length === 1 ? "" : "s"}`}
         </span>
       </div>
 
       {/* filters */}
       <div className="fade-up flex flex-wrap gap-2" style={{ animationDelay: "0.05s" }}>
-        <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label={`All (${MOCK_INSIGHTS.length})`} />
+        <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label={`All (${allInsights.length})`} />
         {ORDER.map((s) => (
           <FilterChip
             key={s}
             active={filter === s}
             onClick={() => setFilter(s)}
-            label={`${SEV[s].label} (${MOCK_INSIGHTS.filter((i) => i.severity === s).length})`}
+            label={`${SEV[s].label} (${allInsights.filter((i) => i.severity === s).length})`}
             dot={SEV[s].color}
           />
         ))}
       </div>
+
+      {!loading && allInsights.length === 0 && (
+        <GlowPanel className="panel fade-up flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-base font-medium text-[var(--text)]">No findings right now</p>
+          <p className="mt-1 max-w-sm text-sm text-[var(--text-muted)]">
+            The detectors need a few days of active campaign data to establish a baseline. Nothing anomalous, fatigued, or inefficient has been detected yet.
+          </p>
+        </GlowPanel>
+      )}
 
       {/* feed */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

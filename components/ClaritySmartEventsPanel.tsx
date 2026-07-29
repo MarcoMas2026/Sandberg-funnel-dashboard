@@ -31,7 +31,7 @@ export default function ClaritySmartEventsPanel({ engagement }: { engagement: La
         ))}
       </div>
       <p className="mt-3 border-t border-[var(--border)] pt-2 text-[11px] text-[var(--text-faint)]">
-        Sourced from this site&apos;s own tracker, not Clarity&apos;s API — custom events aren&apos;t exportable via
+        Sourced from this site&apos;s own tracker, not Clarity&apos;s API. Custom events aren&apos;t exportable via
         Clarity.
       </p>
     </GlowPanel>

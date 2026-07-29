@@ -73,25 +73,27 @@ export function EngagementDotsGrid({ total }: { total: number }) {
   const bucket = pickBucket(total);
   const count = Math.min(SCATTER_ORDER.length, Math.max(0, Math.round(total / bucket)));
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[560px]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/funnel/vertical/empty-grid.png" alt="" className="absolute inset-0 h-full w-full object-contain" />
-      {Array.from({ length: count }, (_, i) => {
-        const { left, top } = cellPos(SCATTER_ORDER[i][0] * GRID_SIZE + SCATTER_ORDER[i][1]);
-        return (
-          <div
-            key={i}
-            className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{ left, top, width: `${CELL * 0.78}%`, height: `${CELL * 0.78}%` }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/funnel/vertical/circle-engagement.png" alt="" className="h-full w-full object-contain" />
-          </div>
-        );
-      })}
-      <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#1b2540] px-3 py-1 text-[11px] text-white">
-        1 dot ≈ {bucket.toLocaleString("en-GB")} engagements ({formatNumber(count)} of {formatNumber(total)} shown)
+    <div className="mx-auto w-full max-w-[560px]">
+      <div className="relative aspect-square w-full">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/funnel/vertical/empty-grid.png" alt="" className="absolute inset-0 h-full w-full object-contain" />
+        {Array.from({ length: count }, (_, i) => {
+          const { left, top } = cellPos(SCATTER_ORDER[i][0] * GRID_SIZE + SCATTER_ORDER[i][1]);
+          return (
+            <div
+              key={i}
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left, top, width: `${CELL * 0.78}%`, height: `${CELL * 0.78}%` }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/funnel/vertical/circle-engagement.png" alt="" className="h-full w-full object-contain" />
+            </div>
+          );
+        })}
       </div>
+      <p className="mt-3 whitespace-nowrap text-center text-[11px] text-[var(--text-faint)]">
+        1 dot ≈ {bucket.toLocaleString("en-GB")} engagements ({formatNumber(count)} of {formatNumber(total)} shown)
+      </p>
     </div>
   );
 }
@@ -132,7 +134,7 @@ export function LeadsLayerGrid({
             key={lead.response_id}
             type={onTagChange ? "button" : undefined}
             className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{ left, top, width: `${CELL * 1.15}%`, height: `${CELL * 1.15}%` }}
+            style={{ left, top, width: `${CELL * 0.92}%`, height: `${CELL * 0.92}%` }}
             onMouseEnter={() => setHover(lead.response_id)}
             onMouseLeave={() => setHover(null)}
             onClick={

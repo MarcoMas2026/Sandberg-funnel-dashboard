@@ -52,16 +52,21 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
     <div className="space-y-5 pt-2">
       <CampaignInfoBar campaign={campaign} lastUpdated={data?.last_updated ?? null} />
 
+      {/* Mobile: Metrics, then Funnel, then Summary/Landing (order-* below).
+          Desktop (lg+): unchanged 2-column layout — left stack, right funnel
+          spanning its full height — via explicit grid placement. */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[35fr_65fr]">
-        <div className="space-y-5">
+        <div className="order-1 lg:order-none lg:col-start-1 lg:row-start-1">
           <MetricsPanel meta={campaign.meta} tagCounts={tagCounts} />
-          <SummaryPanel meta={campaign.meta} />
-          <LandingEngagementPanel engagement={campaign.landing_engagement} />
         </div>
-        <div className="flex flex-col gap-3">
-          <div className="min-h-0 flex-1">
-            <IsometricFunnel campaign={campaign} tagCounts={tagCounts} />
-          </div>
+        <div className="order-2 h-[560px] lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:h-full">
+          <IsometricFunnel campaign={campaign} tagCounts={tagCounts} />
+        </div>
+        <div className="order-3 lg:order-none lg:col-start-1 lg:row-start-2">
+          <SummaryPanel meta={campaign.meta} />
+        </div>
+        <div className="order-4 lg:order-none lg:col-start-1 lg:row-start-3">
+          <LandingEngagementPanel engagement={campaign.landing_engagement} />
         </div>
       </div>
     </div>

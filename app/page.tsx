@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDashboard } from "@/lib/dashboard-context";
 import { HistoricalCampaign } from "@/lib/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { CountUp, DeltaChip, LeadQualityDonut, Pill, RingGauge, Sparkline } from "@/components/viz";
-import { MOCK_INSIGHTS, MOCK_QUALITY, Severity } from "@/lib/mock";
+import { MOCK_QUALITY } from "@/lib/mock";
+import { computeInsights, computePortfolioHealth, Severity } from "@/lib/insights";
 import { HomeIcon, InsightIcon } from "@/components/icons";
 import { LeadRecord } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
@@ -41,6 +42,7 @@ export default function MissionControl() {
 
   const active = (data?.campaigns ?? []).filter((c) => c.status === "ACTIVE");
   const activeIds = active.map((c) => c.campaign_id).join(",");
+  const insights = useMemo(() => computeInsights(data?.campaigns ?? []), [data]);
 
   // real qualified-lead composition, per campaign — same red/orange/blue
   // tags set on the Leads page, not the mock hot/warm/cold placeholder.
@@ -67,8 +69,7 @@ export default function MissionControl() {
   const totalSpend = active.reduce((s, c) => s + c.meta.spend, 0);
   const totalLeads = active.reduce((s, c) => s + c.meta.leads, 0);
   const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
-  // MOCK: portfolio health score — becomes a computed composite in Phase 3
-  const health = active.length > 0 ? 72 : 0;
+  const health = computePortfolioHealth(active, insights);
 
   const spendSpark = mergeDaily(active, "spend");
   const leadsSpark = mergeDaily(active, "leads");
@@ -86,15 +87,19 @@ export default function MissionControl() {
       {/* greeting header */}
       <div className="fade-up flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="mb-1 flex items-center gap-2 text-xs text-[var(--text-faint)]">
+          <p className="mb-1 hidden items-center gap-2 text-xs text-[var(--text-faint)] md:flex">
             <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
             {data?.last_updated ? `Last update ${formatDate(data.last_updated)}` : "No sync yet"}
           </p>
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">
+          <h1 className="whitespace-nowrap text-[1.75rem] font-bold tracking-tight text-[var(--text)] sm:text-4xl">
             {greeting()}, team <span className="align-middle">👋</span>
           </h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             {active.length} campaign{active.length === 1 ? "" : "s"} live right now across your portfolio
+          </p>
+          <p className="mt-2 flex items-center justify-center gap-2 text-xs text-[var(--text-faint)] md:hidden">
+            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            {data?.last_updated ? `Last update ${formatDate(data.last_updated)}` : "No sync yet"}
           </p>
         </div>
       </div>
@@ -135,11 +140,15 @@ export default function MissionControl() {
         <GlowPanel wrapperClassName="fade-up h-full" style={{ animationDelay: "0.2s" }} className="panel flex h-full items-center justify-between p-5">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Portfolio Health</p>
-            <p className="mt-2 max-w-[120px] text-[11px] leading-snug text-[var(--text-faint)]">
-              Pacing, fatigue &amp; anomaly composite <MockTag />
+            <p className="mt-2 hidden max-w-[120px] text-[11px] leading-snug text-[var(--text-faint)] md:block">
+              Composite of open findings across active campaigns
             </p>
           </div>
-          <RingGauge value={health} />
+          {health !== null ? (
+            <RingGauge value={health} />
+          ) : (
+            <span className="text-xs text-[var(--text-faint)]">No active campaigns</span>
+          )}
         </GlowPanel>
       </div>
 
@@ -150,14 +159,20 @@ export default function MissionControl() {
             <InsightIcon className="h-4 w-4" /> Live insights
           </span>
           <div className="relative min-w-0 flex-1 overflow-hidden">
-            <div className="ticker-track flex w-max items-center gap-10">
-              {[...MOCK_INSIGHTS, ...MOCK_INSIGHTS].map((ins, i) => (
-                <span key={ins.id + i} className="flex items-center gap-2 whitespace-nowrap text-xs text-[var(--text-muted)]">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: SEV_COLOR[ins.severity] }} />
-                  <span className="font-medium text-[var(--text)]">{ins.campaign}:</span> {ins.title}
-                </span>
-              ))}
-            </div>
+            {insights.length > 0 ? (
+              <div className="ticker-track flex w-max items-center gap-10">
+                {[...insights, ...insights].map((ins, i) => (
+                  <span key={ins.id + i} className="flex items-center gap-2 whitespace-nowrap text-xs text-[var(--text-muted)]">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: SEV_COLOR[ins.severity] }} />
+                    <span className="font-medium text-[var(--text)]">{ins.campaign}:</span> {ins.title}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="whitespace-nowrap text-xs text-[var(--text-faint)]">
+                No findings right now. Detectors are watching for anomalies, fatigue and pacing opportunities.
+              </span>
+            )}
           </div>
           <span className="shrink-0 text-[11px] text-[var(--text-faint)]">view all →</span>
         </div>
@@ -367,7 +382,7 @@ function MockTag() {
   return (
     <span
       className="ml-1 rounded bg-[var(--panel2)] px-1 py-px text-[9px] uppercase tracking-wide text-[var(--text-faint)]"
-      title="Placeholder — real data ships with its backend phase"
+      title="Placeholder: real data ships with its backend phase"
     >
       preview
     </span>

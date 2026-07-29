@@ -259,7 +259,7 @@ export async function getOkrData(): Promise<OkrData> {
       departments: [],
       fetchedAt,
       connected: false,
-      error: "Google Sheets is not configured — missing service account credentials or spreadsheet ID.",
+      error: "Google Sheets is not configured: missing service account credentials or spreadsheet ID.",
     };
   }
 

@@ -2,95 +2,12 @@
 // MOCK DATA — every export in this file is placeholder content for UI surfaces
 // whose backend phases (see ARCHITECTURE.md) are not built yet. Swap each
 // export for a real KV-backed API read as its phase ships:
-//   MOCK_INSIGHTS   -> insights:feed        (Phase 3)
 //   MOCK_QUALITY    -> leads:{campaign_id}  (Phase 2)
 //   MOCK_DEMAND     -> demand:map           (Phase 5)
 //   MOCK_DNA        -> creative:dna         (Phase 7)
-// Real data (funnel, campaigns, compare, daily series) never comes from here.
+// Real data (funnel, campaigns, compare, daily series, insights — see lib/insights.ts)
+// never comes from here.
 // ============================================================================
-
-export type Severity = "critical" | "warning" | "opportunity" | "info";
-
-export interface Insight {
-  id: string;
-  severity: Severity;
-  type: string;
-  campaign: string;
-  title: string;
-  evidence: string;
-  recommendation: string;
-  detected_at: string;
-  trend: number[]; // small evidence sparkline
-}
-
-export const MOCK_INSIGHTS: Insight[] = [
-  {
-    id: "i1",
-    severity: "critical",
-    type: "Tracking",
-    campaign: "Anchorage Club",
-    title: "Zero-lead day while spending",
-    evidence: "€41.20 spent on Jul 12 with 61 link clicks but 0 form submissions — 3.2σ below the campaign's daily baseline.",
-    recommendation: "Verify the landing page CTA and Typeform embed. If the form loads, check fbclid forwarding on the CTA URL.",
-    detected_at: "2026-07-13T07:00:00Z",
-    trend: [6, 8, 7, 9, 5, 0, 7],
-  },
-  {
-    id: "i2",
-    severity: "warning",
-    type: "Creative fatigue",
-    campaign: "Anchorage Club",
-    title: "Hero image ad is fatiguing",
-    evidence: "CTR down 31% over 7 days while frequency climbed from 1.8 to 3.1 and CPM rose 22% — the classic three-signal fatigue pattern.",
-    recommendation: "Rotate in a fresh visual this week. Winner curves suggest fatigue at this stage costs ~4 quality leads per week.",
-    detected_at: "2026-07-13T07:00:00Z",
-    trend: [8.2, 7.9, 7.1, 6.4, 6.6, 5.9, 5.6],
-  },
-  {
-    id: "i3",
-    severity: "opportunity",
-    type: "Budget pacing",
-    campaign: "Anchorage Club",
-    title: "Marginal CPQL⁺ supports +€10/day",
-    evidence: "Trailing-7-day cost per quality lead is €7.40 vs €13.10 portfolio average, with stable frequency (1.9) — headroom before saturation.",
-    recommendation: "Increase daily budget by €10. Projected +6 quality leads/month at current conversion.",
-    detected_at: "2026-07-12T07:00:00Z",
-    trend: [11, 10, 9.4, 8.8, 8.1, 7.7, 7.4],
-  },
-  {
-    id: "i4",
-    severity: "opportunity",
-    type: "Lifecycle",
-    campaign: "Anchorage Club",
-    title: "Ahead of the winner curve",
-    evidence: "Day 8: 55 leads vs 41 for the median top-3 community campaign at day 8 (+34%). Velocity trend still positive.",
-    recommendation: "Hold strategy. Bank this creative set in the DNA library as a community-campaign reference.",
-    detected_at: "2026-07-12T07:00:00Z",
-    trend: [10, 18, 26, 33, 40, 48, 55],
-  },
-  {
-    id: "i5",
-    severity: "info",
-    type: "Audience",
-    campaign: "Anchorage Club",
-    title: "Instagram placement outperforming",
-    evidence: "IG feed delivers 71% of quality leads at 0.8× the CPM of Facebook placements this week.",
-    recommendation: "No action — Advantage+ is already shifting delivery. Watch that FB share keeps falling.",
-    detected_at: "2026-07-11T07:00:00Z",
-    trend: [52, 55, 61, 64, 68, 70, 71],
-  },
-  {
-    id: "i6",
-    severity: "warning",
-    type: "Form drop-off",
-    campaign: "Anchorage Club",
-    title: "Budget question sheds 24% of starters",
-    evidence: "The budget-range step lost 30 of 126 starters this period — 1.7× the historical drop for that step across community forms.",
-    recommendation: "Test moving the budget question one step later, after community interest is established.",
-    detected_at: "2026-07-10T07:00:00Z",
-    trend: [14, 15, 18, 19, 22, 23, 24],
-  },
-];
 
 export interface QualityBand {
   hot: number; // score >= 75

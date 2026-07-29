@@ -117,3 +117,9 @@ export const TargetIcon = ({ className }: P) => (
     <circle cx="12" cy="12" r="1" />
   </svg>
 );
+
+export const ArrowLeftIcon = ({ className }: P) => (
+  <svg {...base(className)}>
+    <path d="M19 12H5M11 18l-6-6 6-6" />
+  </svg>
+);

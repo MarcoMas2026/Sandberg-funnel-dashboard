@@ -316,7 +316,7 @@ function DropoffTip({
   const dropped = last ? 0 : stages[i].value - stages[i + 1].value;
   const dropRate = !last && stages[i].value > 0 ? dropped / stages[i].value : 0;
   const label = last
-    ? "the qualified lead — end of funnel"
+    ? "the qualified lead, end of funnel"
     : `${formatNumber(dropped)} drop off before the next step (${formatPercent(dropRate)})`;
   return (
     <g pointerEvents="none">

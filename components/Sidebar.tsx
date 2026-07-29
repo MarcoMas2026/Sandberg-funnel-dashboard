@@ -4,47 +4,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDashboard } from "@/lib/dashboard-context";
 import { Logo } from "./Logo";
-import { Sidebar as SidebarShell, SidebarBody, SidebarLink, useSidebar } from "./ui/sidebar";
-import {
-  BarIcon,
-  CompareIcon,
-  PatternsIcon,
-  InsightIcon,
-  MapIcon,
-  TargetIcon,
-  LeadIcon,
-} from "./icons";
-import { LayoutDashboard } from "lucide-react";
+import { Sidebar as SidebarShell, DesktopSidebar, SidebarLink, useSidebar } from "./ui/sidebar";
+import { NAV_ITEMS } from "@/lib/nav";
 import { formatDate } from "@/lib/format";
 import { motion } from "framer-motion";
-
-const ITEMS = [
-  { href: "/", label: "Mission Control", icon: LayoutDashboard, exact: true },
-  { href: "/campaign", label: "Campaigns", icon: BarIcon },
-  { href: "/leads", label: "Leads", icon: LeadIcon },
-  { href: "/insights", label: "Insights", icon: InsightIcon },
-  { href: "/compare", label: "Compare", icon: CompareIcon },
-  { href: "/demand", label: "Demand Map", icon: MapIcon },
-  { href: "/patterns", label: "Patterns", icon: PatternsIcon },
-  { href: "/okrs", label: "OKRs", icon: TargetIcon },
-];
 
 // Mirrors the aceternity sidebar demo's shape/colors exactly: bg-neutral-100
 // (dark:neutral-800) body, rounded-md, neutral-200 border, gap-10, plain
 // neutral-700/200 link text — same box the shared component ships with.
+// Desktop (md+) only — mobile uses MobileTopNav instead (see app/layout.tsx).
 export default function Sidebar() {
   const pathname = usePathname();
   const { data } = useDashboard();
   const firstCampaignId = data?.campaigns?.[0]?.campaign_id;
 
   return (
-    <div className="shrink-0 md:sticky md:top-3 md:h-[calc(100vh-1.5rem)]">
+    <div className="hidden shrink-0 md:sticky md:top-3 md:block md:h-[calc(100vh-1.5rem)]">
       <SidebarShell>
-        <SidebarBody className="justify-between gap-10 rounded-md border border-neutral-200 dark:border-neutral-700 md:h-full">
+        <DesktopSidebar className="justify-between gap-10 rounded-md border border-neutral-200 dark:border-neutral-700 md:h-full">
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
             <BrandLogo />
             <div className="mt-8 flex flex-col gap-2">
-              {ITEMS.map((item) => {
+              {NAV_ITEMS.map((item) => {
                 const href = item.href === "/campaign" ? (firstCampaignId ? `/campaign/${firstCampaignId}` : "/") : item.href;
                 const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
                 const Icon = item.icon;
@@ -64,7 +45,7 @@ export default function Sidebar() {
           </div>
 
           <SidebarFooter />
-        </SidebarBody>
+        </DesktopSidebar>
       </SidebarShell>
     </div>
   );

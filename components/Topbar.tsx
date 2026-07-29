@@ -19,7 +19,7 @@ export default function Topbar() {
   const label = LABELS[section] ?? "Mission Control";
 
   return (
-    <div className="mb-6 flex items-center justify-between gap-4">
+    <div className="mb-6 hidden items-center justify-between gap-4 md:flex">
       <div className="flex items-center gap-2 text-sm text-[var(--text-faint)]">
         <HomeGlyph />
         <span>Overview</span>

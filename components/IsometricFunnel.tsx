@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FunnelCampaign } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
@@ -164,14 +164,34 @@ export default function IsometricFunnel({ campaign, tagCounts }: { campaign: Fun
   const router = useRouter();
   const [hoverLayer, setHoverLayer] = useState<number | null>(null);
 
+  // Mobile gets its own tighter rail widths + bigger type: less dead label
+  // margin lets the viewBox shrink, which raises the effective render scale
+  // (the box's own height is also taller on mobile — see the wrapper in
+  // app/campaign/[id]/page.tsx), so the whole diagram — grids, metrics and
+  // conversion numbers alike — comes out larger without touching desktop.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   const tags = tagCounts ?? { red: 0, orange: 0, blue: 0 };
   const submissions = typeform.completions;
 
-  const topPad = 30;
-  const leftPad = 210; // room for the left label rail
-  const rightPad = 140; // room for the right conversion rail
+  const topPad = isMobile ? 24 : 30;
+  const leftPad = isMobile ? 172 : 210; // room for the left label rail
+  const rightPad = isMobile ? 92 : 140; // room for the right conversion rail
   const vbW = leftPad + DISPLAY_W + rightPad;
   const vbH = topPad + TOTAL_H + 30;
+
+  const nameFS = isMobile ? 13 : 11.5;
+  const valueFS = isMobile ? 17.5 : 15;
+  const subFS = isMobile ? 9.5 : 8.5;
+  const convFS = isMobile ? 19 : 17;
+  const convSubFS = isMobile ? 9.5 : 8.5;
 
   // Each stage's raw y-offset (pre topPad/PLANE_H-centering) — shared by the
   // label rail below and the click-through hit zones that open that layer's
@@ -237,13 +257,13 @@ export default function IsometricFunnel({ campaign, tagCounts }: { campaign: Fun
 
           {labels.map((l) => (
             <g key={l.name} transform={`translate(${leftPad - 16}, ${l.y})`}>
-              <text x={0} y={-11} textAnchor="end" fontSize={11.5} fontWeight={600} fill="var(--text)">
+              <text x={0} y={-11} textAnchor="end" fontSize={nameFS} fontWeight={600} fill="var(--text)">
                 {l.name}
               </text>
-              <text x={0} y={5} textAnchor="end" fontSize={15} fontWeight={700} fill="var(--text)" style={{ fontVariantNumeric: "tabular-nums" }}>
+              <text x={0} y={5} textAnchor="end" fontSize={valueFS} fontWeight={700} fill="var(--text)" style={{ fontVariantNumeric: "tabular-nums" }}>
                 {formatNumber(l.value)}
               </text>
-              <text x={0} y={17} textAnchor="end" fontSize={8.5} letterSpacing={0.6} fill="var(--text-faint)">
+              <text x={0} y={17} textAnchor="end" fontSize={subFS} letterSpacing={0.6} fill="var(--text-faint)">
                 {l.sub.toUpperCase()}
               </text>
             </g>
@@ -254,10 +274,10 @@ export default function IsometricFunnel({ campaign, tagCounts }: { campaign: Fun
             if (r === null) return null;
             return (
               <g key={`r-${l.name}`} transform={`translate(${leftPad + DISPLAY_W + 16}, ${l.y})`}>
-                <text x={0} y={-2} fontSize={17} fontWeight={700} fill="var(--text)">
+                <text x={0} y={-2} fontSize={convFS} fontWeight={700} fill="var(--text)">
                   {formatPercent(r)}
                 </text>
-                <text x={0} y={12} fontSize={8.5} letterSpacing={1} fill="var(--text-faint)">
+                <text x={0} y={12} fontSize={convSubFS} letterSpacing={1} fill="var(--text-faint)">
                   CONVERT
                 </text>
               </g>

@@ -26,11 +26,11 @@ export default function DemandPage() {
           <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-faint)]">Market Intelligence</p>
           <h1 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">Buyer Demand Map</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            What your paid traffic is telling you buyers want — aggregated from every form submission
+            What your paid traffic is telling you buyers want, aggregated from every form submission
           </p>
         </div>
         <span className="rounded-full bg-[var(--panel2)] px-3 py-1.5 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-          Preview — real aggregation ships in Phase 5
+          Preview: real aggregation ships in Phase 5
         </span>
       </div>
 

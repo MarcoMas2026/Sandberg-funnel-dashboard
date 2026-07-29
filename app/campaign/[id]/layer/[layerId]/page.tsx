@@ -9,11 +9,17 @@ import { formatCurrency, formatNumber, formatPercent, shortDay } from "@/lib/for
 import { FunnelCampaign, LeadRecord, LeadTag, MetaBreakdownRow } from "@/lib/types";
 import { StaticLayerGrid, EngagementDotsGrid, LeadsLayerGrid } from "@/components/LayerVisual";
 import ClarityKpiRow from "@/components/ClarityKpiRow";
-import ClarityUsersOverviewPanel from "@/components/ClarityUsersOverviewPanel";
 import ClarityInsightsPanel from "@/components/ClarityInsightsPanel";
 import ClaritySmartEventsPanel from "@/components/ClaritySmartEventsPanel";
 import LandingFunnelGrid from "@/components/LandingFunnelGrid";
-import { DotsIcon, FunnelIcon, InsightIcon } from "@/components/icons";
+import LandingDeviceGrid from "@/components/LandingDeviceGrid";
+import VideoRetentionPanel from "@/components/VideoRetentionPanel";
+import VideoFunnelPanel from "@/components/VideoFunnelPanel";
+import TypeformDropoffPanel from "@/components/TypeformDropoffPanel";
+import LeadSegmentationMatrix from "@/components/LeadSegmentationMatrix";
+import LeadsDailyPanel from "@/components/LeadsDailyPanel";
+import LayerMenu from "@/components/LayerMenu";
+import { ArrowLeftIcon, DotsIcon, FunnelIcon, InsightIcon } from "@/components/icons";
 
 // Capitalizes a raw Meta breakdown value ("mobile_app" -> "Mobile app").
 function humanize(s: string): string {
@@ -84,7 +90,7 @@ function gridConclusion(layerNum: number, campaign: FunnelCampaign, leads: LeadR
     const tagged = leads.filter((l) => l.tag);
     if (!leads.length) return null;
     const redShare = leads.filter((l) => l.tag === "red").length / leads.length;
-    return `${formatPercent(redShare, 0)} of submissions are tagged high (red) — cost per qualified lead is ${formatCurrency(derived.cost_per_qualified_lead, 2)}${
+    return `${formatPercent(redShare, 0)} of submissions are tagged high (red), cost per qualified lead is ${formatCurrency(derived.cost_per_qualified_lead, 2)}${
       tagged.length < leads.length ? `, ${leads.length - tagged.length} still untagged` : ""
     }`;
   }
@@ -102,12 +108,12 @@ function ConclusionBadge({ text }: { text: string }) {
   );
 }
 
-type LayerKind = "static" | "engagement" | "leads" | "qualified";
+type LayerKind = "static" | "engagement" | "landing-device" | "leads" | "qualified";
 
 const LAYER_META: Record<number, { name: string; sub: string; kind: LayerKind; asset?: string }> = {
   1: { name: "Ad Appears", sub: "impressions", kind: "static", asset: "/funnel/vertical/layer1.png" },
   2: { name: "Engagement", sub: "post engagements", kind: "engagement" },
-  3: { name: "Enters Landing Page", sub: "link clicks", kind: "static", asset: "/funnel/vertical/layer3.png" },
+  3: { name: "Enters Landing Page", sub: "link clicks", kind: "landing-device" },
   4: { name: "Enters Typeform", sub: "form starts", kind: "static", asset: "/funnel/vertical/layer4.png" },
   5: { name: "Fills Typeform", sub: "submissions", kind: "leads" },
   6: { name: "Qualified Lead", sub: "red / orange / blue", kind: "qualified" },
@@ -153,44 +159,52 @@ export default function LayerPage({ params }: { params: { id: string; layerId: s
 
   return (
     <div className="space-y-5 pt-2">
-      <GlowPanel className="panel flex items-center justify-between px-6 py-4">
-        <div>
+      <GlowPanel className="panel flex flex-col gap-4 px-6 py-4">
+        <div className="flex items-center gap-3">
           <Link
             href={`/campaign/${campaign.campaign_id}`}
-            className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
+            aria-label={`Back to ${campaign.property}`}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--panel2)] text-[var(--text-muted)] transition-colors hover:bg-[var(--panel3)] hover:text-[var(--text)]"
           >
-            ← {campaign.property}
+            <ArrowLeftIcon className="h-4 w-4" />
           </Link>
-          <div className="mt-1 flex items-center gap-2">
-            <span className="text-[var(--accent)]">
-              <FunnelIcon className="h-4 w-4" />
-            </span>
-            <h1 className="text-lg font-semibold text-[var(--text)]">{meta.name}</h1>
+          <div>
+            <p className="text-xs text-[var(--text-muted)]">{campaign.property}</p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <span className="text-[var(--accent)]">
+                <FunnelIcon className="h-4 w-4" />
+              </span>
+              <h1 className="text-lg font-semibold text-[var(--text)]">{meta.name}</h1>
+              <span className="text-xs uppercase tracking-wide text-[var(--text-faint)]">{meta.sub}</span>
+            </div>
           </div>
         </div>
-        <span className="text-xs uppercase tracking-wide text-[var(--text-faint)]">{meta.sub}</span>
+        <LayerMenu campaignId={campaign.campaign_id} activeLayer={layerNum} />
       </GlowPanel>
 
       {layerNum === 3 && <ClarityKpiRow clarity={campaign.clarity} />}
 
+      {/* Mobile: grid box first, then Left/Right stat panels (order-* below).
+          Desktop (lg+): unchanged 3-column layout via order-none, reverting
+          to source order = Left | Grid | Right columns. */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[27fr_46fr_27fr]">
-        <div className="space-y-5">
+        <div className="order-2 space-y-5 lg:order-none">
           <LeftPanel layerNum={layerNum} campaign={campaign} leads={leads} />
         </div>
 
-        <GlowPanel className="panel flex flex-col items-center gap-3 p-6">
+        <GlowPanel className="order-1 panel flex flex-col items-center gap-3 p-6 lg:order-none">
           {(() => {
             const c = gridConclusion(layerNum, campaign, leads);
             return c ? <ConclusionBadge text={c} /> : null;
           })()}
-          {layerNum === 3 && <LandingFunnelGrid engagement={campaign.landing_engagement} />}
-          {layerNum !== 3 && meta.kind === "static" && <StaticLayerGrid src={meta.asset!} alt={meta.name} />}
+          {meta.kind === "static" && <StaticLayerGrid src={meta.asset!} alt={meta.name} />}
+          {meta.kind === "landing-device" && <LandingDeviceGrid byDevice={campaign.meta.by_device} />}
           {meta.kind === "engagement" && <EngagementDotsGrid total={campaign.meta.engagement} />}
           {meta.kind === "leads" && <LeadsLayerGrid leads={leads} colorByTag={false} />}
           {meta.kind === "qualified" && <LeadsLayerGrid leads={leads} colorByTag onTagChange={setTag} />}
         </GlowPanel>
 
-        <div className="space-y-5">
+        <div className="order-3 space-y-5 lg:order-none">
           <RightPanel layerNum={layerNum} campaign={campaign} leads={leads} />
         </div>
       </div>
@@ -208,112 +222,39 @@ function LeftPanel({
   campaign: FunnelCampaign;
   leads: LeadRecord[];
 }) {
-  const { meta, typeform, derived } = campaign;
+  const { meta, typeform } = campaign;
 
   if (layerNum === 1) {
     return (
-      <StatPanel title="Daily impressions">
-        <Sparkline data={meta.daily.map((d) => d.impressions)} width={280} height={70} markers />
-        <StatRow label="Total impressions" value={formatNumber(meta.impressions)} accent />
-        <StatRow label="Overall CTR" value={formatPercent(meta.ctr, 2)} />
-        <DailyList rows={meta.daily.map((d) => ({ label: shortDay(d.date), value: formatNumber(d.impressions) }))} />
-      </StatPanel>
+      <>
+        <StatPanel title="Daily impressions">
+          <Sparkline data={meta.daily.map((d) => d.impressions)} width={280} height={70} markers />
+          <StatRow label="Total impressions" value={formatNumber(meta.impressions)} accent />
+          <DailyList rows={meta.daily.map((d) => ({ label: shortDay(d.date), value: formatNumber(d.impressions) }))} />
+        </StatPanel>
+        <StatPanel title="Overall CTR">
+          <Sparkline data={meta.daily.map((d) => d.ctr)} width={280} height={70} markers stroke="#8b5cf6" />
+          <StatRow label="Overall CTR" value={formatPercent(meta.ctr, 2)} accent />
+          <DailyList rows={meta.daily.map((d) => ({ label: shortDay(d.date), value: formatPercent(d.ctr, 2) }))} />
+        </StatPanel>
+      </>
     );
   }
 
   if (layerNum === 2) {
-    const days = meta.daily.filter((d) => d.impressions > 0);
-    const avgHookRate = days.length
-      ? days.reduce((sum, d) => sum + d.engagement / d.impressions, 0) / days.length
-      : 0;
-    return (
-      <StatPanel title="Daily engagement">
-        <Sparkline data={meta.daily.map((d) => d.engagement)} width={280} height={70} markers />
-        <StatRow label="Total post engagements" value={formatNumber(meta.engagement)} accent />
-        <StatRow label="Avg. engagement rate" value={formatPercent(avgHookRate, 2)} />
-        <DailyList rows={meta.daily.map((d) => ({ label: shortDay(d.date), value: formatNumber(d.engagement) }))} />
-      </StatPanel>
-    );
+    return <VideoRetentionPanel />;
   }
 
   if (layerNum === 3) {
-    return <ClarityUsersOverviewPanel clarity={campaign.clarity} />;
+    return <LandingFunnelGrid engagement={campaign.landing_engagement} />;
   }
 
   if (layerNum === 4) {
-    const stages = [
-      { label: "Views", value: typeform.views },
-      { label: "Starts", value: typeform.starts },
-      { label: "Completions", value: typeform.completions },
-    ];
-    const max = Math.max(1, ...stages.map((s) => s.value));
-    return (
-      <StatPanel title="Form drop-off">
-        <div className="space-y-2">
-          {stages.map((s) => (
-            <div key={s.label}>
-              <div className="mb-1 flex items-center justify-between text-xs text-[var(--text-muted)]">
-                <span>{s.label}</span>
-                <span className="font-semibold text-[var(--text)]">{formatNumber(s.value)}</span>
-              </div>
-              <div className="h-2 rounded-full bg-[var(--panel2)]">
-                <div
-                  className="h-2 rounded-full bg-[var(--accent)]"
-                  style={{ width: `${(s.value / max) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </StatPanel>
-    );
+    return <TypeformDropoffPanel views={typeform.views} starts={typeform.starts} completions={typeform.completions} />;
   }
 
-  if (layerNum === 5) {
-    const recent = [...leads]
-      .sort((a, b) => (b.submitted_at ?? "").localeCompare(a.submitted_at ?? ""))
-      .slice(0, 8);
-    return (
-      <StatPanel title="Submissions">
-        <StatRow label="Total submissions" value={formatNumber(typeform.completions)} accent />
-        <StatRow label="Form completion rate" value={formatPercent(derived.form_completion_rate, 1)} />
-        <div className="mt-3 space-y-1.5">
-          <p className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Most recent</p>
-          {recent.map((lead) => (
-            <div
-              key={lead.response_id}
-              className="flex items-center justify-between rounded-lg bg-[var(--panel2)] px-3 py-2 text-xs"
-            >
-              <span className="font-medium text-[var(--text)]">{lead.first_name || "—"}</span>
-              <span className="text-[var(--text-muted)]">{lead.language || "—"}</span>
-              <span className="text-[var(--text-faint)]">{formatDateShort(lead.submitted_at)}</span>
-            </div>
-          ))}
-          {recent.length === 0 && <p className="text-xs text-[var(--text-faint)]">No submissions yet.</p>}
-        </div>
-      </StatPanel>
-    );
-  }
-
-  // layerNum === 6
-  const counts = { red: 0, orange: 0, blue: 0, none: 0 };
-  for (const l of leads) {
-    if (l.tag === "red") counts.red++;
-    else if (l.tag === "orange") counts.orange++;
-    else if (l.tag === "blue") counts.blue++;
-    else counts.none++;
-  }
-  return (
-    <StatPanel title="Qualification breakdown">
-      <div className="grid grid-cols-2 gap-3">
-        <Kpi label="High (red)" value={formatNumber(counts.red)} dot="#ef4444" />
-        <Kpi label="Mid (orange)" value={formatNumber(counts.orange)} dot="#f59e0b" />
-        <Kpi label="Low (blue)" value={formatNumber(counts.blue)} dot="#3b82f6" />
-        <Kpi label="Untagged" value={formatNumber(counts.none)} />
-      </div>
-      <Note>Click a square in the grid to cycle its tag — same tagging used on the Leads page.</Note>
-    </StatPanel>
-  );
+  // layerNum 5 and 6 share the same segmentation matrix
+  return <LeadSegmentationMatrix leads={leads} />;
 }
 
 // Platform/device breakdown (1-3), or segment/rate detail (4-6), right of the
@@ -327,32 +268,42 @@ function RightPanel({
   campaign: FunnelCampaign;
   leads: LeadRecord[];
 }) {
-  const { meta, typeform, derived } = campaign;
+  const { meta, typeform } = campaign;
 
   if (layerNum === 1) {
     return (
-      <BreakdownPanel
-        title="Where impressions land"
-        platform={meta.by_platform}
-        device={meta.by_device}
-        metric="impressions"
-        formatValue={formatNumber}
-        secondary={(r) => `€${r.spend.toFixed(2)}`}
-        note="Colored by impressions per platform/device, each its own real Meta Insights breakdown call — shows where budget is actually landing eyeballs, not just that it was spent."
-      />
+      <>
+        <BreakdownPanel
+          title="Platform breakdown"
+          platform={meta.by_platform}
+          device={meta.by_device}
+          metric="impressions"
+          formatValue={formatNumber}
+          secondary={(r) => `€${r.spend.toFixed(2)}`}
+          fixedView="platform"
+          note="Shown as period totals, a true day-by-day trend per platform needs a Meta Sync workflow change to fetch breakdowns with time_increment, not fetched today."
+        />
+        <BreakdownPanel
+          title="Device breakdown"
+          platform={meta.by_platform}
+          device={meta.by_device}
+          metric="impressions"
+          formatValue={formatNumber}
+          secondary={(r) => `€${r.spend.toFixed(2)}`}
+          fixedView="device"
+          note="Shown as period totals, a true day-by-day trend per device needs the same Meta Sync workflow change, not fetched today."
+        />
+      </>
     );
   }
 
   if (layerNum === 2) {
     return (
-      <BreakdownPanel
-        title="Engagement by platform / device"
-        platform={meta.by_platform}
-        device={meta.by_device}
-        metric="engagement"
-        formatValue={formatNumber}
-        secondary={(r) => (r.impressions > 0 ? formatPercent(r.engagement / r.impressions, 1) + " rate" : "—")}
-        note="Watch for a platform with a small share of impressions but a much higher engagement rate — that's the case for shifting creative testing there."
+      <VideoFunnelPanel
+        impressions={meta.impressions}
+        videoPlays={meta.video_plays}
+        linkClicks={meta.link_clicks}
+        leads={typeform.completions}
       />
     );
   }
@@ -369,53 +320,18 @@ function RightPanel({
   if (layerNum === 4) {
     return (
       <StatPanel title="Form rates">
-        <StatRow label="Completion rate" value={formatPercent(typeform.completion_rate, 1)} accent />
-        <StatRow label="Click → form start" value={formatPercent(derived.click_to_form_start_rate, 1)} />
         <StatRow label="Views" value={formatNumber(typeform.views)} />
         <StatRow label="Starts" value={formatNumber(typeform.starts)} />
-        <StatRow label="Completions" value={formatNumber(typeform.completions)} />
-        <Note>
-          Per-question drop-off (e.g. which question loses the most starters) needs a Typeform Sync workflow
-          change to capture question-level data — not populated today, so it isn&apos;t shown here.
-        </Note>
+        <StatRow label="Submissions" value={formatNumber(typeform.completions)} accent />
+        <StatRow label="Completion rate" value={formatPercent(typeform.completion_rate, 1)} accent />
+        <StatRow label="Time to complete" value="—" />
+        <Note>Time to complete needs a per-response duration field the Typeform Sync workflow doesn&apos;t capture today.</Note>
       </StatPanel>
     );
   }
 
-  if (layerNum === 5) {
-    const language = topSegment(leads, "language");
-    const budget = topSegment(leads, "budget");
-    const stage = topSegment(leads, "stage");
-    return (
-      <StatPanel title="Submission segments">
-        <SegmentRow label="Top language" segment={language} />
-        <SegmentRow label="Top budget bracket" segment={budget} />
-        <SegmentRow label="Top search stage" segment={stage} />
-        <Note>Computed directly from each submission&apos;s captured language/budget/stage answers — blanks excluded.</Note>
-      </StatPanel>
-    );
-  }
-
-  // layerNum === 6
-  const redLeads = leads.filter((l) => l.tag === "red");
-  const topRedBudget = topSegment(redLeads, "budget");
-  return (
-    <StatPanel title="Qualification value">
-      <StatRow label="Cost per qualified lead" value={formatCurrency(derived.cost_per_qualified_lead, 2)} accent />
-      <SegmentRow label="Top budget among high (red) leads" segment={topRedBudget} />
-    </StatPanel>
-  );
-}
-
-function SegmentRow({ label, segment }: { label: string; segment: { value: string; pct: number } | null }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-[var(--text-muted)]">{label}</span>
-      <span className="text-sm font-semibold text-[var(--text)]">
-        {segment ? `${segment.value} (${formatPercent(segment.pct, 0)})` : "—"}
-      </span>
-    </div>
-  );
+  // layerNum 5 and 6 share the daily activity panel
+  return <LeadsDailyPanel leads={leads} />;
 }
 
 // Platform and device are rendered as two separate toggleable views (never
@@ -432,6 +348,7 @@ function BreakdownPanel({
   secondary,
   note,
   defaultView = "platform",
+  fixedView,
 }: {
   title: string;
   platform: MetaBreakdownRow[];
@@ -441,21 +358,25 @@ function BreakdownPanel({
   secondary?: (r: MetaBreakdownRow) => string;
   note?: string;
   defaultView?: "platform" | "device";
+  fixedView?: "platform" | "device";
 }) {
-  const [view, setView] = useState<"platform" | "device">(defaultView);
-  const rows = [...(view === "platform" ? platform : device)].sort(
+  const [view, setView] = useState<"platform" | "device">(fixedView ?? defaultView);
+  const effectiveView = fixedView ?? view;
+  const rows = [...(effectiveView === "platform" ? platform : device)].sort(
     (a, b) => (Number(b[metric]) || 0) - (Number(a[metric]) || 0)
   );
   const max = Math.max(1, ...rows.map((r) => Number(r[metric]) || 0));
   return (
     <StatPanel title={title}>
-      <div className="flex gap-2">
-        <Pill label="Platform" active={view === "platform"} onClick={() => setView("platform")} />
-        <Pill label="Device" active={view === "device"} onClick={() => setView("device")} />
-      </div>
+      {!fixedView && (
+        <div className="flex gap-2">
+          <Pill label="Platform" active={view === "platform"} onClick={() => setView("platform")} />
+          <Pill label="Device" active={view === "device"} onClick={() => setView("device")} />
+        </div>
+      )}
       <div className="space-y-2">
         {rows.map((r, i) => {
-          const label = (view === "platform" ? r.platform : r.device) ?? "unknown";
+          const label = (effectiveView === "platform" ? r.platform : r.device) ?? "unknown";
           const value = Number(r[metric]) || 0;
           return (
             <div key={`${label}-${i}`}>
@@ -504,18 +425,6 @@ function StatRow({ label, value, accent }: { label: string; value: string; accen
   );
 }
 
-function Kpi({ label, value, dot }: { label: string; value: string; dot?: string }) {
-  return (
-    <div className="rounded-xl bg-[var(--panel2)] p-3">
-      <div className="flex items-center gap-1.5">
-        {dot && <span className="h-2 w-2 rounded-full" style={{ background: dot }} />}
-        <p className="text-lg font-semibold text-[var(--text)]">{value}</p>
-      </div>
-      <p className="mt-0.5 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
-    </div>
-  );
-}
-
 function DailyList({ rows }: { rows: { label: string; value: string }[] }) {
   return (
     <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
@@ -536,9 +445,3 @@ function Note({ children }: { children: React.ReactNode }) {
   return <p className="border-t border-[var(--border)] pt-2 text-[11px] text-[var(--text-faint)]">{children}</p>;
 }
 
-function formatDateShort(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
-}

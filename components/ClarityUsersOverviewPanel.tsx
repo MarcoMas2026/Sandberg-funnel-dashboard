@@ -34,7 +34,7 @@ export default function ClarityUsersOverviewPanel({ clarity }: { clarity: Clarit
       </div>
 
       <p className="mt-4 border-t border-[var(--border)] pt-2 text-[11px] text-[var(--text-faint)]">
-        Live users and new/returning session splits aren&apos;t exposed by Clarity&apos;s export API — only visible
+        Live users and new/returning session splits aren&apos;t exposed by Clarity&apos;s export API, only visible
         directly in Clarity&apos;s own dashboard.
       </p>
     </GlowPanel>

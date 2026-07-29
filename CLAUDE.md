@@ -30,11 +30,16 @@ value-based CAPI feedback loop) with build-order and zero-API-cost constraints.
   hardcode mappings in n8n.
 - **Vercel free-team build rule:** git commits must be authored as `MarcoMas2026` or the deploy
   won't build.
-- **STALE NOTE, corrected 2026-07-16:** Compare is fully live/functional (real data). Insights,
-  Demand Map, and Patterns are real pages too, but currently render `lib/mock.ts` data pending
-  their ARCHITECTURE.md backend phases — every mocked number is tagged "preview" in the UI. Only
-  the **Patterns** nav item text used to be a true disabled placeholder; that's gone now. Don't
-  assume any nav item is inert — check `lib/mock.ts` vs live KV reads per page if unsure.
+- **STALE NOTE, corrected 2026-07-29:** Compare is fully live/functional (real data). **Insights
+  is also fully live** as of 2026-07-29 — `lib/insights.ts`'s `computeInsights()` /
+  `computePortfolioHealth()` run rule-based detectors directly on `funnel:merged` (Meta's
+  `meta.daily[]`, Typeform field drop-off, Clarity friction) at render time in the browser; no
+  mock data, no `insights:feed` KV key. This is a lighter, non-n8n path than ARCHITECTURE.md's
+  original Phase 3 spec (see CONTEXT.md §11.1) — ad-level fatigue and lifecycle "winner curves"
+  (Phases 4–5) still need the n8n history-snapshot workflow and remain unbuilt. Demand Map and
+  Patterns are real pages but still render `lib/mock.ts` data pending their ARCHITECTURE.md
+  backend phases — every mocked number is tagged "preview" in the UI. Don't assume any nav item
+  is inert — check `lib/mock.ts` vs live KV/computed reads per page if unsure.
 
 ## The 3 n8n workflows (instance: n8n.srv980538.hstgr.cloud)
 

@@ -24,7 +24,7 @@ import {
 } from "@/lib/format";
 import { CplIcon, CtrIcon, DotsIcon, LeadIcon, PieIcon, SpendIcon, TargetIcon } from "./icons";
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { LeadQualityDonut } from "@/components/viz";
+import { LeadQualityBar } from "@/components/viz";
 
 interface TagCounts {
   red: number;
@@ -185,23 +185,7 @@ export default function MetricsPanel({ meta, tagCounts }: { meta: MetaCampaign; 
                 {formatNumber(tagCounts.red + tagCounts.orange + tagCounts.blue)} tagged
               </span>
             </div>
-            <div className="flex items-center gap-3">
-              <LeadQualityDonut red={tagCounts.red} orange={tagCounts.orange} blue={tagCounts.blue} />
-              <div className="flex flex-col gap-1 text-[11px] text-[var(--text-faint)]">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" />
-                  {tagCounts.red} high
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#f59e0b]" />
-                  {tagCounts.orange} mid
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#3b82f6]" />
-                  {tagCounts.blue} low
-                </span>
-              </div>
-            </div>
+            <LeadQualityBar red={tagCounts.red} orange={tagCounts.orange} blue={tagCounts.blue} />
           </div>
         )}
       </div>

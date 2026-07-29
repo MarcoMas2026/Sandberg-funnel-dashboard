@@ -127,6 +127,16 @@ structured findings: `{severity, type, campaign_id, metric, evidence, recommenda
 detected_at}`. The dashboard renders them as an **Insight Feed** — the "AI analyst"
 surface. Each engine is a ~50-line Code node:
 
+> **Shipped 2026-07-29 — lighter path, not this spec:** a subset of this section (§4.2's
+> zero-lead-day/tracking-break anomalies, a campaign-level version of §4.1's fatigue signal,
+> a version of §4.3's pacing advice) already exists in `lib/insights.ts`, computed live in
+> Next.js from data already in `funnel:merged` — no `insights:feed` KV key, no n8n Code
+> nodes, no `history:{campaign_id}` dependency. See CONTEXT.md §11.1 for exactly what
+> shipped and how it differs. The n8n/KV version below is still the target for the pieces
+> that need per-ad data or day-of-week-aware historical baselines (§4.1's true per-ad
+> fatigue, §4.4 lifecycle curves) — those remain unbuilt and still need Phase 1 (L1.1) and
+> Phase 4 (L1.2, ad-level sync) first.
+
 ### 4.1 Creative fatigue detector (per ad, not per campaign)
 The 2026-standard heuristic set: 7-day rolling CTR slope negative **and** frequency
 rising **and** CPM rising → fatigue score. Cross-metric correlation is exactly what
@@ -236,7 +246,7 @@ data asset that survives any tool migration and that competitors cannot buy.
 |---|---|---|
 | 1 | History snapshots + scheduled daily run (L1.1) | ~1 short session |
 | 2 | Answer extraction + lead scoring + quality UI (L1.3, L2.1–2.2) | ~1 session |
-| 3 | Insight Feed: anomaly + pacing engines + Insights tab (L3.2, L3.3) | ~1 session |
+| 3 | ~~Insight Feed: anomaly + pacing engines + Insights tab (L3.2, L3.3)~~ **Shipped 2026-07-29 as a lighter live-computed version — see CONTEXT.md §11.1; the n8n/`insights:feed` version here stays open only for the per-ad/historical pieces that need Phases 1 & 4** | ~1 session |
 | 4 | Ad-level sync + fatigue detector + per-ad UI (L1.2, L3.1) | ~1 session |
 | 5 | Lifecycle curves + Compare trajectory + Demand Map (L3.4, L2.3) | ~1–2 sessions |
 | 6 | Value-based CAPI + Telegram alerts + /briefing skill (L5.1, L4) | ~1 session |
