@@ -92,11 +92,41 @@ export interface LandingEngagementStep {
   pct_of_page_views: number; // 0..1
 }
 
+// A single named client event with its session count, mirroring the shape of Clarity's
+// own "Smart events" panel — but sourced from OUR tracker/pipeline (landing:funnel), since
+// Clarity's Data Export API doesn't expose custom-event data at all, only its built-in
+// traffic/scroll/friction metrics (see ClarityMetrics).
+export interface LandingEventCount {
+  name: string; // e.g. "page_view", "section_view:gallery", "scroll_depth:75", "cta_click:main_cta"
+  sessions: number;
+}
+
 export interface LandingEngagement {
   page_views: number;
   steps: LandingEngagementStep[];
   cta_clicks: number; // main_cta + sticky_cta combined
   cta_click_rate: number; // 0..1 of page_views
+  events: LandingEventCount[];
+}
+
+// Per-slug snapshot written by "Funnel Dashboard - Clarity Sync" into KV key `clarity:metrics`,
+// sourced from Clarity's Data Export API (dimension1=URL, numOfDays=1 — a rolling last-24h
+// snapshot, refreshed every 4h; Clarity caps this API at 10 requests/project/day so it can
+// never be more real-time than that). `*_pct` fields are already 0..100 (Clarity's own scale),
+// not 0..1 like the rest of this codebase's percentages — keep that distinction when formatting.
+export interface ClarityMetrics {
+  sessions: number;
+  bot_sessions: number;
+  distinct_users: number;
+  pages_per_session: number;
+  scroll_depth_avg: number; // 0..100
+  active_time_seconds: number;
+  total_time_seconds: number;
+  dead_click_pct: number; // 0..100
+  rage_click_pct: number; // 0..100
+  excessive_scroll_pct: number; // 0..100
+  quickback_pct: number; // 0..100
+  script_error_pct: number; // 0..100
 }
 
 export interface FunnelCampaign {
@@ -109,8 +139,14 @@ export interface FunnelCampaign {
   meta: MetaCampaign;
   typeform: TypeformForm;
   // Section-level landing page drop-off, joined in at read-time (not part of the n8n
-  // Merge & Finalize step) from KV key `landing:funnel` — absent if no events collected yet.
-  landing_engagement?: LandingEngagement;
+  // Merge & Finalize step) from KV key `landing:funnel`. Always present — zero-filled
+  // when no events have been collected yet, so the UI can render a stable, always-visible
+  // layout rather than an empty/loading state.
+  landing_engagement: LandingEngagement;
+  // Clarity session/engagement/friction snapshot, joined in at read-time from KV key
+  // `clarity:metrics` the same way as landing_engagement. Always present, zero-filled
+  // when no sessions have been recorded yet.
+  clarity: ClarityMetrics;
   derived: {
     click_to_form_start_rate: number;
     form_completion_rate: number;

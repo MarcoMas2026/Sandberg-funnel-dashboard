@@ -1,4 +1,4 @@
-import { FunnelData, HistoricalCampaign, LandingEngagement, LandingEngagementRaw, LeadRecord, LeadTag } from "./types";
+import { ClarityMetrics, FunnelData, HistoricalCampaign, LandingEngagement, LandingEngagementRaw, LeadRecord, LeadTag } from "./types";
 import { CAMPAIGN_MAP, LANDING_SECTION_ORDER } from "./config";
 
 const FUNNEL_KEY = "funnel:merged";
@@ -6,6 +6,7 @@ const HISTORICAL_KEY = "historical:campaigns";
 const LEADS_KEY = "leads:all";
 const LEAD_TAGS_KEY = "leads:tags";
 const LANDING_FUNNEL_KEY = "landing:funnel";
+const CLARITY_METRICS_KEY = "clarity:metrics";
 
 function kvHeaders() {
   return { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` };
@@ -26,31 +27,81 @@ async function getLandingEngagementBySlug(): Promise<Record<string, LandingEngag
   return JSON.parse(result) as Record<string, LandingEngagementRaw>;
 }
 
-function deriveLandingEngagement(raw: LandingEngagementRaw | undefined): LandingEngagement | undefined {
-  if (!raw || !raw.page_views) return undefined;
+const SCROLL_MILESTONES = [25, 50, 75, 100];
+
+// Always returns a fully zero-filled shape when raw is missing/empty — the UI renders a
+// stable "0" layout rather than hiding the panel, so a brand-new campaign with no traffic
+// yet still shows the full structure.
+function deriveLandingEngagement(raw: LandingEngagementRaw | undefined): LandingEngagement {
+  const pageViews = raw?.page_views ?? 0;
 
   const steps = LANDING_SECTION_ORDER.map((section) => {
-    const views = raw.section_views?.[section] ?? 0;
-    return { section, views, pct_of_page_views: views / raw.page_views };
+    const views = raw?.section_views?.[section] ?? 0;
+    return { section, views, pct_of_page_views: pageViews ? views / pageViews : 0 };
   });
 
-  const ctaClicks = Object.values(raw.cta_clicks ?? {}).reduce((sum, n) => sum + n, 0);
+  const ctaClicks = Object.values(raw?.cta_clicks ?? {}).reduce((sum, n) => sum + n, 0);
+
+  const events: LandingEngagement["events"] = [
+    { name: "page_view", sessions: pageViews },
+    ...LANDING_SECTION_ORDER.map((section) => ({
+      name: `section_view:${section}`,
+      sessions: raw?.section_views?.[section] ?? 0,
+    })),
+    ...SCROLL_MILESTONES.map((m) => ({
+      name: `scroll_depth:${m}`,
+      sessions: raw?.scroll_depth?.[String(m)] ?? 0,
+    })),
+    { name: "cta_click:main_cta", sessions: raw?.cta_clicks?.main_cta ?? 0 },
+    { name: "cta_click:sticky_cta", sessions: raw?.cta_clicks?.sticky_cta ?? 0 },
+  ];
 
   return {
-    page_views: raw.page_views,
+    page_views: pageViews,
     steps,
     cta_clicks: ctaClicks,
-    cta_click_rate: ctaClicks / raw.page_views,
+    cta_click_rate: pageViews ? ctaClicks / pageViews : 0,
+    events,
   };
 }
 
+const EMPTY_CLARITY_METRICS: ClarityMetrics = {
+  sessions: 0,
+  bot_sessions: 0,
+  distinct_users: 0,
+  pages_per_session: 0,
+  scroll_depth_avg: 0,
+  active_time_seconds: 0,
+  total_time_seconds: 0,
+  dead_click_pct: 0,
+  rage_click_pct: 0,
+  excessive_scroll_pct: 0,
+  quickback_pct: 0,
+  script_error_pct: 0,
+};
+
+// clarity:metrics is written every 4h by the standalone n8n workflow "Funnel Dashboard -
+// Clarity Sync" from Clarity's Data Export API (dimension1=URL), keyed by the same landing
+// folder slug as landing:funnel. A raw fetch failure/malformed key returns {} rather than
+// throwing, so a Clarity hiccup never takes down the rest of the funnel dashboard.
+async function getClarityMetricsBySlug(): Promise<Record<string, ClarityMetrics>> {
+  const res = await fetch(`${process.env.KV_REST_API_URL}/get/${CLARITY_METRICS_KEY}`, {
+    headers: kvHeaders(),
+    cache: "no-store",
+  });
+  const { result } = await res.json();
+  if (!result) return {};
+  return JSON.parse(result) as Record<string, ClarityMetrics>;
+}
+
 export async function getFunnelData(): Promise<FunnelData> {
-  const [res, landingBySlug] = await Promise.all([
+  const [res, landingBySlug, clarityBySlug] = await Promise.all([
     fetch(`${process.env.KV_REST_API_URL}/get/${FUNNEL_KEY}`, {
       headers: kvHeaders(),
       cache: "no-store",
     }),
     getLandingEngagementBySlug(),
+    getClarityMetricsBySlug(),
   ]);
   const { result } = await res.json();
 
@@ -63,7 +114,11 @@ export async function getFunnelData(): Promise<FunnelData> {
   data.campaigns = data.campaigns.map((campaign) => {
     const mapEntry = CAMPAIGN_MAP.find((c) => c.meta_campaign_id === campaign.campaign_id);
     const slug = mapEntry?.landing_slug ?? campaign.ref;
-    return { ...campaign, landing_engagement: deriveLandingEngagement(landingBySlug[slug]) };
+    return {
+      ...campaign,
+      landing_engagement: deriveLandingEngagement(landingBySlug[slug]),
+      clarity: clarityBySlug[slug] ?? EMPTY_CLARITY_METRICS,
+    };
   });
 
   return data;

@@ -44,6 +44,12 @@ export function formatPercent(fraction: number, decimals = 1): string {
 // already uses for day-boundary logic (see Typeform submission grouping in
 // CONTEXT.md). Used to keep OKR board generation, cron firing, and the sheet's
 // own date cells reasoning about "today" consistently.
+// Seconds -> "1.1 min" / "45 sec", matching Clarity's own dashboard formatting.
+export function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)} sec`;
+  return `${(seconds / 60).toFixed(1)} min`;
+}
+
 export function todayISOMadrid(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Madrid" });
 }

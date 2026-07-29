@@ -8,6 +8,11 @@ import { Sparkline, Pill } from "@/components/viz";
 import { formatCurrency, formatNumber, formatPercent, shortDay } from "@/lib/format";
 import { FunnelCampaign, LeadRecord, LeadTag, MetaBreakdownRow } from "@/lib/types";
 import { StaticLayerGrid, EngagementDotsGrid, LeadsLayerGrid } from "@/components/LayerVisual";
+import ClarityKpiRow from "@/components/ClarityKpiRow";
+import ClarityUsersOverviewPanel from "@/components/ClarityUsersOverviewPanel";
+import ClarityInsightsPanel from "@/components/ClarityInsightsPanel";
+import ClaritySmartEventsPanel from "@/components/ClaritySmartEventsPanel";
+import LandingFunnelGrid from "@/components/LandingFunnelGrid";
 import { DotsIcon, FunnelIcon, InsightIcon } from "@/components/icons";
 
 // Capitalizes a raw Meta breakdown value ("mobile_app" -> "Mobile app").
@@ -166,6 +171,8 @@ export default function LayerPage({ params }: { params: { id: string; layerId: s
         <span className="text-xs uppercase tracking-wide text-[var(--text-faint)]">{meta.sub}</span>
       </GlowPanel>
 
+      {layerNum === 3 && <ClarityKpiRow clarity={campaign.clarity} />}
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[27fr_46fr_27fr]">
         <div className="space-y-5">
           <LeftPanel layerNum={layerNum} campaign={campaign} leads={leads} />
@@ -176,7 +183,8 @@ export default function LayerPage({ params }: { params: { id: string; layerId: s
             const c = gridConclusion(layerNum, campaign, leads);
             return c ? <ConclusionBadge text={c} /> : null;
           })()}
-          {meta.kind === "static" && <StaticLayerGrid src={meta.asset!} alt={meta.name} />}
+          {layerNum === 3 && <LandingFunnelGrid engagement={campaign.landing_engagement} />}
+          {layerNum !== 3 && meta.kind === "static" && <StaticLayerGrid src={meta.asset!} alt={meta.name} />}
           {meta.kind === "engagement" && <EngagementDotsGrid total={campaign.meta.engagement} />}
           {meta.kind === "leads" && <LeadsLayerGrid leads={leads} colorByTag={false} />}
           {meta.kind === "qualified" && <LeadsLayerGrid leads={leads} colorByTag onTagChange={setTag} />}
@@ -229,18 +237,7 @@ function LeftPanel({
   }
 
   if (layerNum === 3) {
-    return (
-      <StatPanel title="Daily link clicks">
-        <Sparkline data={meta.daily.map((d) => d.link_clicks)} width={280} height={70} markers />
-        <StatRow label="Total link clicks" value={formatNumber(meta.link_clicks)} accent />
-        <StatRow label="Unique outbound CTR" value={formatPercent(meta.outbound_ctr, 2)} />
-        <DailyList rows={meta.daily.map((d) => ({ label: shortDay(d.date), value: formatNumber(d.link_clicks) }))} />
-        <Note>
-          A true daily click→form-start rate isn&apos;t possible yet — Typeform data is only captured as campaign
-          totals, with no daily breakdown.
-        </Note>
-      </StatPanel>
-    );
+    return <ClarityUsersOverviewPanel clarity={campaign.clarity} />;
   }
 
   if (layerNum === 4) {
@@ -362,16 +359,10 @@ function RightPanel({
 
   if (layerNum === 3) {
     return (
-      <BreakdownPanel
-        title="Outbound CTR by platform / device"
-        platform={meta.by_platform}
-        device={meta.by_device}
-        metric="outbound_ctr"
-        formatValue={(v) => formatPercent(v, 2)}
-        secondary={(r) => `${formatNumber(r.link_clicks)} clicks`}
-        defaultView="device"
-        note="Device is the highest-value cut here — a markedly worse mobile CTR is a direct signal the landing page itself has a mobile problem, not just an ad problem."
-      />
+      <>
+        <ClarityInsightsPanel clarity={campaign.clarity} />
+        <ClaritySmartEventsPanel engagement={campaign.landing_engagement} />
+      </>
     );
   }
 

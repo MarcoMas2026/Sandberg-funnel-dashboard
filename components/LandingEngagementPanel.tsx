@@ -2,7 +2,7 @@ import { LandingEngagement } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { GlowPanel } from "@/components/ui/glow-panel";
 
-const SECTION_LABELS: Record<string, string> = {
+export const SECTION_LABELS: Record<string, string> = {
   hero: "Hero",
   intro: "Intro",
   specs: "Specifications",
@@ -12,22 +12,12 @@ const SECTION_LABELS: Record<string, string> = {
   cta: "Download CTA",
 };
 
-// Section-level drop-off on the landing page itself, between ad click and Typeform —
-// fed by Clarity-adjacent client events (property-landing-template's data-fnl-section
-// tracker) via the "Funnel Dashboard - Landing Engagement Sync" n8n workflow.
-export default function LandingEngagementPanel({ engagement }: { engagement?: LandingEngagement }) {
-  if (!engagement || engagement.page_views === 0) {
-    return (
-      <GlowPanel className="panel p-5">
-        <h2 className="mb-1 text-sm font-semibold text-[var(--text)]">Landing Page Engagement</h2>
-        <p className="text-xs text-[var(--text-muted)]">
-          No landing engagement data yet — this section populates once visitors land on the page.
-        </p>
-      </GlowPanel>
-    );
-  }
-
-  const maxViews = engagement.page_views;
+// Section-level drop-off on the landing page itself, between ad click and Typeform — fed by
+// property-landing-template's data-fnl-section tracker via the "Funnel Dashboard - Landing
+// Engagement Sync" n8n workflow. Always renders the full bar list (0% bars when no traffic
+// yet) rather than hiding behind an empty-state message.
+export default function LandingEngagementPanel({ engagement }: { engagement: LandingEngagement }) {
+  const maxViews = engagement.page_views || 1;
 
   return (
     <GlowPanel className="panel p-5">
