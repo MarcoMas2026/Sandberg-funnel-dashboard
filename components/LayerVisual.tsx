@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LeadRecord, LeadTag } from "@/lib/types";
 import { formatNumber } from "@/lib/format";
+import { LeadTagSheet } from "@/components/ui/lead-tag-sheet";
 
 // Flat 15×15 lattice, matching the vertical-layer reference art's own grid
 // (measured directly off Empty Grid.png: 16 gridlines each direction = 15
@@ -121,6 +122,18 @@ export function LeadsLayerGrid({
   onTagChange?: (responseId: string, tag: LeadTag) => void;
 }) {
   const [hover, setHover] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  const pickerLead = pickerFor ? leads.find((l) => l.response_id === pickerFor) ?? null : null;
+
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[560px]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -135,20 +148,30 @@ export function LeadsLayerGrid({
             type={onTagChange ? "button" : undefined}
             className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{ left, top, width: `${CELL * 0.92}%`, height: `${CELL * 0.92}%` }}
-            onMouseEnter={() => setHover(lead.response_id)}
-            onMouseLeave={() => setHover(null)}
+            onMouseEnter={() => !isMobile && setHover(lead.response_id)}
+            onMouseLeave={() => !isMobile && setHover(null)}
             onClick={
               onTagChange
                 ? () => {
-                    const next = TAG_CYCLE[(TAG_CYCLE.indexOf(lead.tag) + 1) % TAG_CYCLE.length];
-                    onTagChange(lead.response_id, next);
+                    if (isMobile) {
+                      // Tapping a tiny grid square directly and cycling through
+                      // tags on-the-spot is too imprecise on touch — fat-finger
+                      // taps land on the wrong square and the tag flips several
+                      // times before the user can see what changed. On mobile,
+                      // open an explicit picker instead so exactly one choice
+                      // is made deliberately.
+                      setPickerFor(lead.response_id);
+                    } else {
+                      const next = TAG_CYCLE[(TAG_CYCLE.indexOf(lead.tag) + 1) % TAG_CYCLE.length];
+                      onTagChange(lead.response_id, next);
+                    }
                   }
                 : undefined
             }
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={asset} alt="" className="h-full w-full object-contain" />
-            {hover === lead.response_id && (
+            {!isMobile && hover === lead.response_id && (
               <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#1b2540] px-2 py-1.5 text-left text-[11px] text-white">
                 <div className="font-semibold">{lead.first_name || "Lead"}</div>
                 <div className="text-white/80">
@@ -161,6 +184,10 @@ export function LeadsLayerGrid({
           </Tag>
         );
       })}
+
+      {isMobile && pickerLead && onTagChange && (
+        <LeadTagSheet lead={pickerLead} onSelect={onTagChange} onClose={() => setPickerFor(null)} />
+      )}
     </div>
   );
 }

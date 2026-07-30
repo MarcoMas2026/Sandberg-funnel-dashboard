@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/format";
 import { LeadIcon } from "@/components/icons";
 import { GlowPanel } from "@/components/ui/glow-panel";
 import { Pill } from "@/components/viz";
+import { LeadTagSheet } from "@/components/ui/lead-tag-sheet";
 
 const TIMEFRAMES = [
   { label: "7 days", days: 7 },
@@ -27,12 +28,22 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [campaignFilter, setCampaignFilter] = useState<string | null>(null);
   const [timeframeDays, setTimeframeDays] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [pickerId, setPickerId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/leads", { cache: "no-store" })
       .then((res) => res.json())
       .then((json) => setLeads(json.leads ?? []))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
   }, []);
 
   const campaigns = useMemo(() => {
@@ -114,16 +125,20 @@ export default function LeadsPage() {
             scroll. Desktop (md+): unchanged wide table. */}
         <div className="space-y-3 md:hidden">
           {filtered.map((lead) => (
-            <div key={lead.response_id} className="rounded-2xl border border-[var(--border)] bg-[var(--panel2)] p-4">
+            <button
+              key={lead.response_id}
+              type="button"
+              onClick={() => setPickerId(lead.response_id)}
+              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel2)] p-4 text-left"
+            >
               <div className="flex items-start justify-between gap-3">
                 <p className="font-semibold text-[var(--text)]">{lead.first_name || "—"}</p>
                 <div className="flex shrink-0 gap-1.5 pt-1">
                   {(["red", "orange", "blue"] as const).map((color) => (
-                    <button
+                    <span
                       key={color}
-                      aria-label={`Tag ${lead.first_name || "lead"} ${color}`}
-                      onClick={() => setTag(lead.response_id, lead.tag === color ? null : color)}
-                      className="h-4 w-4 rounded-full transition"
+                      aria-hidden
+                      className="h-4 w-4 rounded-full"
                       style={{
                         background: TAG_COLORS[color],
                         opacity: lead.tag === color ? 1 : 0.25,
@@ -142,12 +157,20 @@ export default function LeadsPage() {
               <p className="mt-3 border-t border-[var(--border)] pt-2 text-[10px] text-[var(--text-faint)]">
                 {formatDate(lead.submitted_at)}
               </p>
-            </div>
+            </button>
           ))}
           {!loading && filtered.length === 0 && (
             <p className="py-8 text-center text-sm text-[var(--text-faint)]">No leads in this range.</p>
           )}
         </div>
+
+        {isMobile &&
+          pickerId &&
+          (() => {
+            const pickerLead = filtered.find((l) => l.response_id === pickerId);
+            if (!pickerLead) return null;
+            return <LeadTagSheet lead={pickerLead} onSelect={setTag} onClose={() => setPickerId(null)} />;
+          })()}
 
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full border-collapse text-sm">

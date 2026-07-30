@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import MobileTopNav from "@/components/MobileTopNav";
 import Topbar from "@/components/Topbar";
 import CommandPalette from "@/components/CommandPalette";
+import GestureNav from "@/components/GestureNav";
 import { DashboardProvider } from "@/lib/dashboard-context";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -34,6 +35,7 @@ export default function RootLayout({
             </div>
           </div>
           <CommandPalette />
+          <GestureNav />
         </DashboardProvider>
       </body>
     </html>
