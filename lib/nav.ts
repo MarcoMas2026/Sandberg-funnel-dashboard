@@ -8,6 +8,7 @@ import {
   MapIcon,
   TargetIcon,
   LeadIcon,
+  SocialIcon,
 } from "@/components/icons";
 
 export type NavItem = {
@@ -27,5 +28,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/compare", label: "Compare", icon: CompareIcon },
   { href: "/demand", label: "Demand Map", icon: MapIcon },
   { href: "/patterns", label: "Patterns", icon: PatternsIcon },
+  { href: "/social", label: "Social", icon: SocialIcon },
   { href: "/okrs", label: "OKRs", icon: TargetIcon },
 ];

@@ -69,6 +69,43 @@ design. Credentials are set locally in `.env.local` and verified working; pushed
 "not connected" empty state on the live site. `CRON_SECRET` is no longer needed (the cron jobs it
 gated were removed) — safe to leave in Vercel unused or delete it.
 
+## Instagram Analytics module (added 2026-07-30, separate from both the n8n funnel pipeline and the OKR view)
+
+`/social` clones Metricool's Instagram Analytics (Community/Account/Posts/Reels/Stories/
+Demographics/Competitors) for the single Sandberg Estates IG business account. Built from
+`~/Downloads/ANALYTICS_PLATFORM_ARCHITECTURE.md` — see that file for the full metric/endpoint
+reference if extending this.
+
+- **Data store: Supabase Postgres, NOT Upstash KV.** This module needs real time-series queries
+  (daily history, per-post tables, hashtag GROUP BY, a 7×24 heatmap) that KV can't do well. Schema
+  in `db/migrations/001_social_init.sql`. Nothing in `lib/social/*` touches `lib/kv.ts` or its keys
+  — the two pipelines are intentionally decoupled end to end.
+- **Data layer:** `lib/social/db.ts` (Supabase client + query functions, `SUPABASE_SERVICE_ROLE_KEY`
+  server-only — same rule as `KV_REST_API_TOKEN`), consumed by `app/api/social/*/route.ts` (thin
+  wrappers, same empty-safe-shape-on-error pattern as `app/api/okr/route.ts`), rendered by
+  `app/(social)/social/*` pages via the `useSocialData` hook.
+- **Auth flavor: Facebook Login** (IG account linked to a Facebook Page) — chosen over the simpler
+  Instagram Login flavor specifically to unlock `business_discovery` for Competitor tracking. The
+  live `IG_ACCESS_TOKEN` is a **Page-scoped token with `expires_at: 0` (permanent)**, obtained via
+  `oauth/access_token?grant_type=fb_exchange_token` — not the Instagram-Login-flavor short-lived
+  token, and not derived through Graph API Explorer's "Get Page Access Token" button (that
+  consistently returned a short-lived token in practice on 2026-07-30, cause unconfirmed).
+- **Automation is live in n8n** (`n8n.srv980538.hstgr.cloud`, same instance as the funnel pipeline —
+  explicit user call to not move scheduling into in-repo cron). All 6 workflows deployed and active
+  as of 2026-07-30 — IDs, credentials, and known scope gaps in `n8n/social-workflows.md`. No W0
+  backfill workflow exists; current data is whatever was manually seeded during setup plus whatever
+  W1–W6 have accumulated since.
+- **V1 scope is core sections + Competitors.** Explicitly deferred (do not build unless asked):
+  AI content-tagging/classification of posts (property type, video vs photo, CTA type correlated
+  with performance) and PDF export / scheduled email reports. Both are documented ideas, not
+  partially-built — don't assume stub code exists for them.
+- **Credentials are live as of 2026-07-30** — Supabase schema migrated (`db/migrations/001_social_init.sql`
+  + `002_ids_as_text.sql`, the latter a real bug fix: Instagram's 18-digit IDs exceed
+  `Number.MAX_SAFE_INTEGER` and silently corrupt on the JS side if stored as `bigint`/read back as a
+  JSON number — always store Meta platform IDs as `text`). All values are in `.env.local`; not yet
+  confirmed set in Vercel's project env vars for production. `social-competitors` (W6) is tracking 8
+  real competitors as of 2026-07-30 — see `n8n/social-workflows.md` for the list.
+
 ## Verifying changes
 
 Use the preview tools to run the dev server. Note: **stop the dev server before running
