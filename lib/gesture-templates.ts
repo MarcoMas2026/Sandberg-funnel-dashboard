@@ -96,6 +96,16 @@ export const GESTURE_TEMPLATES: (GestureTemplate & { href: string; label: string
     // start at top, sweep clockwise all the way around
     points: arc(0.5, 0.5, 0.5, -90, 270, 40),
   },
+  {
+    // S — top hump bulges right, bottom hump bulges left, meeting in the middle
+    name: "S",
+    href: "/social",
+    label: "Social",
+    points: [
+      ...arc(0.5, 0.25, 0.25, 270, 450, 16),
+      ...arc(0.5, 0.75, 0.25, 270, 90, 16),
+    ],
+  },
 ];
 
 // Digit shortcuts for the 6 funnel layers (see components/LayerMenu.tsx).
