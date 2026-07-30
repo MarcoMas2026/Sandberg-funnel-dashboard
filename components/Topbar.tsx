@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import CampaignSelector from "./CampaignSelector";
 
 const LABELS: Record<string, string> = {
   "": "Mission Control",
@@ -17,12 +18,12 @@ export default function Topbar() {
   const segments = pathname.split("/").filter(Boolean);
   const section = segments[0] ?? "";
   const label = LABELS[section] ?? "Mission Control";
+  const currentCampaignId = section === "campaign" ? segments[1] ?? null : null;
 
   return (
     <div className="mb-6 hidden items-center justify-between gap-4 md:flex">
       <div className="flex items-center gap-2 text-sm text-[var(--text-faint)]">
-        <HomeGlyph />
-        <span>Overview</span>
+        <CampaignSelector currentCampaignId={currentCampaignId} />
         <span className="text-[var(--text-faint)]">/</span>
         <span className="font-medium text-[var(--text)]">{label}</span>
       </div>
@@ -38,14 +39,6 @@ export default function Topbar() {
         </button>
       </div>
     </div>
-  );
-}
-
-function HomeGlyph() {
-  return (
-    <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 11l8-7 8 7M6 10v9h12v-9" />
-    </svg>
   );
 }
 
