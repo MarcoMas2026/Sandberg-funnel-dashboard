@@ -8,6 +8,7 @@ import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 import MetricCompareChart, { CompareBar } from "@/components/MetricCompareChart";
 import { HomeIcon } from "@/components/icons";
 import { GlowPanel } from "@/components/ui/glow-panel";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ComparableMetrics {
   spend: number;
@@ -99,7 +100,18 @@ export default function ComparePage() {
   const isLoading = loading || histLoading;
 
   if (isLoading) {
-    return <p className="pt-2 text-sm text-[var(--text-muted)]">Loading comparison…</p>;
+    return (
+      <div className="space-y-5 pt-2">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-4 w-96" />
+        <div className="flex gap-2">
+          {Array.from({ length: 4 }, (_, i) => (
+            <Skeleton key={i} className="h-8 w-28" />
+          ))}
+        </div>
+        <Skeleton className="h-80 w-full" />
+      </div>
+    );
   }
 
   if (subjects.length === 0) {

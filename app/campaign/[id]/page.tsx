@@ -9,6 +9,7 @@ import SummaryPanel from "@/components/SummaryPanel";
 import IsometricFunnel from "@/components/IsometricFunnel";
 import LandingEngagementPanel from "@/components/LandingEngagementPanel";
 import { LeadRecord } from "@/lib/types";
+import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 
 export default function CampaignPage({ params }: { params: { id: string } }) {
   const { data, loading } = useDashboard();
@@ -34,7 +35,18 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
   }, [campaign?.campaign_id, data?.last_updated]);
 
   if (loading) {
-    return <p className="pt-2 text-sm text-[var(--text-muted)]">Loading campaign…</p>;
+    return (
+      <div className="space-y-5 pt-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-10 w-72" />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
 
   if (!campaign) {

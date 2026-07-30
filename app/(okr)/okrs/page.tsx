@@ -9,6 +9,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import KrDetailModal from "@/components/KrDetailModal";
 import { KeyResult, OkrDepartment } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
+import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 
 export default function OkrsPage() {
   const { data, loading, error, refresh } = useOkr();
@@ -16,7 +17,21 @@ export default function OkrsPage() {
   const [openKr, setOpenKr] = useState<{ kr: KeyResult; dept: OkrDepartment } | null>(null);
 
   if (loading) {
-    return <div className="mt-8 text-sm text-[var(--text-faint)]">Loading OKRs…</div>;
+    return (
+      <div className="mt-8 space-y-5">
+        <Skeleton className="h-9 w-40" />
+        <div className="flex gap-2">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-8 w-24" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {Array.from({ length: 4 }, (_, i) => (
+            <CardSkeleton key={i} className="h-32" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (!data || !data.connected) {

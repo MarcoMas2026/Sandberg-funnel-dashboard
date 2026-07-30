@@ -228,6 +228,22 @@ body::before {
   animation: pulse-ring 2.2s infinite;
 }
 
+/* loading skeleton shimmer */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.skeleton {
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+  background: var(--panel2);
+  border-radius: var(--radius-md);
+}
+
 /* insight ticker marquee */
 @keyframes ticker-x {
   from {

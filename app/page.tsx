@@ -11,6 +11,7 @@ import { computeInsights, computePortfolioHealth, Severity } from "@/lib/insight
 import { HomeIcon, InsightIcon } from "@/components/icons";
 import { LeadRecord } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
+import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 
 const SEV_COLOR: Record<Severity, string> = {
   critical: "#f87171",
@@ -46,24 +47,21 @@ export default function MissionControl() {
 
   // real qualified-lead composition, per campaign — same red/orange/blue
   // tags set on the Leads page, not the mock hot/warm/cold placeholder.
+  // Single unfiltered fetch instead of one request per active campaign.
   useEffect(() => {
-    active.forEach((c) => {
-      fetch(`/api/leads?campaign_id=${encodeURIComponent(c.campaign_id)}`, { cache: "no-store" })
-        .then((r) => r.json())
-        .then((json) => {
-          const leads: LeadRecord[] = json.leads ?? [];
-          setTagCounts((prev) => ({
-            ...prev,
-            [c.campaign_id]: {
-              red: leads.filter((l) => l.tag === "red").length,
-              orange: leads.filter((l) => l.tag === "orange").length,
-              blue: leads.filter((l) => l.tag === "blue").length,
-            },
-          }));
-        })
-        .catch(() => {});
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!activeIds) return;
+    fetch("/api/leads", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => {
+        const leads: LeadRecord[] = json.leads ?? [];
+        const byCampaign: Record<string, { red: number; orange: number; blue: number }> = {};
+        for (const l of leads) {
+          const bucket = (byCampaign[l.campaign_id] ??= { red: 0, orange: 0, blue: 0 });
+          if (l.tag === "red" || l.tag === "orange" || l.tag === "blue") bucket[l.tag]++;
+        }
+        setTagCounts(byCampaign);
+      })
+      .catch(() => {});
   }, [activeIds]);
 
   const totalSpend = active.reduce((s, c) => s + c.meta.spend, 0);
@@ -79,7 +77,28 @@ export default function MissionControl() {
   const leaderboard = buildLeaderboard(active, historical);
 
   if (loading) {
-    return <p className="pt-2 text-sm text-[var(--text-muted)]">Loading mission control…</p>;
+    return (
+      <div className="space-y-7">
+        <div className="flex items-end justify-between gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="h-9 w-64" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
+        <Skeleton className="h-12 w-full" />
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <CardSkeleton key={i} className="h-56" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

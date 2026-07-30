@@ -18,6 +18,7 @@ import VideoFunnelPanel from "@/components/VideoFunnelPanel";
 import TypeformDropoffPanel from "@/components/TypeformDropoffPanel";
 import LeadSegmentationMatrix from "@/components/LeadSegmentationMatrix";
 import LeadsDailyPanel from "@/components/LeadsDailyPanel";
+import { Skeleton } from "@/components/ui/skeleton";
 import LayerMenu from "@/components/LayerMenu";
 import { ArrowLeftIcon, DotsIcon, FunnelIcon, InsightIcon } from "@/components/icons";
 
@@ -143,7 +144,14 @@ export default function LayerPage({ params }: { params: { id: string; layerId: s
   }
 
   if (loading) {
-    return <p className="pt-2 text-sm text-[var(--text-muted)]">Loading…</p>;
+    return (
+      <div className="space-y-5 pt-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-72 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
   }
 
   if (!campaign || !meta) {
