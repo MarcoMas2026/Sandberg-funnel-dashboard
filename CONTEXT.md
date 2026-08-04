@@ -479,3 +479,67 @@ used to be a purely static "QUALIFIED" label chip).
   `leads:all` for the two active campaigns with correct field extraction; tagged a lead red via the
   UI, confirmed it persisted in `leads:tags` and the campaign page's funnel showed the updated
   `1/0/0` red/orange/blue breakdown.
+
+## 15. Agency-wide productization — PENDING, not started (discussed 2026-08-04)
+
+Two distinct future directions were discussed for turning this from a single-client (Sandberg
+Estates) dashboard into something reusable across the marketing agency's other clients. Neither has
+been started — no code, no skill, no repo changes yet. Captured here so the discussion isn't lost.
+
+**Direction A — full self-serve SaaS platform (deprioritized, "leave more into the future").**
+Clients would log into the platform themselves, connect their own Meta/Typeform/IG accounts via
+OAuth (like Metricool/Hootsuite — register one Meta Developer App under the agency's own account,
+clients do "Connect Facebook" instead of generating their own API keys), pick what to visualize,
+and self-configure their funnel. Real blockers discussed: Meta App Review + Business Verification
+(1–4+ weeks, business-level partner access on top of OAuth for ad-account reads), the funnel
+definition itself being hardcoded today (`lib/config.ts` / `MarketingFunnel.tsx` assume one fixed
+Meta→Landing→Typeform→Lead shape, would need to become per-client configurable), multi-tenant data
+isolation (KV/Supabase have zero tenant scoping today). Rough infra cost floor discussed: ~$55–85/mo
+base (Vercel Pro + Upstash + Supabase paid tiers) before any AI spend, which is unscoped. **Not the
+current priority — revisit only when self-serve at scale is actually needed.**
+
+**Direction B — manual/white-glove setup via Claude Code (the one to actually pursue next).**
+Not the OAuth platform. Instead: an onboarding session per client (agency staff + client, live
+call) where the client hands over their own API tokens directly (Meta System User token, Typeform
+token, IG credentials, etc.) and Claude Code does the actual provisioning — same architecture as
+this Sandberg build (Next.js + Upstash KV + Supabase + n8n), spun up fresh per client. **Goal: a
+Claude Code Skill that walks through the WHOLE setup end-to-end**, reusable for the agency's own
+rebuilds (take this folder to a new computer, agency's own credentials) and for every future client.
+
+Proposed skill flow (from the 2026-08-04 discussion, not yet built):
+0. **Intake** — client name, industry, domain, which modules to enable (funnel only / +social /
+   +OKR), deployment target (new GitHub repo forked from this template).
+1. **Repo bootstrap** — fork/clone template into a client-named repo, strip Sandberg-specific
+   content (`CAMPAIGN_MAP`, property copy, Icons/logo).
+2. **Infra provisioning** (CLI-scripted, no account creation by Claude Code — that's a standing
+   rule) — new Vercel project (`vercel link`), new Upstash Redis DB, new Supabase project +
+   `db/migrations/*.sql`, n8n instance/project for the client.
+3. **Credential handoff** — the actual onboarding-call moment: skill prompts for each token one at
+   a time (Meta System User token + ad account ID, Typeform token, IG business account ID + token,
+   Google service account if OKR enabled), **smoke-tests each immediately** with a real API call,
+   writes to that client's `.env.local`, creates matching n8n credential entries via n8n's API.
+4. **Workflow import** — import n8n workflow JSON exports (not yet created — see gap below) into
+   the client's n8n project, rewire to the credentials from step 3.
+5. **Config** — fill `lib/config.ts` with the client's real campaigns (or leave empty and rely on
+   auto-pairing discovery), branding/white-label pass if wanted.
+6. **Deploy + verify** — push, confirm Vercel build, trigger one funnel-update run, confirm
+   `funnel:merged` populates, confirm the dashboard renders live end to end.
+7. **Handoff summary** — short doc: live URL, what's connected, what still needs the client's
+   action, how to trigger a manual sync.
+
+**Prerequisite gap identified, not yet fixed:** n8n workflows aren't portable today — only
+`n8n/social-workflows.md` (a description) exists, no actual workflow JSON exports. Steps 4 above
+needs real exports (`n8n/exports/*.json`) checked into the repo before the skill can automate
+workflow setup rather than requiring hand-rebuilding from the markdown spec each time.
+
+**Two open decisions, unresolved:**
+- n8n architecture per client: one shared n8n instance with a separate project/workspace per client
+  (cheaper, less to maintain) vs. a fully dedicated n8n instance per client (isolated, more infra).
+- Skill resumability: since credential handoff happens live on a call but infra/deploy could be
+  prepped beforehand, split into two invocations (a solo "prep" skill + a live "onboard" skill) or
+  one long skill that's paused/resumed via a checkpoint file (needed regardless, since Meta App
+  Review alone can block a setup for weeks if a shared reviewed app isn't already in place).
+
+**Next step when picked back up:** resolve the two open decisions above, then build via
+`anthropic-skills:skill-creator` — starting with `n8n/exports/*.json` and a `SETUP.md` runbook as
+prerequisites, per the standalone (non-skill) portability discussion that preceded this one.
