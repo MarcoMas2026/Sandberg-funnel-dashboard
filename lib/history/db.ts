@@ -12,6 +12,12 @@ export function isHistoryConfigured(): boolean {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
+// Earliest month this store has (or will ever backfill) data for — matches
+// the June floor already used by Mission Control's month picker. Every
+// "since June" query anchors here so a later backfill covering an earlier
+// month doesn't silently need this constant updated too.
+export const HISTORY_START = { year: 2026, month: 6 };
+
 function getClient(): SupabaseClient | null {
   if (client !== undefined) return client;
   if (!isHistoryConfigured()) {
@@ -297,4 +303,122 @@ export async function getCampaignDailyRows(campaignId: string, monthStart: strin
     link_clicks: Number(r.link_clicks ?? 0),
     ctr: Number(r.ctr ?? 0),
   }));
+}
+
+export interface LeaderboardCampaignTotal {
+  campaign_id: string;
+  property: string;
+  ref: string;
+  campaign_type: string;
+  spend: number;
+  leads: number;
+  cpl: number;
+}
+
+// Per-campaign totals summed across every month from HISTORY_START onward —
+// backs the Portfolio Leaderboard so it considers every campaign this store
+// knows about (this session's June/July backfill, plus whatever accumulates
+// automatically as future months run), not just the small hand-curated
+// historical:campaigns KV pool. For each (campaign, month) pair, prefers the
+// funnel_monthly_totals row (Meta's real monthly aggregate) when one exists,
+// falling back to summing funnel_daily_history for months not backfilled to
+// a monthly aggregate (e.g. the current, in-progress month) — same
+// preference as getMonthlyTotals, just applied per campaign across many
+// months instead of across campaigns for one month. A campaign with no
+// verified/derived leads in ANY of its months is excluded entirely (same
+// "leads must be real, never guessed" rule as everywhere else in this file).
+export async function getLeaderboardTotals(): Promise<{ connected: boolean; rows: LeaderboardCampaignTotal[] }> {
+  const supabase = getClient();
+  if (!supabase) return { connected: false, rows: [] };
+
+  const { year: sinceYear, month: sinceMonth } = HISTORY_START;
+
+  const { data: monthlyRows, error: monthlyError } = await supabase
+    .from("funnel_monthly_totals")
+    .select("*")
+    .or(`year.gt.${sinceYear},and(year.eq.${sinceYear},month.gte.${sinceMonth})`);
+  if (monthlyError) return { connected: false, rows: [] };
+
+  const sinceDate = `${sinceYear}-${String(sinceMonth).padStart(2, "0")}-01`;
+  const { data: dailyRows, error: dailyError } = await supabase
+    .from("funnel_daily_history")
+    .select("*")
+    .gte("date", sinceDate);
+  if (dailyError) return { connected: false, rows: [] };
+
+  interface Acc {
+    property: string;
+    ref: string;
+    campaign_type: string;
+    spend: number;
+    leads: number;
+    hasLeads: boolean;
+  }
+  const perCampaign = new Map<string, Acc>();
+  const ensure = (campaignId: string, property: string, ref: string, campaign_type: string): Acc => {
+    let acc = perCampaign.get(campaignId);
+    if (!acc) {
+      acc = { property, ref, campaign_type, spend: 0, leads: 0, hasLeads: false };
+      perCampaign.set(campaignId, acc);
+    }
+    return acc;
+  };
+
+  // Monthly rows are authoritative for whichever (campaign, month) pairs they cover.
+  const coveredMonthly = new Set<string>();
+  for (const r of monthlyRows ?? []) {
+    coveredMonthly.add(`${r.campaign_id}:${r.year}-${String(r.month).padStart(2, "0")}`);
+    const acc = ensure(r.campaign_id, r.property, r.ref, r.campaign_type);
+    acc.spend += Number(r.spend ?? 0);
+    if (r.leads !== null && r.leads !== undefined) {
+      acc.leads += Number(r.leads);
+      acc.hasLeads = true;
+    }
+  }
+
+  // Daily rows fill in any (campaign, month) not already covered by a monthly
+  // aggregate — grouped by month first so a month gets summed once, not
+  // double-counted against a monthly row that might also exist for it.
+  interface DailyAcc {
+    property: string;
+    ref: string;
+    campaign_type: string;
+    spend: number;
+    leads: number;
+  }
+  const dailyByCampaignMonth = new Map<string, DailyAcc>();
+  for (const r of dailyRows ?? []) {
+    const ym = String(r.date).slice(0, 7);
+    const key = `${r.campaign_id}:${ym}`;
+    if (coveredMonthly.has(key)) continue;
+    let acc = dailyByCampaignMonth.get(key);
+    if (!acc) {
+      acc = { property: r.property, ref: r.ref, campaign_type: r.campaign_type, spend: 0, leads: 0 };
+      dailyByCampaignMonth.set(key, acc);
+    }
+    acc.spend += Number(r.spend ?? 0);
+    acc.leads += Number(r.leads ?? 0);
+  }
+  for (const [key, v] of dailyByCampaignMonth) {
+    const campaignId = key.split(":")[0];
+    const acc = ensure(campaignId, v.property, v.ref, v.campaign_type);
+    acc.spend += v.spend;
+    acc.leads += v.leads;
+    acc.hasLeads = true; // daily-derived leads always come from real Typeform-sync numbers
+  }
+
+  const rows: LeaderboardCampaignTotal[] = [];
+  for (const [campaign_id, v] of perCampaign) {
+    if (!v.hasLeads) continue;
+    rows.push({
+      campaign_id,
+      property: v.property,
+      ref: v.ref,
+      campaign_type: v.campaign_type,
+      spend: v.spend,
+      leads: v.leads,
+      cpl: v.leads > 0 ? v.spend / v.leads : 0,
+    });
+  }
+  return { connected: true, rows };
 }

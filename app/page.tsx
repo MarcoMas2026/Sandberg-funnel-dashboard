@@ -41,6 +41,20 @@ export default function MissionControl() {
       .catch(() => {});
   }, []);
 
+  // Every campaign from June 2026 onward with real spend/leads, sourced from
+  // the same Supabase history store the month picker uses — this is what
+  // lets the leaderboard include campaigns like S'Olivera that the small
+  // hand-curated `historical` (KV) pool above never had.
+  const [leaderboardHistory, setLeaderboardHistory] = useState<
+    { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number; cpl: number }[]
+  >([]);
+  useEffect(() => {
+    fetch("/api/history/leaderboard", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => setLeaderboardHistory(json.rows ?? []))
+      .catch(() => setLeaderboardHistory([]));
+  }, []);
+
   const active = (data?.campaigns ?? []).filter((c) => c.status === "ACTIVE");
   const activeIds = active.map((c) => c.campaign_id).join(",");
   const insights = useMemo(() => computeInsights(data?.campaigns ?? []), [data]);
@@ -161,7 +175,7 @@ export default function MissionControl() {
 
   // Leaderboard: active campaigns' live totals + verified historical ones,
   // deduped by id, ranked by leads — mirrors the reference "Market Overview" table.
-  const leaderboard = buildLeaderboard(active, historical);
+  const leaderboard = buildLeaderboard(active, historical, leaderboardHistory);
 
   if (loading) {
     return (
@@ -766,7 +780,13 @@ interface LeaderRow {
 
 function buildLeaderboard(
   active: { campaign_id: string; property: string; campaign_type: "property" | "community"; meta: { spend: number; leads: number; cpl: number; daily: { leads: number }[] } }[],
-  historical: HistoricalCampaign[]
+  historical: HistoricalCampaign[],
+  // Every June-2026-onward campaign with real spend/leads from Supabase
+  // (lib/history/db.ts's getLeaderboardTotals) — a superset of `historical`
+  // that also covers campaigns never added to that hand-curated KV pool
+  // (e.g. S'Olivera, Sa Vinya) and keeps growing on its own as future months
+  // accumulate, with no manual curation step required.
+  leaderboardHistory: { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number; cpl: number }[]
 ): LeaderRow[] {
   const activeIds = new Set(active.map((c) => c.campaign_id));
   const rows: LeaderRow[] = active.map((c) => ({
@@ -779,8 +799,10 @@ function buildLeaderboard(
     trend: c.meta.daily.length > 1 ? c.meta.daily.map((d) => d.leads) : [0, 0],
     isActive: true,
   }));
+  const coveredIds = new Set(activeIds);
   for (const h of historical) {
-    if (activeIds.has(h.campaign_id)) continue;
+    if (coveredIds.has(h.campaign_id)) continue;
+    coveredIds.add(h.campaign_id);
     rows.push({
       id: h.campaign_id,
       property: h.property,
@@ -792,5 +814,28 @@ function buildLeaderboard(
       isActive: false,
     });
   }
-  return rows.sort((a, b) => b.leads - a.leads).slice(0, 8);
+  for (const h of leaderboardHistory) {
+    if (coveredIds.has(h.campaign_id)) continue;
+    coveredIds.add(h.campaign_id);
+    rows.push({
+      id: h.campaign_id,
+      property: h.property,
+      type: h.campaign_type === "community" ? "community" : "property",
+      spend: h.spend,
+      leads: h.leads,
+      cpl: h.cpl,
+      trend: [h.leads * 0.2, h.leads * 0.5, h.leads * 0.75, h.leads],
+      isActive: false,
+    });
+  }
+  // Property campaigns only ("SP - REF - PROPERTY" naming) — community
+  // campaigns ("CW - ..." naming, e.g. Anchorage Club, Sa Vinya) are excluded
+  // from this leaderboard by design. `type` is already derived from exactly
+  // this name prefix everywhere else in the app (see inferType in the n8n
+  // Merge & Finalize step and the history backfill), so filtering on it here
+  // is equivalent to checking the name directly.
+  return rows
+    .filter((r) => r.type === "property")
+    .sort((a, b) => b.leads - a.leads)
+    .slice(0, 8);
 }
