@@ -7,7 +7,13 @@ export function parseCampaignName(name: string): { ref: string; property: string
   return { ref: "", property: name };
 }
 
+// Sentinel passed instead of a real ISO string for a date that genuinely
+// isn't recoverable (e.g. a historical campaign's start date, when the
+// backfill didn't capture it) — distinct from `null`, which means "ongoing".
+export const UNAVAILABLE_DATE = "unavailable";
+
 export function formatDate(iso: string | null): string {
+  if (iso === UNAVAILABLE_DATE) return "xxx";
   if (!iso) return "Ongoing";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
@@ -25,7 +31,13 @@ export function shortDay(date: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+// NaN is the shared "genuinely not recoverable" sentinel for numeric fields
+// (e.g. a historical campaign's landing-page/Clarity metrics) — every
+// formatter below renders it as "xxx" instead of "NaN"/"€NaN", and NaN
+// propagates naturally through any arithmetic done on it (rate = x / NaN
+// stays NaN), so callers don't need to special-case it themselves.
 export function formatCurrency(n: number, decimals = 0): string {
+  if (Number.isNaN(n)) return "xxx";
   return `€${n.toLocaleString("en-GB", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -33,10 +45,12 @@ export function formatCurrency(n: number, decimals = 0): string {
 }
 
 export function formatNumber(n: number): string {
+  if (Number.isNaN(n)) return "xxx";
   return Math.round(n).toLocaleString("en-GB");
 }
 
 export function formatPercent(fraction: number, decimals = 1): string {
+  if (Number.isNaN(fraction)) return "xxx";
   return `${(fraction * 100).toFixed(decimals)}%`;
 }
 
@@ -46,6 +60,7 @@ export function formatPercent(fraction: number, decimals = 1): string {
 // own date cells reasoning about "today" consistently.
 // Seconds -> "1.1 min" / "45 sec", matching Clarity's own dashboard formatting.
 export function formatDuration(seconds: number): string {
+  if (Number.isNaN(seconds)) return "xxx";
   if (seconds < 60) return `${Math.round(seconds)} sec`;
   return `${(seconds / 60).toFixed(1)} min`;
 }

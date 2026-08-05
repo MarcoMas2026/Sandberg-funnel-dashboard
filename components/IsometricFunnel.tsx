@@ -159,7 +159,19 @@ interface TagCounts {
   blue: number;
 }
 
-export default function IsometricFunnel({ campaign, tagCounts }: { campaign: FunnelCampaign; tagCounts?: TagCounts }) {
+export default function IsometricFunnel({
+  campaign,
+  tagCounts,
+  disableDrilldown,
+}: {
+  campaign: FunnelCampaign;
+  tagCounts?: TagCounts;
+  // Layer drill-down pages (video retention, Clarity, per-ad breakdowns) rely
+  // on data that has no historical per-month store at all — set true when
+  // `campaign` is a reconstructed historical month so clicking a layer does
+  // nothing instead of opening a page with nothing real to show.
+  disableDrilldown?: boolean;
+}) {
   const { meta, typeform } = campaign;
   const router = useRouter();
   const [hoverLayer, setHoverLayer] = useState<number | null>(null);
@@ -296,10 +308,12 @@ export default function IsometricFunnel({ campaign, tagCounts }: { campaign: Fun
                 key={`hit-${i}`}
                 points={diamond}
                 fill={hoverLayer === i ? "rgba(0,0,0,0.03)" : "transparent"}
-                style={{ cursor: "pointer" }}
+                style={{ cursor: disableDrilldown ? "default" : "pointer" }}
                 onMouseEnter={() => setHoverLayer(i)}
                 onMouseLeave={() => setHoverLayer(null)}
-                onClick={() => router.push(`/campaign/${campaign.campaign_id}/layer/${i + 1}`)}
+                onClick={() => {
+                  if (!disableDrilldown) router.push(`/campaign/${campaign.campaign_id}/layer/${i + 1}`);
+                }}
               />
             );
           })}
