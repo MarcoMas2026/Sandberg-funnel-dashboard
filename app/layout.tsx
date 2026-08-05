@@ -11,7 +11,7 @@ import { DashboardProvider } from "@/lib/dashboard-context";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Sandberg Estates – Funnel Intelligence",
+  title: "SE Marketing Ops",
   description: "AI-fueled paid-performance operating system for Sandberg Estates",
 };
 

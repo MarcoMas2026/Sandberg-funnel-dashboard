@@ -313,6 +313,12 @@ export interface LeaderboardCampaignTotal {
   spend: number;
   leads: number;
   cpl: number;
+  // Real chronological daily leads since HISTORY_START, from
+  // funnel_daily_history (populated for every campaign with spend, not just
+  // ones with verified totals) — empty when the daily table genuinely has no
+  // rows for this campaign yet, in which case the caller falls back to a
+  // synthetic shape rather than plotting nothing.
+  trend: number[];
 }
 
 // Per-campaign totals summed across every month from HISTORY_START onward —
@@ -387,17 +393,26 @@ export async function getLeaderboardTotals(): Promise<{ connected: boolean; rows
     leads: number;
   }
   const dailyByCampaignMonth = new Map<string, DailyAcc>();
+  // Separate from the totals accounting above (which skips days already
+  // covered by a monthly aggregate to avoid double-counting) — the trend
+  // chart wants every real daily point regardless of which table the month's
+  // TOTAL came from.
+  const trendByCampaign = new Map<string, { date: string; leads: number }[]>();
   for (const r of dailyRows ?? []) {
     const ym = String(r.date).slice(0, 7);
     const key = `${r.campaign_id}:${ym}`;
-    if (coveredMonthly.has(key)) continue;
-    let acc = dailyByCampaignMonth.get(key);
-    if (!acc) {
-      acc = { property: r.property, ref: r.ref, campaign_type: r.campaign_type, spend: 0, leads: 0 };
-      dailyByCampaignMonth.set(key, acc);
+    if (!coveredMonthly.has(key)) {
+      let acc = dailyByCampaignMonth.get(key);
+      if (!acc) {
+        acc = { property: r.property, ref: r.ref, campaign_type: r.campaign_type, spend: 0, leads: 0 };
+        dailyByCampaignMonth.set(key, acc);
+      }
+      acc.spend += Number(r.spend ?? 0);
+      acc.leads += Number(r.leads ?? 0);
     }
-    acc.spend += Number(r.spend ?? 0);
-    acc.leads += Number(r.leads ?? 0);
+    const points = trendByCampaign.get(r.campaign_id) ?? [];
+    points.push({ date: r.date, leads: Number(r.leads ?? 0) });
+    trendByCampaign.set(r.campaign_id, points);
   }
   for (const [key, v] of dailyByCampaignMonth) {
     const campaignId = key.split(":")[0];
@@ -410,6 +425,9 @@ export async function getLeaderboardTotals(): Promise<{ connected: boolean; rows
   const rows: LeaderboardCampaignTotal[] = [];
   for (const [campaign_id, v] of perCampaign) {
     if (!v.hasLeads) continue;
+    const trend = (trendByCampaign.get(campaign_id) ?? [])
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+      .map((p) => p.leads);
     rows.push({
       campaign_id,
       property: v.property,
@@ -418,6 +436,7 @@ export async function getLeaderboardTotals(): Promise<{ connected: boolean; rows
       spend: v.spend,
       leads: v.leads,
       cpl: v.leads > 0 ? v.spend / v.leads : 0,
+      trend,
     });
   }
   return { connected: true, rows };

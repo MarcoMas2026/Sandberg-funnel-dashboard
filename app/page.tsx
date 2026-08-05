@@ -46,7 +46,7 @@ export default function MissionControl() {
   // lets the leaderboard include campaigns like S'Olivera that the small
   // hand-curated `historical` (KV) pool above never had.
   const [leaderboardHistory, setLeaderboardHistory] = useState<
-    { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number; cpl: number }[]
+    { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number; cpl: number; trend: number[] }[]
   >([]);
   useEffect(() => {
     fetch("/api/history/leaderboard", { cache: "no-store" })
@@ -785,8 +785,9 @@ function buildLeaderboard(
   // (lib/history/db.ts's getLeaderboardTotals) — a superset of `historical`
   // that also covers campaigns never added to that hand-curated KV pool
   // (e.g. S'Olivera, Sa Vinya) and keeps growing on its own as future months
-  // accumulate, with no manual curation step required.
-  leaderboardHistory: { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number; cpl: number }[]
+  // accumulate, with no manual curation step required. `trend` is real
+  // chronological daily leads from funnel_daily_history, not a fabricated shape.
+  leaderboardHistory: { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number; cpl: number; trend: number[] }[]
 ): LeaderRow[] {
   const activeIds = new Set(active.map((c) => c.campaign_id));
   const rows: LeaderRow[] = active.map((c) => ({
@@ -800,6 +801,11 @@ function buildLeaderboard(
     isActive: true,
   }));
   const coveredIds = new Set(activeIds);
+  // Real trends by campaign_id, so a campaign already shown via the older KV
+  // pool below (which wins on spend/leads to keep its already-displayed
+  // numbers stable) can still pick up a real trend where Supabase has one —
+  // e.g. Catalina Duplex and Finca Bugambilia are in both sources.
+  const realTrendById = new Map(leaderboardHistory.filter((h) => h.trend.length > 1).map((h) => [h.campaign_id, h.trend]));
   for (const h of historical) {
     if (coveredIds.has(h.campaign_id)) continue;
     coveredIds.add(h.campaign_id);
@@ -810,7 +816,7 @@ function buildLeaderboard(
       spend: h.spend,
       leads: h.leads,
       cpl: h.cpl,
-      trend: [h.leads * 0.2, h.leads * 0.5, h.leads * 0.75, h.leads],
+      trend: realTrendById.get(h.campaign_id) ?? [h.leads * 0.2, h.leads * 0.5, h.leads * 0.75, h.leads],
       isActive: false,
     });
   }
@@ -824,7 +830,10 @@ function buildLeaderboard(
       spend: h.spend,
       leads: h.leads,
       cpl: h.cpl,
-      trend: [h.leads * 0.2, h.leads * 0.5, h.leads * 0.75, h.leads],
+      // Real daily leads when funnel_daily_history has them (true for
+      // everything backfilled June onward); only falls back to the
+      // synthetic ramp if a campaign genuinely has no daily rows at all.
+      trend: h.trend.length > 1 ? h.trend : [h.leads * 0.2, h.leads * 0.5, h.leads * 0.75, h.leads],
       isActive: false,
     });
   }
