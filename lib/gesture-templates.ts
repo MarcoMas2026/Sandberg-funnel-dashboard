@@ -46,6 +46,18 @@ export const GESTURE_TEMPLATES: (GestureTemplate & { href: string; label: string
     ],
   },
   {
+    // ~ — a wave, echoing the Curve nav icon's rise-fall-rise line
+    name: "~",
+    href: "/curve",
+    label: "Curve",
+    points: [
+      { x: 0, y: 1 },
+      { x: 0.35, y: 0.05 },
+      { x: 0.62, y: 0.55 },
+      { x: 1, y: 0.05 },
+    ],
+  },
+  {
     name: "I",
     href: "/insights",
     label: "Insights",

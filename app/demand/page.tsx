@@ -1,23 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import {
-  DEMAND_AREAS,
-  DEMAND_BANDS,
-  MOCK_DEMAND,
-  MOCK_DEMAND_FEATURES,
-  MOCK_DEMAND_TIMELINE,
-} from "@/lib/mock";
+import { DEMAND_AREAS, DEMAND_BANDS, MOCK_DEMAND } from "@/lib/mock";
 import { GlowPanel } from "@/components/ui/glow-panel";
+import { LeadOriginGlobe } from "@/components/ui/lead-origin-globe";
 
 export default function DemandPage() {
   const [hover, setHover] = useState<{ area: string; band: string } | null>(null);
   const max = Math.max(...MOCK_DEMAND.map((d) => d.count));
   const get = (area: string, band: string) => MOCK_DEMAND.find((d) => d.area === area && d.band === band)?.count ?? 0;
-  const areaTotals = DEMAND_AREAS.map((a) => ({
-    area: a,
-    total: MOCK_DEMAND.filter((d) => d.area === a).reduce((s, d) => s + d.count, 0),
-  })).sort((x, y) => y.total - x.total);
 
   return (
     <div className="space-y-6">
@@ -34,7 +25,9 @@ export default function DemandPage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[62fr_38fr]">
+      <LeadOriginGlobe />
+
+      <div className="grid grid-cols-1 gap-5">
         {/* heatmap */}
         <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.05s" }} className="panel p-5">
           <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Demand by area × budget band</h2>
@@ -89,72 +82,6 @@ export default function DemandPage() {
             </table>
           </div>
         </GlowPanel>
-
-        {/* side rails */}
-        <div className="space-y-5">
-          <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.1s" }} className="panel p-5">
-            <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Hottest areas</h2>
-            <ul className="space-y-2">
-              {areaTotals.slice(0, 5).map((a, i) => (
-                <li key={a.area} className="flex items-center gap-3">
-                  <span className="w-4 text-[11px] font-semibold text-[var(--text-faint)]">{i + 1}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-[var(--text)]">{a.area}</span>
-                  <div className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--panel2)]">
-                    <div
-                      className="accent-gradient h-full rounded-full"
-                      style={{ width: `${(a.total / areaTotals[0].total) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-7 text-right text-xs font-semibold text-[var(--text)]">{a.total}</span>
-                </li>
-              ))}
-            </ul>
-          </GlowPanel>
-
-          <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.15s" }} className="panel p-5">
-            <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Most requested features</h2>
-            <ul className="space-y-2.5">
-              {MOCK_DEMAND_FEATURES.map((f) => (
-                <li key={f.label}>
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-[var(--text-muted)]">{f.label}</span>
-                    <span className="font-semibold text-[var(--text)]">{f.pct}%</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--panel2)]">
-                    <div className="h-full rounded-full bg-[#2f3b63]" style={{ width: `${f.pct}%` }} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </GlowPanel>
-
-          <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.2s" }} className="panel p-5">
-            <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Buying timeline</h2>
-            <div className="flex h-3 overflow-hidden rounded-full">
-              {MOCK_DEMAND_TIMELINE.map((t, i) => (
-                <div
-                  key={t.label}
-                  style={{
-                    width: `${t.pct}%`,
-                    background: ["#1b2540", "#4a5786", "#98a3c9", "#dde3ee"][i],
-                  }}
-                />
-              ))}
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {MOCK_DEMAND_TIMELINE.map((t, i) => (
-                <div key={t.label} className="flex items-center gap-2 text-xs">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ background: ["#1b2540", "#4a5786", "#98a3c9", "#dde3ee"][i] }}
-                  />
-                  <span className="text-[var(--text-muted)]">{t.label}</span>
-                  <span className="ml-auto font-semibold text-[var(--text)]">{t.pct}%</span>
-                </div>
-              ))}
-            </div>
-          </GlowPanel>
-        </div>
       </div>
     </div>
   );
