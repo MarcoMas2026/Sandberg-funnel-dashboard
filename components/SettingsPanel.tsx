@@ -167,7 +167,7 @@ function GestureEditor({
       }
       const drawn = pointsRef.current;
       if (drawn.length > 1) {
-        ctx.strokeStyle = "#7c5cff";
+        ctx.strokeStyle = "#f5b33d";
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(drawn[0].x, drawn[0].y);
