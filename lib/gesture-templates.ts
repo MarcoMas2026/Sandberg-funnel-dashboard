@@ -55,17 +55,6 @@ export const GESTURE_TEMPLATES: (GestureTemplate & { href: string; label: string
     ],
   },
   {
-    // right-pointing chevron — "vs / compare"
-    name: ">",
-    href: "/compare",
-    label: "Compare",
-    points: [
-      { x: 0, y: 0 },
-      { x: 1, y: 0.5 },
-      { x: 0, y: 1 },
-    ],
-  },
-  {
     name: "M",
     href: "/demand",
     label: "Demand Map",

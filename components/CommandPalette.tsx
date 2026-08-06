@@ -40,7 +40,6 @@ export default function CommandPalette() {
     const base: Cmd[] = [
       { label: "Mission Control", hint: "Go to overview", run: () => router.push("/") },
       { label: "Insights", hint: "AI analyst feed", run: () => router.push("/insights") },
-      { label: "Compare", hint: "Benchmark campaigns", run: () => router.push("/compare") },
       { label: "Demand Map", hint: "Buyer demand intelligence", run: () => router.push("/demand") },
       { label: "Patterns", hint: "Creative DNA library", run: () => router.push("/patterns") },
       { label: "Update data", hint: "Trigger n8n sync now", run: () => void triggerUpdate() },

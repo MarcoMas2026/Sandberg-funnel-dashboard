@@ -305,6 +305,90 @@ export async function getCampaignDailyRows(campaignId: string, monthStart: strin
   }));
 }
 
+export interface CatalogCampaign {
+  campaign_id: string;
+  campaign_name: string;
+  property: string;
+  ref: string;
+  campaign_type: string;
+  status: string;
+}
+
+// Properties hidden from the Campaign Curve selector specifically — kept out
+// of the picklist at the user's request (2026-08-06), not deleted from
+// funnel_daily_history, so they stay untouched for every other consumer
+// (Mission Control's Portfolio Leaderboard, etc.).
+const CURVE_HIDDEN_PROPERTIES = new Set(
+  [
+    "SP -31903 - Apartamento Vista Mar",
+    "SP - APARTMENT PALMA OLD TOWN",
+    "FINCA SON CATLAR",
+    "Finca Son Llum",
+  ].map((s) => s.trim().toLowerCase().replace(/\s+/g, " "))
+);
+
+// Every campaign this store has ever seen a daily snapshot for, active or
+// not — powers the Campaign Curve selector, which (unlike CampaignSelector)
+// needs to offer inactive/dropped campaigns too. Dedupes to each campaign's
+// most recent snapshot so `status`/`campaign_name` reflect the latest known
+// state rather than the day it first appeared.
+export async function getCampaignsCatalog(): Promise<{ connected: boolean; campaigns: CatalogCampaign[] }> {
+  const supabase = getClient();
+  if (!supabase) return { connected: false, campaigns: [] };
+  const { data, error } = await supabase
+    .from("funnel_daily_history")
+    .select("campaign_id, campaign_name, property, ref, campaign_type, status, date")
+    .order("date", { ascending: false });
+  if (error) return { connected: false, campaigns: [] };
+  const byId = new Map<string, CatalogCampaign>();
+  for (const r of data ?? []) {
+    if (byId.has(r.campaign_id)) continue; // first hit per id = most recent, since sorted desc
+    if (CURVE_HIDDEN_PROPERTIES.has(String(r.property ?? "").trim().toLowerCase().replace(/\s+/g, " "))) continue;
+    byId.set(r.campaign_id, {
+      campaign_id: r.campaign_id,
+      campaign_name: r.campaign_name,
+      property: r.property,
+      ref: r.ref,
+      campaign_type: r.campaign_type,
+      status: r.status,
+    });
+  }
+  return { connected: true, campaigns: Array.from(byId.values()) };
+}
+
+// Full daily history (all time since HISTORY_START, not just one month) for
+// a set of campaigns — powers the Campaign Curve chart, which plots each
+// campaign against its own "day 1, day 2, ..." runtime rather than a shared
+// calendar month.
+export async function getCampaignSeries(
+  campaignIds: string[]
+): Promise<{ connected: boolean; series: Record<string, DailyRow[]> }> {
+  const supabase = getClient();
+  if (!supabase) return { connected: false, series: {} };
+  if (campaignIds.length === 0) return { connected: true, series: {} };
+  const { data, error } = await supabase
+    .from("funnel_daily_history")
+    .select("campaign_id, date, spend, leads, cpl, impressions, clicks, link_clicks, ctr")
+    .in("campaign_id", campaignIds)
+    .order("date", { ascending: true });
+  if (error) return { connected: false, series: {} };
+  const series: Record<string, DailyRow[]> = {};
+  for (const r of data ?? []) {
+    const row: DailyRow = {
+      date: r.date,
+      spend: Number(r.spend ?? 0),
+      leads: Number(r.leads ?? 0),
+      cpl: Number(r.cpl ?? 0),
+      impressions: Number(r.impressions ?? 0),
+      clicks: Number(r.clicks ?? 0),
+      link_clicks: Number(r.link_clicks ?? 0),
+      ctr: Number(r.ctr ?? 0),
+    };
+    (series[r.campaign_id] ??= []).push(row);
+  }
+  return { connected: true, series };
+}
+
 export interface LeaderboardCampaignTotal {
   campaign_id: string;
   property: string;

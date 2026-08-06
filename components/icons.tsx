@@ -25,9 +25,13 @@ export const BarIcon = ({ className }: P) => (
   </svg>
 );
 
-export const CompareIcon = ({ className }: P) => (
+export const CurveIcon = ({ className }: P) => (
   <svg {...base(className)}>
-    <path d="M7 4 3 8l4 4M3 8h13M17 20l4-4-4-4M21 16H8" />
+    <path d="M3 17c3-1 4-9 7-9s3 6 6 6 3-6 5-6" />
+    <circle cx="3" cy="17" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="10" cy="8" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="14" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="21" cy="8" r="1.2" fill="currentColor" stroke="none" />
   </svg>
 );
 
