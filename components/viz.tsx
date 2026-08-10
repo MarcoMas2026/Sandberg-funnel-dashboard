@@ -220,7 +220,10 @@ export function LeadQualityBar({
     { value: blue, color: "#3b82f6", label: "low" },
   ];
 
-  if (total === 0) {
+  // total is NaN for a reconstructed historical campaign (tag counts genuinely
+  // unavailable, see app/campaign/[id]/page.tsx's NA_TAGS) — treat the same as
+  // 0 so segments don't render with an invalid NaN flexGrow.
+  if (total === 0 || Number.isNaN(total)) {
     return (
       <div
         className="flex w-full items-center justify-center rounded-xl bg-[var(--panel2)] text-xs text-[var(--text-faint)]"

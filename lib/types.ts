@@ -160,29 +160,6 @@ export interface FunnelData {
   status: "fresh" | "stale" | "error";
 }
 
-// A resolved past campaign used as a performance benchmark in the Compare view.
-// Only campaigns whose Typeform submissions could be verifiably attributed to
-// THAT specific campaign (via a hidden field matching its ref, or — for the
-// one campaign type with no ref — its own utm_campaign) are included. See
-// historical:campaigns in KV / CONTEXT.md for how this pool is populated.
-export interface HistoricalCampaign {
-  campaign_id: string;
-  campaign_name: string;
-  property: string;
-  ref: string;
-  campaign_type: CampaignType;
-  spend: number;
-  impressions: number;
-  clicks: number;
-  link_clicks: number;
-  leads: number; // Typeform submissions
-  starts: number; // Typeform starts (completed + partial)
-  ctr: number; // 0..1
-  cpl: number; // spend / leads
-  click_to_form_start_rate: number; // 0..1
-  form_completion_rate: number; // 0..1
-}
-
 // A single Typeform submission, captured by the Typeform Sync workflow's
 // "Build Leads" node (leads:all in KV) and manually qualified in the /leads
 // page. Tags live in a SEPARATE KV key (leads:tags, keyed by response_id) so
@@ -281,4 +258,65 @@ export interface OkrData {
   fetchedAt: string; // ISO, when this GET ran
   connected: boolean; // false if Google Sheets creds are missing/invalid
   error?: string; // short message when connected=false due to a real API error
+}
+
+// ── Public View (client-facing shareable dashboards) ────────────────────────
+
+export type PublicViewWidgetType =
+  | "portfolio-spend"
+  | "portfolio-leads"
+  | "portfolio-cpl"
+  | "campaign-spend"
+  | "campaign-leads"
+  | "campaign-cpl"
+  | "campaign-ctr"
+  | "campaign-outbound-ctr"
+  | "campaign-spend-trend";
+
+export type PublicViewTheme = "light" | "dark" | "estate";
+
+export interface PublicViewLayoutRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+// A single pinned box on the canvas. `campaignId` is required for every
+// "campaign-*" type and ignored for "portfolio-*" types (those aggregate
+// across every campaign present in the resolved FunnelData).
+export interface PublicViewWidget {
+  id: string; // uuid, stable across edits/reorders
+  type: PublicViewWidgetType;
+  campaignId?: string;
+  label?: string; // optional override of the widget's default title
+  layout: PublicViewLayoutRect;
+}
+
+// Stored in KV per-slug. `snapshot`, when present, is a FunnelData already
+// filtered down to only the campaigns referenced by `widgets` — see
+// freezePublicView in lib/kv.ts. Never store the full unfiltered FunnelData
+// here: that would leak every other campaign's numbers to whoever holds the link.
+export interface PublicViewConfig {
+  slug: string;
+  propertyLabel: string;
+  theme: PublicViewTheme;
+  widgets: PublicViewWidget[];
+  published: boolean;
+  frozen: boolean;
+  frozenAt: string | null; // ISO, when Freeze was last pressed
+  snapshot: FunnelData | null;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+}
+
+// Lightweight per-slug entry kept in the index list so the builder can list
+// every Public View without fetching each config (and its potentially large
+// frozen snapshot) individually.
+export interface PublicViewIndexEntry {
+  slug: string;
+  propertyLabel: string;
+  published: boolean;
+  frozen: boolean;
+  updatedAt: string;
 }

@@ -35,22 +35,31 @@ export function shortDay(date: string): string {
 // (e.g. a historical campaign's landing-page/Clarity metrics) — every
 // formatter below renders it as "xxx" instead of "NaN"/"€NaN", and NaN
 // propagates naturally through any arithmetic done on it (rate = x / NaN
-// stays NaN), so callers don't need to special-case it themselves.
-export function formatCurrency(n: number, decimals = 0): string {
-  if (Number.isNaN(n)) return "xxx";
+// stays NaN), so callers don't need to special-case it themselves. `null`/
+// `undefined` are treated the same way — JSON.stringify silently turns NaN
+// into null (JSON has no NaN literal), so any NaN sentinel that crossed an
+// API boundary (e.g. /api/history/campaign-detail) arrives on the client as
+// null, not NaN. Without this it would slip past Number.isNaN and crash on
+// n.toLocaleString().
+function isUnavailable(n: number | null | undefined): n is null | undefined {
+  return n === null || n === undefined || Number.isNaN(n);
+}
+
+export function formatCurrency(n: number | null | undefined, decimals = 0): string {
+  if (isUnavailable(n)) return "xxx";
   return `€${n.toLocaleString("en-GB", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   })}`;
 }
 
-export function formatNumber(n: number): string {
-  if (Number.isNaN(n)) return "xxx";
+export function formatNumber(n: number | null | undefined): string {
+  if (isUnavailable(n)) return "xxx";
   return Math.round(n).toLocaleString("en-GB");
 }
 
-export function formatPercent(fraction: number, decimals = 1): string {
-  if (Number.isNaN(fraction)) return "xxx";
+export function formatPercent(fraction: number | null | undefined, decimals = 1): string {
+  if (isUnavailable(fraction)) return "xxx";
   return `${(fraction * 100).toFixed(decimals)}%`;
 }
 
@@ -59,8 +68,8 @@ export function formatPercent(fraction: number, decimals = 1): string {
 // CONTEXT.md). Used to keep OKR board generation, cron firing, and the sheet's
 // own date cells reasoning about "today" consistently.
 // Seconds -> "1.1 min" / "45 sec", matching Clarity's own dashboard formatting.
-export function formatDuration(seconds: number): string {
-  if (Number.isNaN(seconds)) return "xxx";
+export function formatDuration(seconds: number | null | undefined): string {
+  if (isUnavailable(seconds)) return "xxx";
   if (seconds < 60) return `${Math.round(seconds)} sec`;
   return `${(seconds / 60).toFixed(1)} min`;
 }

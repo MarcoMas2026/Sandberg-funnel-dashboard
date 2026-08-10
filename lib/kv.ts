@@ -1,12 +1,14 @@
-import { ClarityMetrics, FunnelData, HistoricalCampaign, LandingEngagement, LandingEngagementRaw, LeadRecord, LeadTag } from "./types";
+import { ClarityMetrics, FunnelData, LandingEngagement, LandingEngagementRaw, LeadRecord, LeadTag, PublicViewConfig, PublicViewIndexEntry, PublicViewWidgetType } from "./types";
 import { CAMPAIGN_MAP, LANDING_SECTION_ORDER } from "./config";
+import { createWidget } from "./public-view-widgets";
 
 const FUNNEL_KEY = "funnel:merged";
-const HISTORICAL_KEY = "historical:campaigns";
 const LEADS_KEY = "leads:all";
 const LEAD_TAGS_KEY = "leads:tags";
 const LANDING_FUNNEL_KEY = "landing:funnel";
 const CLARITY_METRICS_KEY = "clarity:metrics";
+const PUBLIC_VIEW_INDEX_KEY = "publicview:index";
+const publicViewConfigKey = (slug: string) => `publicview:config:${slug}`;
 
 function kvHeaders() {
   return { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` };
@@ -133,21 +135,6 @@ export async function setFunnelData(data: FunnelData): Promise<void> {
   });
 }
 
-// Pool of past (inactive) campaigns with verified Typeform attribution, used
-// as performance benchmarks in Compare. Populated by a manual backfill, not
-// the regular Update pipeline — see CONTEXT.md for how/when to refresh it.
-export async function getHistoricalCampaigns(): Promise<HistoricalCampaign[]> {
-  const res = await fetch(`${process.env.KV_REST_API_URL}/get/${HISTORICAL_KEY}`, {
-    headers: kvHeaders(),
-    cache: "no-store",
-  });
-  const { result } = await res.json();
-
-  if (!result) return [];
-
-  return JSON.parse(result) as HistoricalCampaign[];
-}
-
 // leads:all is written by the Typeform Sync workflow's "Build Leads" node
 // (full replace every ~30-min sync, scoped to currently-active campaigns).
 type RawLead = Omit<LeadRecord, "tag">;
@@ -202,4 +189,195 @@ export async function setLeadTag(responseId: string, tag: LeadTag): Promise<Reco
   }
   await setLeadTags(tags);
   return tags;
+}
+
+// ── Public View (client-facing shareable dashboards) ────────────────────────
+// publicview:index lists every slug for the builder's picker; each slug's full
+// config (including its frozen snapshot, if any) lives in its own
+// publicview:config:<slug> key so loading the index never pulls snapshot payloads.
+
+export async function listPublicViews(): Promise<PublicViewIndexEntry[]> {
+  const res = await fetch(`${process.env.KV_REST_API_URL}/get/${PUBLIC_VIEW_INDEX_KEY}`, {
+    headers: kvHeaders(),
+    cache: "no-store",
+  });
+  const { result } = await res.json();
+  if (!result) return [];
+  return JSON.parse(result) as PublicViewIndexEntry[];
+}
+
+async function savePublicViewIndex(entries: PublicViewIndexEntry[]): Promise<void> {
+  await fetch(`${process.env.KV_REST_API_URL}/set/${PUBLIC_VIEW_INDEX_KEY}`, {
+    method: "POST",
+    headers: { ...kvHeaders(), "Content-Type": "text/plain" },
+    body: JSON.stringify(entries),
+    cache: "no-store",
+  });
+}
+
+function toIndexEntry(config: PublicViewConfig): PublicViewIndexEntry {
+  return {
+    slug: config.slug,
+    propertyLabel: config.propertyLabel,
+    published: config.published,
+    frozen: config.frozen,
+    updatedAt: config.updatedAt,
+  };
+}
+
+async function upsertPublicViewIndex(config: PublicViewConfig): Promise<void> {
+  const entries = await listPublicViews();
+  const next = entries.filter((e) => e.slug !== config.slug);
+  next.push(toIndexEntry(config));
+  await savePublicViewIndex(next);
+}
+
+export async function getPublicViewConfig(slug: string): Promise<PublicViewConfig | null> {
+  const res = await fetch(`${process.env.KV_REST_API_URL}/get/${publicViewConfigKey(slug)}`, {
+    headers: kvHeaders(),
+    cache: "no-store",
+  });
+  const { result } = await res.json();
+  if (!result) return null;
+  return JSON.parse(result) as PublicViewConfig;
+}
+
+export async function savePublicViewConfig(config: PublicViewConfig): Promise<void> {
+  await fetch(`${process.env.KV_REST_API_URL}/set/${publicViewConfigKey(config.slug)}`, {
+    method: "POST",
+    headers: { ...kvHeaders(), "Content-Type": "text/plain" },
+    body: JSON.stringify(config),
+    cache: "no-store",
+  });
+  await upsertPublicViewIndex(config);
+}
+
+export async function createPublicView(slug: string, propertyLabel: string): Promise<PublicViewConfig> {
+  const existing = await getPublicViewConfig(slug);
+  if (existing) throw new Error(`Slug "${slug}" is already in use`);
+  const now = new Date().toISOString();
+  const config: PublicViewConfig = {
+    slug,
+    propertyLabel,
+    theme: "light",
+    widgets: [],
+    published: false,
+    frozen: false,
+    frozenAt: null,
+    snapshot: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await savePublicViewConfig(config);
+  return config;
+}
+
+export async function deletePublicView(slug: string): Promise<void> {
+  await fetch(`${process.env.KV_REST_API_URL}/del/${publicViewConfigKey(slug)}`, {
+    headers: kvHeaders(),
+    cache: "no-store",
+  });
+  const entries = await listPublicViews();
+  await savePublicViewIndex(entries.filter((e) => e.slug !== slug));
+}
+
+// Snapshotting only the campaigns actually referenced by this config's widgets
+// (never the full portfolio) is the privacy boundary described in the Public
+// View plan: a client holding this link can never see another property's numbers,
+// frozen or live.
+export async function freezePublicView(slug: string): Promise<PublicViewConfig> {
+  const config = await getPublicViewConfig(slug);
+  if (!config) throw new Error(`No Public View config for slug "${slug}"`);
+
+  const referencedCampaignIds = new Set(
+    config.widgets.map((w) => w.campaignId).filter((id): id is string => Boolean(id))
+  );
+  const live = await getFunnelData();
+  const snapshot: FunnelData = {
+    ...live,
+    campaigns: live.campaigns.filter((c) => referencedCampaignIds.has(c.campaign_id)),
+  };
+
+  const next: PublicViewConfig = {
+    ...config,
+    frozen: true,
+    frozenAt: new Date().toISOString(),
+    snapshot,
+    updatedAt: new Date().toISOString(),
+  };
+  await savePublicViewConfig(next);
+  return next;
+}
+
+// Appends one widget server-side and returns the updated config — used by the
+// global Option+drag-to-left-edge gesture, which fires from any dashboard
+// page and never has a full PublicViewConfig loaded client-side to merge
+// into. The builder's own source panel also goes through this same path now,
+// so there is exactly one place that computes a new widget's layout slot.
+export async function addPublicViewWidget(
+  slug: string,
+  type: PublicViewWidgetType,
+  campaignId?: string
+): Promise<PublicViewConfig> {
+  const config = await getPublicViewConfig(slug);
+  if (!config) throw new Error(`No Public View config for slug "${slug}"`);
+  const widget = createWidget(type, campaignId, config.widgets);
+  const next: PublicViewConfig = {
+    ...config,
+    widgets: [...config.widgets, widget],
+    updatedAt: new Date().toISOString(),
+  };
+  await savePublicViewConfig(next);
+  return next;
+}
+
+// Shared by the public /api/public-view/[slug]/data route and the /view/[slug]
+// server component — one place resolving "what does this published slug get
+// to see right now," so both can never drift out of sync on the privacy filter.
+export async function resolvePublicView(slug: string): Promise<{
+  slug: string;
+  propertyLabel: string;
+  theme: PublicViewConfig["theme"];
+  widgets: PublicViewConfig["widgets"];
+  frozen: boolean;
+  frozenAt: string | null;
+  data: FunnelData;
+} | null> {
+  const config = await getPublicViewConfig(slug);
+  if (!config || !config.published) return null;
+
+  let data: FunnelData;
+  if (config.frozen && config.snapshot) {
+    data = config.snapshot;
+  } else {
+    const referencedCampaignIds = new Set(
+      config.widgets.map((w) => w.campaignId).filter((id): id is string => Boolean(id))
+    );
+    const live = await getFunnelData();
+    data = { ...live, campaigns: live.campaigns.filter((c) => referencedCampaignIds.has(c.campaign_id)) };
+  }
+
+  return {
+    slug: config.slug,
+    propertyLabel: config.propertyLabel,
+    theme: config.theme,
+    widgets: config.widgets,
+    frozen: config.frozen,
+    frozenAt: config.frozenAt,
+    data,
+  };
+}
+
+export async function unfreezePublicView(slug: string): Promise<PublicViewConfig> {
+  const config = await getPublicViewConfig(slug);
+  if (!config) throw new Error(`No Public View config for slug "${slug}"`);
+  const next: PublicViewConfig = {
+    ...config,
+    frozen: false,
+    frozenAt: null,
+    snapshot: null,
+    updatedAt: new Date().toISOString(),
+  };
+  await savePublicViewConfig(next);
+  return next;
 }

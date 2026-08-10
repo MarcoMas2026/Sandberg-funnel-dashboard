@@ -348,6 +348,35 @@ export async function getFullMonthlyRow(campaignId: string, year: number, month:
   return data as FullMonthlyRow;
 }
 
+// The (year, month) this campaign was actually most active in — by leads,
+// falling back to spend as a tiebreak/for campaigns with no verified leads —
+// NOT simply its most recent calendar month. Lets the campaign detail page
+// resolve historical data for a campaign even when the caller's requested
+// month (e.g. Mission Control's currently selected KPI month, no longer tied
+// to what Inactive Campaigns displays) isn't one the campaign actually ran
+// in. Picking "most recent" instead of "most active" would routinely land on
+// a near-empty tail month — e.g. a campaign that ran hard in June (€399
+// spend, 20 leads) then trickled out with a final €5/0-lead day in July
+// before being paused; "latest" picks July and shows an almost-blank page
+// for a campaign whose Inactive Campaigns card correctly shows the full
+// €404/20-lead all-time total.
+export async function getLatestMonthWithData(campaignId: string): Promise<{ year: number; month: number } | null> {
+  const supabase = getClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("funnel_monthly_totals")
+    .select("year, month, spend, leads")
+    .eq("campaign_id", campaignId);
+  if (error || !data || data.length === 0) return null;
+  const best = data.reduce((a, b) => {
+    const aLeads = a.leads ?? 0;
+    const bLeads = b.leads ?? 0;
+    if (aLeads !== bLeads) return bLeads > aLeads ? b : a;
+    return (b.spend ?? 0) > (a.spend ?? 0) ? b : a;
+  });
+  return { year: best.year, month: best.month };
+}
+
 export interface DailyRow {
   date: string;
   spend: number;
@@ -483,11 +512,11 @@ export interface LeaderboardCampaignTotal {
 }
 
 // Per-campaign totals summed across every month from HISTORY_START onward —
-// backs the Portfolio Leaderboard so it considers every campaign this store
-// knows about (this session's June/July backfill, plus whatever accumulates
-// automatically as future months run), not just the small hand-curated
-// historical:campaigns KV pool. For each (campaign, month) pair, prefers the
-// funnel_monthly_totals row (Meta's real monthly aggregate) when one exists,
+// backs the Portfolio Leaderboard and Mission Control's Inactive Campaigns
+// section, the single source of truth for any campaign not currently ACTIVE
+// (the old hand-curated `historical:campaigns` KV pool was retired — it
+// drifted out of sync with this store with nothing keeping the two in step).
+// For each (campaign, month) pair, prefers the
 // falling back to summing funnel_daily_history for months not backfilled to
 // a monthly aggregate (e.g. the current, in-progress month) — same
 // preference as getMonthlyTotals, just applied per campaign across many

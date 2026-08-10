@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useDashboard } from "@/lib/dashboard-context";
-import { FunnelCampaign, HistoricalCampaign } from "@/lib/types";
+import { FunnelCampaign } from "@/lib/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { CountUp, DeltaChip, LeadQualityDonut, Pill, RingGauge, Sparkline } from "@/components/viz";
 import { MOCK_QUALITY } from "@/lib/mock";
@@ -12,6 +12,7 @@ import { HomeIcon, InsightIcon } from "@/components/icons";
 import { LeadRecord } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
 import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { Pinnable } from "@/components/Pinnable";
 
 const SEV_COLOR: Record<Severity, string> = {
   critical: "#f87171",
@@ -31,20 +32,16 @@ function greeting() {
 
 export default function MissionControl() {
   const { data, loading } = useDashboard();
-  const [historical, setHistorical] = useState<HistoricalCampaign[]>([]);
   const [tagCounts, setTagCounts] = useState<Record<string, { red: number; orange: number; blue: number }>>({});
 
-  useEffect(() => {
-    fetch("/api/historical", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setHistorical(d.campaigns ?? []))
-      .catch(() => {});
-  }, []);
-
-  // Every campaign from June 2026 onward with real spend/leads, sourced from
-  // the same Supabase history store the month picker uses — this is what
-  // lets the leaderboard include campaigns like S'Olivera that the small
-  // hand-curated `historical` (KV) pool above never had.
+  // Every campaign from June 2026 onward with real spend/leads — single
+  // source of truth for anything not currently ACTIVE (Inactive Campaigns
+  // cards + Portfolio Leaderboard), sourced from Supabase (funnel_monthly_totals
+  // / funnel_daily_history via lib/history/db.ts). The old hand-curated
+  // `historical:campaigns` KV pool this used to also merge in has been
+  // retired — it drifted out of sync with Supabase (e.g. stale spend/leads
+  // for Anchorage Club) since nothing kept the two in step. Supabase is now
+  // the only place historical/inactive campaign data is stored or updated.
   const [leaderboardHistory, setLeaderboardHistory] = useState<
     { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number; cpl: number; trend: number[] }[]
   >([]);
@@ -157,25 +154,21 @@ export default function MissionControl() {
   const spendSpark = mergeDaily(active, "spend");
   const leadsSpark = mergeDaily(active, "leads");
 
-  // Paid Campaigns list: per-campaign totals for the selected month, sourced
-  // from stored history (funnel_monthly_totals/funnel_daily_history) so a
-  // campaign no longer in lib/config.ts (e.g. paused/archived and dropped
-  // from live tracking) can still show up for a past month it actually ran.
-  const [monthlyCampaignRows, setMonthlyCampaignRows] = useState<
-    { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number | null; cpl: number | null }[]
-  >([]);
-  useEffect(() => {
-    fetch(`/api/history/campaigns?start=${monthStart}&end=${monthEnd}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((json) => setMonthlyCampaignRows(json.rows ?? []))
-      .catch(() => setMonthlyCampaignRows([]));
-  }, [monthStart, monthEnd]);
+  // Inactive Campaigns list: every campaign NOT currently active, all-time
+  // totals (not scoped to the selected month — only the hero KPI cards above
+  // change with the month picker). Merges still-live-but-paused campaigns
+  // (real meta.spend/meta.leads from KV) with campaigns no longer tracked in
+  // lib/config.ts at all (from Supabase via leaderboardHistory — the same
+  // pool the Portfolio Leaderboard below uses).
+  const inactiveCampaigns = useMemo(
+    () => buildInactiveCampaigns(data?.campaigns ?? [], leaderboardHistory),
+    [data, leaderboardHistory]
+  );
 
-  const paidCampaigns = useMemo(() => buildPaidCampaigns(data?.campaigns ?? [], monthlyCampaignRows, monthStart, monthEnd), [data, monthlyCampaignRows, monthStart, monthEnd]);
-
-  // Leaderboard: active campaigns' live totals + verified historical ones,
-  // deduped by id, ranked by leads — mirrors the reference "Market Overview" table.
-  const leaderboard = buildLeaderboard(active, historical, leaderboardHistory);
+  // Leaderboard: active campaigns' live totals + Supabase-verified historical
+  // ones, deduped by id, ranked by leads — mirrors the reference "Market
+  // Overview" table.
+  const leaderboard = buildLeaderboard(active, leaderboardHistory);
 
   if (loading) {
     return (
@@ -226,44 +219,50 @@ export default function MissionControl() {
 
       {/* hero KPI price-cards */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <PriceCard
-          label={`Total Spend · ${monthLabel}`}
-          accent="#2f3b63"
-          delay="0.05s"
-          value={<CountUp value={totalSpend} format={(v) => formatCurrency(v)} />}
-          delta={8}
-          goodWhenUp
-          spark={<Sparkline data={spendSpark} stroke="#4a5786" width={130} height={44} markers peakLabel={(v) => `€${Math.round(v)}`} />}
-          menu={
-            <MonthPickerButton
-              year={selMonth.year}
-              month={selMonth.month}
-              onChange={(year, month) => setSelMonth({ year, month })}
-            />
-          }
-        />
-        <PriceCard
-          label={`Leads (submissions) · ${monthLabel}`}
-          accent="#4a5786"
-          delay="0.1s"
-          value={<CountUp value={totalLeads} format={(v) => formatNumber(v)} />}
-          delta={12}
-          goodWhenUp
-          spark={<Sparkline data={leadsSpark} stroke="#6e7aab" width={130} height={44} markers peakLabel={(v) => `${Math.round(v)}`} />}
-        />
-        <PriceCard
-          label={`Avg Cost / Lead · ${monthLabel}`}
-          accent="#98a3c9"
-          delay="0.15s"
-          value={<CountUp value={avgCpl} format={(v) => formatCurrency(v, 2)} />}
-          delta={-6}
-          goodWhenUp={false}
-          footnote={
-            <>
-              CPQL⁺ {formatCurrency(qualityFor(active[0]?.campaign_id).cpqlPlus, 2)} <MockTag />
-            </>
-          }
-        />
+        <Pinnable type="portfolio-spend">
+          <PriceCard
+            label={`Total Spend · ${monthLabel}`}
+            accent="#2f3b63"
+            delay="0.05s"
+            value={<CountUp value={totalSpend} format={(v) => formatCurrency(v)} />}
+            delta={8}
+            goodWhenUp
+            spark={<Sparkline data={spendSpark} stroke="#4a5786" width={130} height={44} markers peakLabel={(v) => `€${Math.round(v)}`} />}
+            menu={
+              <MonthPickerButton
+                year={selMonth.year}
+                month={selMonth.month}
+                onChange={(year, month) => setSelMonth({ year, month })}
+              />
+            }
+          />
+        </Pinnable>
+        <Pinnable type="portfolio-leads">
+          <PriceCard
+            label={`Leads (submissions) · ${monthLabel}`}
+            accent="#4a5786"
+            delay="0.1s"
+            value={<CountUp value={totalLeads} format={(v) => formatNumber(v)} />}
+            delta={12}
+            goodWhenUp
+            spark={<Sparkline data={leadsSpark} stroke="#6e7aab" width={130} height={44} markers peakLabel={(v) => `${Math.round(v)}`} />}
+          />
+        </Pinnable>
+        <Pinnable type="portfolio-cpl">
+          <PriceCard
+            label={`Avg Cost / Lead · ${monthLabel}`}
+            accent="#98a3c9"
+            delay="0.15s"
+            value={<CountUp value={avgCpl} format={(v) => formatCurrency(v, 2)} />}
+            delta={-6}
+            goodWhenUp={false}
+            footnote={
+              <>
+                CPQL⁺ {formatCurrency(qualityFor(active[0]?.campaign_id).cpqlPlus, 2)} <MockTag />
+              </>
+            }
+          />
+        </Pinnable>
         <GlowPanel wrapperClassName="fade-up h-full" style={{ animationDelay: "0.2s" }} className="panel flex h-full items-center justify-between p-5">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Portfolio Health</p>
@@ -305,31 +304,41 @@ export default function MissionControl() {
         </div>
       </Link>
 
-      {/* campaigns */}
+      {/* active campaigns */}
       <div className="fade-up" style={{ animationDelay: "0.3s" }}>
-        <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Paid Campaigns · {monthLabel}</h2>
-        {paidCampaigns.length === 0 ? (
+        <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Active Campaigns</h2>
+        {active.length === 0 ? (
           <GlowPanel className="panel flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-base font-medium text-[var(--text)]">No campaigns ran in {monthLabel}</p>
+            <p className="text-base font-medium text-[var(--text)]">No campaigns are active right now</p>
             <p className="mt-1 text-sm text-[var(--text-muted)]">Hit Update Data once campaigns are live in Meta</p>
           </GlowPanel>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {paidCampaigns.map((row) =>
-              row.live ? (
-                <LiveCampaignCard
-                  key={row.campaign_id}
-                  campaign={row.live}
-                  spend={row.spend}
-                  leads={row.leads ?? 0}
-                  tagCounts={tagCounts[row.campaign_id] ?? { red: 0, orange: 0, blue: 0 }}
-                  isCurrentlyActive={row.isCurrentlyActive}
-                  lastUpdated={data?.last_updated ?? null}
-                />
-              ) : (
-                <HistoricalCampaignCard key={row.campaign_id} row={row} monthKey={`${selMonth.year}-${String(selMonth.month + 1).padStart(2, "0")}`} />
-              )
-            )}
+            {active.map((c) => (
+              <LiveCampaignCard
+                key={c.campaign_id}
+                campaign={c}
+                spend={c.meta.spend}
+                leads={c.meta.leads}
+                tagCounts={tagCounts[c.campaign_id] ?? { red: 0, orange: 0, blue: 0 }}
+                isCurrentlyActive
+                lastUpdated={data?.last_updated ?? null}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* inactive campaigns */}
+      <div className="fade-up" style={{ animationDelay: "0.32s" }}>
+        <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Inactive Campaigns</h2>
+        {inactiveCampaigns.length === 0 ? (
+          <p className="text-sm text-[var(--text-faint)]">No inactive campaigns</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+            {inactiveCampaigns.map((row) => (
+              <InactiveCampaignCard key={row.campaign_id} row={row} />
+            ))}
           </div>
         )}
       </div>
@@ -527,76 +536,58 @@ function qualityFor(id: string | undefined) {
   return (id && MOCK_QUALITY[id]) || MOCK_QUALITY.DEFAULT;
 }
 
-interface PaidCampaignRow {
+interface InactiveCampaignRow {
   campaign_id: string;
   property: string;
   ref: string;
   campaign_type: "property" | "community";
   spend: number;
   leads: number | null;
-  cpl: number | null;
-  isCurrentlyActive: boolean;
-  live: FunnelCampaign | null; // present when still tracked in lib/config.ts -> full detail page
+  live: FunnelCampaign | null; // present when still tracked in lib/config.ts -> full detail page, no month needed
 }
 
-// Merges live-tracked campaigns with activity in [monthStart, monthEnd]
-// (accurate, from KV) with Supabase-stored campaigns not already covered
-// (no longer live-tracked, e.g. dropped from lib/config.ts). Currently-ACTIVE
-// campaigns sort first, then everyone else by spend.
-function buildPaidCampaigns(
+// Every campaign NOT currently ACTIVE, all-time totals: live-tracked but
+// paused/archived campaigns first (real meta.spend/meta.leads from KV), then
+// campaigns no longer tracked in lib/config.ts at all, sourced from Supabase
+// (leaderboardHistory — see lib/history/db.ts's getLeaderboardTotals). Sorted
+// by spend, no month scoping (matches Active Campaigns above).
+function buildInactiveCampaigns(
   liveCampaigns: FunnelCampaign[],
-  monthlyRows: { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number | null; cpl: number | null }[],
-  monthStart: string,
-  monthEnd: string
-): PaidCampaignRow[] {
-  const rows: PaidCampaignRow[] = [];
+  leaderboardHistory: { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number }[]
+): InactiveCampaignRow[] {
+  const rows: InactiveCampaignRow[] = [];
   const seen = new Set<string>();
+  const activeIds = new Set(liveCampaigns.filter((c) => c.status === "ACTIVE").map((c) => c.campaign_id));
 
   for (const c of liveCampaigns) {
-    let spend = 0;
-    let leads = 0;
-    let any = false;
-    for (const d of c.meta.daily) {
-      if (d.date >= monthStart && d.date <= monthEnd) {
-        spend += d.spend;
-        leads += d.leads;
-        any = true;
-      }
-    }
-    if (!any || (spend === 0 && leads === 0)) continue;
+    if (c.status === "ACTIVE") continue;
     seen.add(c.campaign_id);
     rows.push({
       campaign_id: c.campaign_id,
       property: c.property,
       ref: c.ref,
       campaign_type: c.campaign_type,
-      spend,
-      leads,
-      cpl: leads > 0 ? spend / leads : 0,
-      isCurrentlyActive: c.status === "ACTIVE",
+      spend: c.meta.spend,
+      leads: c.meta.leads,
       live: c,
     });
   }
 
-  for (const r of monthlyRows) {
-    if (seen.has(r.campaign_id)) continue;
+  for (const h of leaderboardHistory) {
+    if (seen.has(h.campaign_id) || activeIds.has(h.campaign_id)) continue;
+    seen.add(h.campaign_id);
     rows.push({
-      campaign_id: r.campaign_id,
-      property: r.property,
-      ref: r.ref,
-      campaign_type: r.campaign_type === "community" ? "community" : "property",
-      spend: r.spend,
-      leads: r.leads,
-      cpl: r.cpl,
-      isCurrentlyActive: false,
+      campaign_id: h.campaign_id,
+      property: h.property,
+      ref: h.ref,
+      campaign_type: h.campaign_type === "community" ? "community" : "property",
+      spend: h.spend,
+      leads: h.leads,
       live: null,
     });
   }
 
-  rows.sort((a, b) => {
-    if (a.isCurrentlyActive !== b.isCurrentlyActive) return a.isCurrentlyActive ? -1 : 1;
-    return b.spend - a.spend;
-  });
+  rows.sort((a, b) => b.spend - a.spend);
   return rows;
 }
 
@@ -652,14 +643,18 @@ function LiveCampaignCard({
       </div>
 
       <div className="relative mb-3 flex items-end justify-between">
-        <div>
-          <p className="text-2xl font-bold text-[var(--text)]">{formatCurrency(spend)}</p>
-          <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
-        </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold text-[var(--text)]">{formatNumber(leads)}</p>
-          <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
-        </div>
+        <Pinnable type="campaign-spend" campaignId={c.campaign_id}>
+          <div>
+            <p className="text-2xl font-bold text-[var(--text)]">{formatCurrency(spend)}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
+          </div>
+        </Pinnable>
+        <Pinnable type="campaign-leads" campaignId={c.campaign_id}>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-[var(--text)]">{formatNumber(leads)}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
+          </div>
+        </Pinnable>
         <Sparkline data={c.meta.daily.map((d) => d.leads)} stroke="#6e7aab" width={110} height={40} />
       </div>
 
@@ -708,53 +703,33 @@ function LiveCampaignCard({
   );
 }
 
-// Simpler card for a campaign no longer live-tracked (not in lib/config.ts) —
-// only spend/leads/CPL for the selected month is available (from Supabase
-// history), so no funnel donut, sparkline, or sync badges. Links into
-// /campaign/[id]?month=YYYY-MM, which falls back to a lighter detail view
-// for campaigns not in the live funnel feed.
-function HistoricalCampaignCard({ row, monthKey }: { row: PaidCampaignRow; monthKey: string }) {
+// Compact card for a NOT-currently-active campaign — name, spend and leads
+// only, all-time totals, no funnel donut/sparkline/sync badges. Always links
+// straight to /campaign/[id] with no month param: live-tracked campaigns
+// (row.live set) are found directly in the live feed, and campaigns no
+// longer in lib/config.ts are resolved by the detail page against their own
+// latest month with data (see /api/history/campaign-detail's no-month path).
+function InactiveCampaignCard({ row }: { row: InactiveCampaignRow }) {
   const tint = TYPE_COLOR[row.campaign_type];
+  const href = `/campaign/${row.campaign_id}`;
   return (
     <Link
-      href={`/campaign/${row.campaign_id}?month=${monthKey}`}
-      className="group panel relative block overflow-hidden p-5 transition-colors hover:border-[var(--border-strong)]"
+      href={href}
+      className="group panel relative block overflow-hidden p-3 transition-colors hover:border-[var(--border-strong)]"
     >
-      <div
-        className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full opacity-15 blur-2xl transition-opacity group-hover:opacity-25"
-        style={{ background: tint }}
-      />
-      <div className="relative mb-4 flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--panel2)]" style={{ color: tint }}>
-            <HomeIcon className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-base font-semibold text-[var(--text)]">{row.property}</p>
-            <p className="text-xs text-[var(--text-muted)]">
-              Ref {row.ref} · {row.campaign_type === "community" ? "Community" : "Property"}
-            </p>
-          </div>
-        </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--panel2)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-faint)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--text-faint)]" /> Inactive
-        </span>
+      <div className="relative mb-2 flex items-center gap-2">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: tint }} />
+        <p className="truncate text-xs font-semibold text-[var(--text)]">{row.property}</p>
       </div>
-
-      <div className="relative mb-3 flex items-end justify-between">
+      <div className="relative flex items-end justify-between gap-2">
         <div>
-          <p className="text-2xl font-bold text-[var(--text)]">{formatCurrency(row.spend)}</p>
-          <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
+          <p className="text-sm font-bold text-[var(--text)]">{formatCurrency(row.spend)}</p>
+          <p className="text-[9px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-[var(--text)]">{row.leads === null ? "—" : formatNumber(row.leads)}</p>
-          <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
+          <p className="text-sm font-bold text-[var(--text)]">{row.leads === null ? "—" : formatNumber(row.leads)}</p>
+          <p className="text-[9px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
         </div>
-      </div>
-
-      <div className="relative flex items-center justify-between border-t border-[var(--border)] pt-3 text-[10px] text-[var(--text-faint)]">
-        <span>{row.leads === null ? "Meta spend only — leads data unavailable" : `Cost/lead ${formatCurrency(row.cpl ?? 0, 2)}`}</span>
-        <span className="text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100">open →</span>
       </div>
     </Link>
   );
@@ -780,13 +755,12 @@ interface LeaderRow {
 
 function buildLeaderboard(
   active: { campaign_id: string; property: string; campaign_type: "property" | "community"; meta: { spend: number; leads: number; cpl: number; daily: { leads: number }[] } }[],
-  historical: HistoricalCampaign[],
   // Every June-2026-onward campaign with real spend/leads from Supabase
-  // (lib/history/db.ts's getLeaderboardTotals) — a superset of `historical`
-  // that also covers campaigns never added to that hand-curated KV pool
-  // (e.g. S'Olivera, Sa Vinya) and keeps growing on its own as future months
-  // accumulate, with no manual curation step required. `trend` is real
-  // chronological daily leads from funnel_daily_history, not a fabricated shape.
+  // (lib/history/db.ts's getLeaderboardTotals) — the single source of truth
+  // for historical/inactive campaigns, keeping growing on its own as future
+  // months accumulate, with no manual curation step required. `trend` is
+  // real chronological daily leads from funnel_daily_history, not a
+  // fabricated shape.
   leaderboardHistory: { campaign_id: string; property: string; ref: string; campaign_type: string; spend: number; leads: number; cpl: number; trend: number[] }[]
 ): LeaderRow[] {
   const activeIds = new Set(active.map((c) => c.campaign_id));
@@ -801,25 +775,6 @@ function buildLeaderboard(
     isActive: true,
   }));
   const coveredIds = new Set(activeIds);
-  // Real trends by campaign_id, so a campaign already shown via the older KV
-  // pool below (which wins on spend/leads to keep its already-displayed
-  // numbers stable) can still pick up a real trend where Supabase has one —
-  // e.g. Catalina Duplex and Finca Bugambilia are in both sources.
-  const realTrendById = new Map(leaderboardHistory.filter((h) => h.trend.length > 1).map((h) => [h.campaign_id, h.trend]));
-  for (const h of historical) {
-    if (coveredIds.has(h.campaign_id)) continue;
-    coveredIds.add(h.campaign_id);
-    rows.push({
-      id: h.campaign_id,
-      property: h.property,
-      type: h.campaign_type,
-      spend: h.spend,
-      leads: h.leads,
-      cpl: h.cpl,
-      trend: realTrendById.get(h.campaign_id) ?? [h.leads * 0.2, h.leads * 0.5, h.leads * 0.75, h.leads],
-      isActive: false,
-    });
-  }
   for (const h of leaderboardHistory) {
     if (coveredIds.has(h.campaign_id)) continue;
     coveredIds.add(h.campaign_id);

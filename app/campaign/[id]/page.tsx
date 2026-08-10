@@ -33,6 +33,10 @@ function CampaignPageInner({ id }: { id: string }) {
   const campaign = data?.campaigns.find((c) => c.campaign_id === id);
 
   const [histCampaign, setHistCampaign] = useState<FunnelCampaign | null | undefined>(undefined);
+  // Which month the server actually returned data for — may differ from
+  // monthParam when that month had no data and the API fell back to the
+  // campaign's own latest month with data (see /api/history/campaign-detail).
+  const [resolvedMonth, setResolvedMonth] = useState<string | null>(null);
 
   // Re-pulls tag counts whenever the shared dashboard data refreshes (not just
   // on first mount), so this panel stays in step with every other element
@@ -52,14 +56,23 @@ function CampaignPageInner({ id }: { id: string }) {
   }, [campaign?.campaign_id, data?.last_updated]);
 
   // Campaign not in the live funnel feed (e.g. dropped from lib/config.ts) —
-  // reconstruct the same FunnelCampaign shape from Supabase history for the
-  // requested month, so the exact same components below can render it.
+  // reconstruct the same FunnelCampaign shape from Supabase history, so the
+  // exact same components below can render it. monthParam (when present) is
+  // only a hint — the API falls back to the campaign's latest month with
+  // data if that month is empty, and always fetches even with no monthParam
+  // at all (e.g. linked from an Inactive Campaigns card, which is no longer
+  // month-scoped).
   useEffect(() => {
-    if (campaign || loading || !monthParam) return;
+    if (campaign || loading) return;
     setHistCampaign(undefined);
-    fetch(`/api/history/campaign-detail?id=${encodeURIComponent(id)}&month=${monthParam}`, { cache: "no-store" })
+    setResolvedMonth(null);
+    const qs = monthParam ? `?id=${encodeURIComponent(id)}&month=${monthParam}` : `?id=${encodeURIComponent(id)}`;
+    fetch(`/api/history/campaign-detail${qs}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((json) => setHistCampaign(json.campaign ?? null))
+      .then((json) => {
+        setHistCampaign(json.campaign ?? null);
+        setResolvedMonth(json.resolvedMonth ?? monthParam ?? null);
+      })
       .catch(() => setHistCampaign(null));
   }, [campaign, loading, id, monthParam]);
 
@@ -78,7 +91,7 @@ function CampaignPageInner({ id }: { id: string }) {
     );
   }
 
-  if (!campaign && monthParam) {
+  if (!campaign && !loading) {
     if (histCampaign === undefined) {
       return (
         <div className="space-y-5 pt-2">
@@ -94,7 +107,15 @@ function CampaignPageInner({ id }: { id: string }) {
       );
     }
     if (histCampaign) {
-      return <CampaignDetail campaign={histCampaign} tagCounts={NA_TAGS} lastUpdated={null} isHistorical monthLabel={monthLabelFor(monthParam)} />;
+      return (
+        <CampaignDetail
+          campaign={histCampaign}
+          tagCounts={NA_TAGS}
+          lastUpdated={null}
+          isHistorical
+          monthLabel={resolvedMonth ? monthLabelFor(resolvedMonth) : "an earlier month"}
+        />
+      );
     }
   }
 
@@ -152,13 +173,13 @@ function CampaignDetail({
           spanning its full height — via explicit grid placement. */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[35fr_65fr]">
         <div className="order-1 lg:order-none lg:col-start-1 lg:row-start-1">
-          <MetricsPanel meta={campaign.meta} tagCounts={tagCounts} />
+          <MetricsPanel meta={campaign.meta} tagCounts={tagCounts} campaignId={campaign.campaign_id} />
         </div>
         <div className="order-2 h-[560px] lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:h-full">
           <IsometricFunnel campaign={campaign} tagCounts={tagCounts} disableDrilldown={isHistorical} />
         </div>
         <div className="order-3 lg:order-none lg:col-start-1 lg:row-start-2">
-          <SummaryPanel meta={campaign.meta} />
+          <SummaryPanel meta={campaign.meta} campaignId={campaign.campaign_id} />
         </div>
         <div className="order-4 lg:order-none lg:col-start-1 lg:row-start-3">
           <LandingEngagementPanel engagement={campaign.landing_engagement} />
