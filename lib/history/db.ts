@@ -88,6 +88,83 @@ export async function upsertDailySnapshots(rows: HistoryRow[]): Promise<{ ok: bo
   return { ok: true, written: rows.length };
 }
 
+interface MonthlyTotalsRow {
+  campaign_id: string;
+  year: number;
+  month: number;
+  campaign_name: string;
+  property: string;
+  ref: string;
+  campaign_type: string;
+  status: string;
+  spend: number;
+  leads: number | null;
+  leads_source: "typeform_verified" | "unavailable";
+  cpl: number | null;
+  impressions: number;
+  clicks: number;
+  link_clicks: number;
+  ctr: number;
+  engagement: number;
+  outbound_clicks: number;
+  starts: number | null;
+  form_id: string | null;
+  form_name: string | null;
+  start_date: string | null;
+  stop_date: string | null;
+}
+
+// Builds funnel_monthly_totals rows for the CURRENT (year, month) bucket only,
+// straight from the same live FunnelCampaign snapshot the campaign detail page
+// already renders correctly (meta.* aggregate, typeform.* incl. starts/completions).
+// This exists so a campaign's row gets written continuously WHILE it's still live —
+// funnel_monthly_totals previously had no writer at all in this app; every row was a
+// manual one-off backfill, which is how S'OLIVERA (2026-07) ended up with starts ===
+// completions: the manual backfill used the completed-response count for both instead
+// of separately counting incomplete (completed=false) responses like the live n8n
+// Typeform Sync node does. Capturing the live, already-correct typeform.starts here
+// closes that gap for every campaign going forward, so a future deactivation (removal
+// from lib/config.ts) no longer depends on a human re-deriving these numbers by hand.
+export function monthlyTotalsFromCampaigns(campaigns: FunnelCampaign[], year: number, month: number): MonthlyTotalsRow[] {
+  return campaigns.map((c) => {
+    const leadsVerified = c.typeform.form_id !== "";
+    return {
+      campaign_id: c.campaign_id,
+      year,
+      month,
+      campaign_name: c.campaign_name,
+      property: c.property,
+      ref: c.ref,
+      campaign_type: c.campaign_type,
+      status: c.status,
+      spend: c.meta.spend,
+      leads: leadsVerified ? c.typeform.completions : null,
+      leads_source: leadsVerified ? "typeform_verified" : "unavailable",
+      cpl: leadsVerified ? c.meta.cpl : null,
+      impressions: c.meta.impressions,
+      clicks: c.meta.clicks,
+      link_clicks: c.meta.link_clicks,
+      ctr: c.meta.ctr,
+      engagement: c.meta.engagement,
+      outbound_clicks: Math.round(c.meta.outbound_ctr * c.meta.impressions),
+      starts: leadsVerified ? c.typeform.starts : null,
+      form_id: leadsVerified ? c.typeform.form_id : null,
+      form_name: leadsVerified ? c.typeform.form_name : null,
+      start_date: c.meta.start_date,
+      stop_date: c.meta.stop_date,
+    };
+  });
+}
+
+export async function upsertMonthlyTotals(rows: MonthlyTotalsRow[]): Promise<{ ok: boolean; written: number; error?: string }> {
+  const supabase = getClient();
+  if (!supabase) return { ok: false, written: 0, error: "Supabase not configured" };
+  if (rows.length === 0) return { ok: true, written: 0 };
+  const { error } = await supabase.from("funnel_monthly_totals").upsert(rows, { onConflict: "campaign_id,year,month" });
+  if (error) return { ok: false, written: 0, error: error.message };
+  return { ok: true, written: rows.length };
+}
+
 export interface MonthlyTotals {
   connected: boolean;
   spend: number;
