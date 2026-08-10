@@ -25,6 +25,7 @@ import {
 import { CplIcon, CtrIcon, DotsIcon, LeadIcon, PieIcon, SpendIcon, TargetIcon } from "./icons";
 import { GlowPanel } from "@/components/ui/glow-panel";
 import { LeadQualityBar } from "@/components/viz";
+import { Pinnable } from "@/components/Pinnable";
 
 interface TagCounts {
   red: number;
@@ -53,7 +54,15 @@ function tooltipStyle() {
   };
 }
 
-export default function MetricsPanel({ meta, tagCounts }: { meta: MetaCampaign; tagCounts?: TagCounts }) {
+export default function MetricsPanel({
+  meta,
+  tagCounts,
+  campaignId,
+}: {
+  meta: MetaCampaign;
+  tagCounts?: TagCounts;
+  campaignId?: string;
+}) {
   const data = meta.daily.map((d) => ({
     label: shortDay(d.date),
     leads: d.leads,
@@ -153,26 +162,28 @@ export default function MetricsPanel({ meta, tagCounts }: { meta: MetaCampaign; 
           </ResponsiveContainer>
         </MetricBlock>
 
-        <MetricBlock
-          icon={<CtrIcon className="h-4 w-4" />}
-          name="Unique Outbound CTR"
-          value={formatPercent(meta.outbound_ctr, 2)}
-        >
-          <ResponsiveContainer width="100%" height={110}>
-            <ScatterChart margin={{ top: 6, right: 4, left: -28, bottom: 0 }}>
-              <CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray="2 4" vertical horizontal={false} />
-              <XAxis dataKey="label" {...axis} interval="preserveStartEnd" allowDuplicatedCategory={false} />
-              <YAxis dataKey="ctr" {...axis} width={36} unit="%" />
-              <ZAxis range={[10, 10]} />
-              <Tooltip {...tooltipStyle()} formatter={(v: number) => `${v}%`} />
-              <Scatter data={data} fill="#4a5786">
-                {data.map((_, i) => (
-                  <Cell key={i} fill="#6e7aab" />
-                ))}
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-        </MetricBlock>
+        <Pinnable type="campaign-outbound-ctr" campaignId={campaignId}>
+          <MetricBlock
+            icon={<CtrIcon className="h-4 w-4" />}
+            name="Unique Outbound CTR"
+            value={formatPercent(meta.outbound_ctr, 2)}
+          >
+            <ResponsiveContainer width="100%" height={110}>
+              <ScatterChart margin={{ top: 6, right: 4, left: -28, bottom: 0 }}>
+                <CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray="2 4" vertical horizontal={false} />
+                <XAxis dataKey="label" {...axis} interval="preserveStartEnd" allowDuplicatedCategory={false} />
+                <YAxis dataKey="ctr" {...axis} width={36} unit="%" />
+                <ZAxis range={[10, 10]} />
+                <Tooltip {...tooltipStyle()} formatter={(v: number) => `${v}%`} />
+                <Scatter data={data} fill="#4a5786">
+                  {data.map((_, i) => (
+                    <Cell key={i} fill="#6e7aab" />
+                  ))}
+                </Scatter>
+              </ScatterChart>
+            </ResponsiveContainer>
+          </MetricBlock>
+        </Pinnable>
 
         {tagCounts && (
           <div className="py-4 first:pt-3">

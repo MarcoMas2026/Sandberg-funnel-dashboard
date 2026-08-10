@@ -1,16 +1,28 @@
 import { MetaCampaign } from "@/lib/types";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 import { GlowPanel } from "@/components/ui/glow-panel";
+import { Pinnable } from "@/components/Pinnable";
 
-export default function SummaryPanel({ meta }: { meta: MetaCampaign }) {
+// campaignId is optional so this panel still works anywhere it's rendered
+// without a real campaign id (e.g. future mock/preview contexts) — when
+// present it makes each Kpi tile draggable into a Public View via Option+drag.
+export default function SummaryPanel({ meta, campaignId }: { meta: MetaCampaign; campaignId?: string }) {
   return (
     <GlowPanel className="panel p-5">
       <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Campaign Summary</h2>
       <div className="grid grid-cols-2 gap-3">
-        <Kpi label="Total Spend" value={formatCurrency(meta.spend)} />
-        <Kpi label="Total Leads" value={formatNumber(meta.leads)} accent />
-        <Kpi label="Avg Cost / Lead" value={formatCurrency(meta.cpl, 2)} />
-        <Kpi label="Overall CTR" value={formatPercent(meta.ctr, 2)} />
+        <Pinnable type="campaign-spend" campaignId={campaignId}>
+          <Kpi label="Total Spend" value={formatCurrency(meta.spend)} />
+        </Pinnable>
+        <Pinnable type="campaign-leads" campaignId={campaignId}>
+          <Kpi label="Total Leads" value={formatNumber(meta.leads)} accent />
+        </Pinnable>
+        <Pinnable type="campaign-cpl" campaignId={campaignId}>
+          <Kpi label="Avg Cost / Lead" value={formatCurrency(meta.cpl, 2)} />
+        </Pinnable>
+        <Pinnable type="campaign-ctr" campaignId={campaignId}>
+          <Kpi label="Overall CTR" value={formatPercent(meta.ctr, 2)} />
+        </Pinnable>
       </div>
     </GlowPanel>
   );

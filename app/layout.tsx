@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
-import MobileTopNav from "@/components/MobileTopNav";
-import Topbar from "@/components/Topbar";
-import CommandPalette from "@/components/CommandPalette";
-import GestureNav from "@/components/GestureNav";
-import { DashboardProvider } from "@/lib/dashboard-context";
+import AppChrome from "@/components/AppChrome";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -23,20 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans`}>
-        <DashboardProvider>
-          <MobileTopNav />
-          <div className="shell-grid flex min-h-screen gap-3 p-3">
-            <Sidebar />
-            <div className="min-w-0 flex-1">
-              <main className="mx-auto max-w-[1440px] px-2 py-1 pt-20 md:pt-1 lg:px-5">
-                <Topbar />
-                {children}
-              </main>
-            </div>
-          </div>
-          <CommandPalette />
-          <GestureNav />
-        </DashboardProvider>
+        <AppChrome>{children}</AppChrome>
       </body>
     </html>
   );

@@ -288,3 +288,89 @@ body::before {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ── Public View themes ──────────────────────────────────────────────────
+   Applied via [data-pv-theme] on the canvas/page wrapper. "estate" is the
+   client-branded neutral option; light/dark mirror the main app's own modes. */
+[data-pv-theme="light"] {
+  --pv-bg: #f6f7fb;
+  --pv-surface: #ffffff;
+  --pv-border: #e3e6ee;
+  --pv-text: #12172b;
+  --pv-muted: #6b7280;
+  --pv-accent: #3b82f6;
+}
+[data-pv-theme="dark"] {
+  --pv-bg: #0b0f1f;
+  --pv-surface: #161d33;
+  --pv-border: #262f4d;
+  --pv-text: #f1f3fb;
+  --pv-muted: #8892b0;
+  --pv-accent: #5b8cff;
+}
+[data-pv-theme="estate"] {
+  --pv-bg: #f8f6f1;
+  --pv-surface: #fffdf9;
+  --pv-border: #e8e0cf;
+  --pv-text: #241f14;
+  --pv-muted: #8a7f68;
+  --pv-accent: #b08d3f;
+}
+
+.pv-canvas {
+  background: var(--pv-bg);
+  color: var(--pv-text);
+}
+
+.pv-tile {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 18px;
+  background: var(--pv-surface);
+  border: 1px solid var(--pv-border);
+  border-radius: 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.pv-tile--chart {
+  justify-content: flex-start;
+}
+.pv-tile-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--pv-muted);
+  text-transform: uppercase;
+}
+.pv-tile-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--pv-text);
+  line-height: 1.1;
+}
+
+/* ── Public View builder: Option+drag pin gesture ─────────────────────── */
+.pinnable--armed {
+  cursor: grab;
+  border-radius: 12px;
+  outline: 2px dashed rgba(176, 141, 63, 0.55);
+  outline-offset: 3px;
+  transition: outline-color 0.15s ease;
+}
+.pinnable--armed:active {
+  cursor: grabbing;
+}
+
+.pv-drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.pv-drop-zone--over {
+  border-color: #b08d3f;
+  background-color: rgba(176, 141, 63, 0.06);
+}
