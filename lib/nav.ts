@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { LayoutDashboard } from "lucide-react";
+import { Handshake, LayoutDashboard } from "lucide-react";
 import {
   BarIcon,
   CurveIcon,
@@ -24,6 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Mission Control", icon: LayoutDashboard, exact: true },
   { href: "/campaign", label: "Campaigns", icon: BarIcon },
   { href: "/leads", label: "Leads", icon: LeadIcon },
+  { href: "/outcomes", label: "Outcomes", icon: Handshake },
   { href: "/curve", label: "Curve", icon: CurveIcon },
   { href: "/insights", label: "Insights", icon: InsightIcon },
   { href: "/demand", label: "Demand Map", icon: MapIcon },

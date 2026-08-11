@@ -1,0 +1,947 @@
+{
+    "updatedAt": "2026-08-11T11:45:05.621Z",
+    "createdAt": "2026-08-11T11:45:05.621Z",
+    "id": "gREsPFHua1LbUqnK",
+    "name": "Funnel Dashboard - CRM Lead Outcomes Pull",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "id": "trigger",
+            "name": "Schedule Trigger (hourly)",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                0,
+                0
+            ],
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "hours",
+                            "hoursInterval": 1
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "id": "getSyncState",
+            "name": "Get Sync State",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                220,
+                0
+            ],
+            "parameters": {
+                "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_sync_state?id=eq.lead_outcomes&select=*",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpCustomAuth",
+                "options": {}
+            },
+            "credentials": {
+                "httpCustomAuth": {
+                    "id": "sHIxDeEl7Pz5ag5g",
+                    "name": "Supabase CRM Outcomes (service_role)"
+                }
+            }
+        },
+        {
+            "id": "buildSince",
+            "name": "Build Since Param",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                440,
+                0
+            ],
+            "parameters": {
+                "jsCode": "// crm_sync_state is a single-row table; Supabase REST returns an array.\nconst row = ($input.first().json || [])[0] || null;\nconst since = row && row.last_success_cursor ? row.last_success_cursor : null;\nreturn [{ json: { since } }];"
+            }
+        },
+        {
+            "id": "pullOutcomes",
+            "name": "Pull CRM Lead Outcomes",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                660,
+                0
+            ],
+            "parameters": {
+                "url": "https://REPLACE-WITH-CRM-BASE-URL/api/intelligence/lead-outcomes",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "since",
+                            "value": "={{ $json.since || undefined }}"
+                        }
+                    ]
+                },
+                "options": {
+                    "timeout": 20000,
+                    "response": {
+                        "response": {
+                            "fullResponse": true,
+                            "neverError": true
+                        }
+                    }
+                }
+            },
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "kMzVQ3Yg7trSrDZr",
+                    "name": "CRM Lead Outcomes Token"
+                }
+            }
+        },
+        {
+            "id": "classify",
+            "name": "Classify Pull Result",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                0
+            ],
+            "parameters": {
+                "jsCode": "// With fullResponse+neverError, output is { statusCode, headers, body }.\n// A thrown node error (DNS failure, timeout, malformed URL \u2014 e.g. the\n// placeholder CRM_BASE_URL never being replaced) lands here as $json with no\n// statusCode at all; treat that the same as a network failure, never as\n// \"zero events\". See CONTEXT.md: 401/404/timeout are failures with a reason,\n// not empty successes.\nconst item = $input.first().json;\nconst statusCode = item.statusCode;\n\nif (statusCode === undefined) {\n  return [{ json: { ok: false, reason: item.error || item.message || 'request did not complete (network/timeout error)' } }];\n}\nif (statusCode === 200) {\n  const body = item.body;\n  const events = Array.isArray(body) ? body : (Array.isArray(body && body.events) ? body.events : null);\n  if (!events) {\n    return [{ json: { ok: false, reason: `200 response body was not the expected array shape: ${JSON.stringify(body).slice(0, 200)}` } }];\n  }\n  return [{ json: { ok: true, events } }];\n}\nif (statusCode === 404) {\n  return [{ json: { ok: false, reason: 'CRM endpoint returned 404 \u2014 not live yet (expected until the CRM confirms deployment)' } }];\n}\nif (statusCode === 401 || statusCode === 403) {\n  return [{ json: { ok: false, reason: `CRM endpoint returned ${statusCode} \u2014 token rejected, check the CRM Lead Outcomes Token credential` } }];\n}\nreturn [{ json: { ok: false, reason: `CRM endpoint returned unexpected status ${statusCode}` } }];"
+            }
+        },
+        {
+            "id": "ifOk",
+            "name": "Pull Succeeded?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                1100,
+                0
+            ],
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "c1",
+                            "leftValue": "={{ $json.ok }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                }
+            }
+        },
+        {
+            "id": "prepareRows",
+            "name": "Prepare Outcome Rows",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1320,
+                -120
+            ],
+            "parameters": {
+                "jsCode": "// Reserved event type QualifiedLead and any type name not yet in\n// lib/crm/events.ts's canonical list are still stored, never dropped \u2014 an\n// unrecognized event is data loss risk, not something to silently filter.\nconst events = $json.events;\nconst rows = events\n  .filter(e => e && e.response_id && e.event && e.occurred_at)\n  .map(e => ({ response_id: String(e.response_id), event: String(e.event), occurred_at: e.occurred_at }));\n\nconst eventTypesObserved = [...new Set(rows.map(r => r.event))];\n\nlet maxOccurredAt = null;\nfor (const r of rows) {\n  if (!maxOccurredAt || new Date(r.occurred_at) > new Date(maxOccurredAt)) maxOccurredAt = r.occurred_at;\n}\n// No new rows this pull: don't rewind the cursor to null \u2014 keep whatever\n// Build Since Param read, so an empty response never re-requests a window\n// already confirmed clear.\nconst previousSince = $('Build Since Param').first().json.since;\nconst nextCursor = maxOccurredAt || previousSince || new Date().toISOString();\n\nconst eventsInFilter = '(' + eventTypesObserved.map(e => `\"${e.replace(/\"/g, '')}\"`).join(',') + ')';\n\nreturn [{ json: { rows, eventTypesObserved, eventsInFilter, nextCursor, count: rows.length } }];"
+            }
+        },
+        {
+            "id": "upsertOutcomes",
+            "name": "Upsert crm_lead_outcomes",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1540,
+                -120
+            ],
+            "parameters": {
+                "method": "POST",
+                "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_lead_outcomes?on_conflict=response_id,event",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpCustomAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "resolution=merge-duplicates"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ $json.rows }}",
+                "options": {}
+            },
+            "credentials": {
+                "httpCustomAuth": {
+                    "id": "sHIxDeEl7Pz5ag5g",
+                    "name": "Supabase CRM Outcomes (service_role)"
+                }
+            }
+        },
+        {
+            "id": "markLive",
+            "name": "Mark Event Types Live (first time)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1760,
+                -160
+            ],
+            "parameters": {
+                "method": "PATCH",
+                "url": "={{ 'https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_event_types?event=in.' + $('Prepare Outcome Rows').first().json.eventsInFilter + '&live_as_of=is.null' }}",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpCustomAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ { live_as_of: $now.toISO(), last_seen_at: $now.toISO() } }}",
+                "options": {}
+            },
+            "credentials": {
+                "httpCustomAuth": {
+                    "id": "sHIxDeEl7Pz5ag5g",
+                    "name": "Supabase CRM Outcomes (service_role)"
+                }
+            }
+        },
+        {
+            "id": "markSeen",
+            "name": "Mark Event Types Seen",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1760,
+                -80
+            ],
+            "parameters": {
+                "method": "PATCH",
+                "url": "={{ 'https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_event_types?event=in.' + $('Prepare Outcome Rows').first().json.eventsInFilter }}",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpCustomAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ { last_seen_at: $now.toISO() } }}",
+                "options": {}
+            },
+            "credentials": {
+                "httpCustomAuth": {
+                    "id": "sHIxDeEl7Pz5ag5g",
+                    "name": "Supabase CRM Outcomes (service_role)"
+                }
+            }
+        },
+        {
+            "id": "updateStateOk",
+            "name": "Update Sync State OK",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1980,
+                -120
+            ],
+            "parameters": {
+                "method": "PATCH",
+                "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_sync_state?id=eq.lead_outcomes",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpCustomAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ { last_success_at: $now.toISO(), last_success_cursor: $('Prepare Outcome Rows').first().json.nextCursor, last_attempt_at: $now.toISO(), last_status: 'ok', last_error: null, rows_last_pull: $('Prepare Outcome Rows').first().json.count } }}",
+                "options": {}
+            },
+            "credentials": {
+                "httpCustomAuth": {
+                    "id": "sHIxDeEl7Pz5ag5g",
+                    "name": "Supabase CRM Outcomes (service_role)"
+                }
+            }
+        },
+        {
+            "id": "updateStateFailed",
+            "name": "Update Sync State Failed",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1320,
+                160
+            ],
+            "parameters": {
+                "method": "PATCH",
+                "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_sync_state?id=eq.lead_outcomes",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpCustomAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ { last_attempt_at: $now.toISO(), last_status: 'failed', last_error: $('Classify Pull Result').first().json.reason } }}",
+                "options": {}
+            },
+            "credentials": {
+                "httpCustomAuth": {
+                    "id": "sHIxDeEl7Pz5ag5g",
+                    "name": "Supabase CRM Outcomes (service_role)"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Schedule Trigger (hourly)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Sync State",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Sync State": {
+            "main": [
+                [
+                    {
+                        "node": "Build Since Param",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Since Param": {
+            "main": [
+                [
+                    {
+                        "node": "Pull CRM Lead Outcomes",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Pull CRM Lead Outcomes": {
+            "main": [
+                [
+                    {
+                        "node": "Classify Pull Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Classify Pull Result": {
+            "main": [
+                [
+                    {
+                        "node": "Pull Succeeded?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Pull Succeeded?": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Outcome Rows",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Update Sync State Failed",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Outcome Rows": {
+            "main": [
+                [
+                    {
+                        "node": "Upsert crm_lead_outcomes",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Upsert crm_lead_outcomes": {
+            "main": [
+                [
+                    {
+                        "node": "Mark Event Types Live (first time)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mark Event Types Live (first time)": {
+            "main": [
+                [
+                    {
+                        "node": "Mark Event Types Seen",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mark Event Types Seen": {
+            "main": [
+                [
+                    {
+                        "node": "Update Sync State OK",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": {
+        "node:Schedule Trigger (hourly)": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": null,
+    "versionId": "4b676c99-0bf3-47a9-b0b9-cd28b69f2b95",
+    "activeVersionId": "4b676c99-0bf3-47a9-b0b9-cd28b69f2b95",
+    "versionCounter": 7,
+    "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-08-11T11:45:05.624Z",
+            "createdAt": "2026-08-11T11:45:05.624Z",
+            "role": "workflow:owner",
+            "workflowId": "gREsPFHua1LbUqnK",
+            "projectId": "82VDMXWH04uZO7sL",
+            "project": {
+                "updatedAt": "2025-08-28T11:06:15.588Z",
+                "createdAt": "2025-08-28T10:56:15.209Z",
+                "id": "82VDMXWH04uZO7sL",
+                "name": "Jordi Marques <jordi@sandberg-estates.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "b54cff7b-0687-47c9-8684-ec744e44270c",
+                "projectRelations": [
+                    {
+                        "updatedAt": "2025-08-28T10:56:15.209Z",
+                        "createdAt": "2025-08-28T10:56:15.209Z",
+                        "userId": "b54cff7b-0687-47c9-8684-ec744e44270c",
+                        "projectId": "82VDMXWH04uZO7sL",
+                        "user": {
+                            "updatedAt": "2026-08-11T11:37:25.000Z",
+                            "createdAt": "2025-08-28T10:56:14.836Z",
+                            "id": "b54cff7b-0687-47c9-8684-ec744e44270c",
+                            "email": "jordi@sandberg-estates.com",
+                            "firstName": "Jordi",
+                            "lastName": "Marques",
+                            "personalizationAnswers": {
+                                "version": "v4",
+                                "personalization_survey_submitted_at": "2025-08-28T11:06:43.635Z",
+                                "personalization_survey_n8n_version": "1.108.2",
+                                "companySize": "<20",
+                                "companyType": "saas",
+                                "automationGoalSm": [
+                                    "lead-generation"
+                                ],
+                                "role": "sales-and-marketing",
+                                "reportedSource": "friend"
+                            },
+                            "settings": {
+                                "userActivated": true,
+                                "easyAIWorkflowOnboarded": true,
+                                "firstSuccessfulWorkflowId": "OxRse5L4HYwAz1DD",
+                                "userActivatedAt": 1757265305637,
+                                "npsSurvey": {
+                                    "responded": true,
+                                    "lastShownAt": 1775731344107
+                                }
+                            },
+                            "disabled": false,
+                            "mfaEnabled": false,
+                            "lastActiveAt": "2026-08-10",
+                            "isPending": false
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-08-11T11:45:05.640Z",
+        "createdAt": "2026-08-11T11:45:05.640Z",
+        "versionId": "4b676c99-0bf3-47a9-b0b9-cd28b69f2b95",
+        "workflowId": "gREsPFHua1LbUqnK",
+        "nodes": [
+            {
+                "id": "trigger",
+                "name": "Schedule Trigger (hourly)",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    0,
+                    0
+                ],
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "hours",
+                                "hoursInterval": 1
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "id": "getSyncState",
+                "name": "Get Sync State",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    220,
+                    0
+                ],
+                "parameters": {
+                    "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_sync_state?id=eq.lead_outcomes&select=*",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpCustomAuth",
+                    "options": {}
+                },
+                "credentials": {
+                    "httpCustomAuth": {
+                        "id": "sHIxDeEl7Pz5ag5g",
+                        "name": "Supabase CRM Outcomes (service_role)"
+                    }
+                }
+            },
+            {
+                "id": "buildSince",
+                "name": "Build Since Param",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    440,
+                    0
+                ],
+                "parameters": {
+                    "jsCode": "// crm_sync_state is a single-row table; Supabase REST returns an array.\nconst row = ($input.first().json || [])[0] || null;\nconst since = row && row.last_success_cursor ? row.last_success_cursor : null;\nreturn [{ json: { since } }];"
+                }
+            },
+            {
+                "id": "pullOutcomes",
+                "name": "Pull CRM Lead Outcomes",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    660,
+                    0
+                ],
+                "parameters": {
+                    "url": "https://REPLACE-WITH-CRM-BASE-URL/api/intelligence/lead-outcomes",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendQuery": true,
+                    "queryParameters": {
+                        "parameters": [
+                            {
+                                "name": "since",
+                                "value": "={{ $json.since || undefined }}"
+                            }
+                        ]
+                    },
+                    "options": {
+                        "timeout": 20000,
+                        "response": {
+                            "response": {
+                                "fullResponse": true,
+                                "neverError": true
+                            }
+                        }
+                    }
+                },
+                "credentials": {
+                    "httpHeaderAuth": {
+                        "id": "kMzVQ3Yg7trSrDZr",
+                        "name": "CRM Lead Outcomes Token"
+                    }
+                }
+            },
+            {
+                "id": "classify",
+                "name": "Classify Pull Result",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    880,
+                    0
+                ],
+                "parameters": {
+                    "jsCode": "// With fullResponse+neverError, output is { statusCode, headers, body }.\n// A thrown node error (DNS failure, timeout, malformed URL \u2014 e.g. the\n// placeholder CRM_BASE_URL never being replaced) lands here as $json with no\n// statusCode at all; treat that the same as a network failure, never as\n// \"zero events\". See CONTEXT.md: 401/404/timeout are failures with a reason,\n// not empty successes.\nconst item = $input.first().json;\nconst statusCode = item.statusCode;\n\nif (statusCode === undefined) {\n  return [{ json: { ok: false, reason: item.error || item.message || 'request did not complete (network/timeout error)' } }];\n}\nif (statusCode === 200) {\n  const body = item.body;\n  const events = Array.isArray(body) ? body : (Array.isArray(body && body.events) ? body.events : null);\n  if (!events) {\n    return [{ json: { ok: false, reason: `200 response body was not the expected array shape: ${JSON.stringify(body).slice(0, 200)}` } }];\n  }\n  return [{ json: { ok: true, events } }];\n}\nif (statusCode === 404) {\n  return [{ json: { ok: false, reason: 'CRM endpoint returned 404 \u2014 not live yet (expected until the CRM confirms deployment)' } }];\n}\nif (statusCode === 401 || statusCode === 403) {\n  return [{ json: { ok: false, reason: `CRM endpoint returned ${statusCode} \u2014 token rejected, check the CRM Lead Outcomes Token credential` } }];\n}\nreturn [{ json: { ok: false, reason: `CRM endpoint returned unexpected status ${statusCode}` } }];"
+                }
+            },
+            {
+                "id": "ifOk",
+                "name": "Pull Succeeded?",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    1100,
+                    0
+                ],
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "caseSensitive": true,
+                            "leftValue": "",
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "c1",
+                                "leftValue": "={{ $json.ok }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "true",
+                                    "singleValue": true
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    }
+                }
+            },
+            {
+                "id": "prepareRows",
+                "name": "Prepare Outcome Rows",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1320,
+                    -120
+                ],
+                "parameters": {
+                    "jsCode": "// Reserved event type QualifiedLead and any type name not yet in\n// lib/crm/events.ts's canonical list are still stored, never dropped \u2014 an\n// unrecognized event is data loss risk, not something to silently filter.\nconst events = $json.events;\nconst rows = events\n  .filter(e => e && e.response_id && e.event && e.occurred_at)\n  .map(e => ({ response_id: String(e.response_id), event: String(e.event), occurred_at: e.occurred_at }));\n\nconst eventTypesObserved = [...new Set(rows.map(r => r.event))];\n\nlet maxOccurredAt = null;\nfor (const r of rows) {\n  if (!maxOccurredAt || new Date(r.occurred_at) > new Date(maxOccurredAt)) maxOccurredAt = r.occurred_at;\n}\n// No new rows this pull: don't rewind the cursor to null \u2014 keep whatever\n// Build Since Param read, so an empty response never re-requests a window\n// already confirmed clear.\nconst previousSince = $('Build Since Param').first().json.since;\nconst nextCursor = maxOccurredAt || previousSince || new Date().toISOString();\n\nconst eventsInFilter = '(' + eventTypesObserved.map(e => `\"${e.replace(/\"/g, '')}\"`).join(',') + ')';\n\nreturn [{ json: { rows, eventTypesObserved, eventsInFilter, nextCursor, count: rows.length } }];"
+                }
+            },
+            {
+                "id": "upsertOutcomes",
+                "name": "Upsert crm_lead_outcomes",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1540,
+                    -120
+                ],
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_lead_outcomes?on_conflict=response_id,event",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpCustomAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Prefer",
+                                "value": "resolution=merge-duplicates"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ $json.rows }}",
+                    "options": {}
+                },
+                "credentials": {
+                    "httpCustomAuth": {
+                        "id": "sHIxDeEl7Pz5ag5g",
+                        "name": "Supabase CRM Outcomes (service_role)"
+                    }
+                }
+            },
+            {
+                "id": "markLive",
+                "name": "Mark Event Types Live (first time)",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1760,
+                    -160
+                ],
+                "parameters": {
+                    "method": "PATCH",
+                    "url": "={{ 'https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_event_types?event=in.' + $('Prepare Outcome Rows').first().json.eventsInFilter + '&live_as_of=is.null' }}",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpCustomAuth",
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ { live_as_of: $now.toISO(), last_seen_at: $now.toISO() } }}",
+                    "options": {}
+                },
+                "credentials": {
+                    "httpCustomAuth": {
+                        "id": "sHIxDeEl7Pz5ag5g",
+                        "name": "Supabase CRM Outcomes (service_role)"
+                    }
+                }
+            },
+            {
+                "id": "markSeen",
+                "name": "Mark Event Types Seen",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1760,
+                    -80
+                ],
+                "parameters": {
+                    "method": "PATCH",
+                    "url": "={{ 'https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_event_types?event=in.' + $('Prepare Outcome Rows').first().json.eventsInFilter }}",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpCustomAuth",
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ { last_seen_at: $now.toISO() } }}",
+                    "options": {}
+                },
+                "credentials": {
+                    "httpCustomAuth": {
+                        "id": "sHIxDeEl7Pz5ag5g",
+                        "name": "Supabase CRM Outcomes (service_role)"
+                    }
+                }
+            },
+            {
+                "id": "updateStateOk",
+                "name": "Update Sync State OK",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1980,
+                    -120
+                ],
+                "parameters": {
+                    "method": "PATCH",
+                    "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_sync_state?id=eq.lead_outcomes",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpCustomAuth",
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ { last_success_at: $now.toISO(), last_success_cursor: $('Prepare Outcome Rows').first().json.nextCursor, last_attempt_at: $now.toISO(), last_status: 'ok', last_error: null, rows_last_pull: $('Prepare Outcome Rows').first().json.count } }}",
+                    "options": {}
+                },
+                "credentials": {
+                    "httpCustomAuth": {
+                        "id": "sHIxDeEl7Pz5ag5g",
+                        "name": "Supabase CRM Outcomes (service_role)"
+                    }
+                }
+            },
+            {
+                "id": "updateStateFailed",
+                "name": "Update Sync State Failed",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1320,
+                    160
+                ],
+                "parameters": {
+                    "method": "PATCH",
+                    "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/crm_sync_state?id=eq.lead_outcomes",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpCustomAuth",
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ { last_attempt_at: $now.toISO(), last_status: 'failed', last_error: $('Classify Pull Result').first().json.reason } }}",
+                    "options": {}
+                },
+                "credentials": {
+                    "httpCustomAuth": {
+                        "id": "sHIxDeEl7Pz5ag5g",
+                        "name": "Supabase CRM Outcomes (service_role)"
+                    }
+                }
+            }
+        ],
+        "connections": {
+            "Schedule Trigger (hourly)": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Sync State",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Sync State": {
+                "main": [
+                    [
+                        {
+                            "node": "Build Since Param",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build Since Param": {
+                "main": [
+                    [
+                        {
+                            "node": "Pull CRM Lead Outcomes",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Pull CRM Lead Outcomes": {
+                "main": [
+                    [
+                        {
+                            "node": "Classify Pull Result",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Classify Pull Result": {
+                "main": [
+                    [
+                        {
+                            "node": "Pull Succeeded?",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Pull Succeeded?": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare Outcome Rows",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Update Sync State Failed",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare Outcome Rows": {
+                "main": [
+                    [
+                        {
+                            "node": "Upsert crm_lead_outcomes",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Upsert crm_lead_outcomes": {
+                "main": [
+                    [
+                        {
+                            "node": "Mark Event Types Live (first time)",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Mark Event Types Live (first time)": {
+                "main": [
+                    [
+                        {
+                            "node": "Mark Event Types Seen",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Mark Event Types Seen": {
+                "main": [
+                    [
+                        {
+                            "node": "Update Sync State OK",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Jordi Marques",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-08-11T11:45:12.321Z",
+                "id": 379,
+                "workflowId": "gREsPFHua1LbUqnK",
+                "versionId": "4b676c99-0bf3-47a9-b0b9-cd28b69f2b95",
+                "event": "activated",
+                "userId": "b54cff7b-0687-47c9-8684-ec744e44270c"
+            },
+            {
+                "createdAt": "2026-08-11T11:45:12.868Z",
+                "id": 381,
+                "workflowId": "gREsPFHua1LbUqnK",
+                "versionId": "4b676c99-0bf3-47a9-b0b9-cd28b69f2b95",
+                "event": "activated",
+                "userId": "b54cff7b-0687-47c9-8684-ec744e44270c"
+            },
+            {
+                "createdAt": "2026-08-11T11:45:12.635Z",
+                "id": 380,
+                "workflowId": "gREsPFHua1LbUqnK",
+                "versionId": "4b676c99-0bf3-47a9-b0b9-cd28b69f2b95",
+                "event": "deactivated",
+                "userId": "b54cff7b-0687-47c9-8684-ec744e44270c"
+            }
+        ]
+    }
+}

@@ -543,3 +543,69 @@ workflow setup rather than requiring hand-rebuilding from the markdown spec each
 **Next step when picked back up:** resolve the two open decisions above, then build via
 `anthropic-skills:skill-creator` — starting with `n8n/exports/*.json` and a `SETUP.md` runbook as
 prerequisites, per the standalone (non-skill) portability discussion that preceded this one.
+
+## 16. CRM two-way data exchange (built 2026-08-11)
+
+Two read-only endpoints, one per side, each behind a bearer token — no shared DB, no webhooks, no
+coupled deploys. Full detail in `n8n/crm-integration.md`; summary here.
+
+- **Outbound (this app → CRM):** `GET /api/config` and the new `GET /api/funnel-export` now require
+  `Authorization: Bearer <FUNNEL_API_TOKEN>` — missing/wrong token → 401, `FUNNEL_API_TOKEN` unset →
+  503 (fail closed). Guard logic is `lib/api-auth.ts`'s `requireCrmToken` (constant-time compare via
+  `crypto.timingSafeEqual` over a SHA-256 digest, so token length never leaks through timing).
+  `/api/funnel-export` returns one row per campaign: `meta_campaign_id`/`typeform_form_id`/`ref`/
+  `property` for attribution, the pre-lead funnel (`impressions`, `video_views`, `engagement`,
+  `landing_page_views`, `typeform_starts`, `submissions`), and `cost_per_lead` (= `meta.cpl`, the
+  aggregate-based figure per this file's own data-accuracy rules — never re-derived by the CRM).
+  Deliberately does NOT duplicate Meta spend/impressions/reach/clicks — the CRM already has those.
+  **`/api/public-view/[slug]/*` stays unauthenticated on purpose, unchanged.**
+- The Typeform Sync (`8ddVaAR0TNyZkvGZ`, "Get Config") and Update orchestrator (`g9vuAw5CwhWl6SXf`,
+  "Read Config") nodes that already call `/api/config` were updated with a new n8n credential
+  **`Funnel API Token`** (`httpHeaderAuth`, id `gnuvIzBvRB6JZSml`) carrying the same token, so
+  guarding the route didn't break the existing pipeline.
+- **`FUNNEL_API_TOKEN`** is in `.env.local`. **Not yet confirmed set in Vercel's project env vars** —
+  add it there (same "confirm it's in Vercel" step every other env var here has needed) before
+  giving the CRM team the value out of band.
+- **Inbound (CRM → this app):** a new n8n workflow **`Funnel Dashboard - CRM Lead Outcomes Pull`**
+  (id `gREsPFHua1LbUqnK`, active, hourly schedule, exported to
+  `n8n/exports/crm-lead-outcomes-pull.json`) pulls the CRM's
+  `GET /api/intelligence/lead-outcomes?since=<cursor>` and upserts into Supabase
+  `crm_lead_outcomes` (`response_id, event, occurred_at`, PK on the first two — idempotent). Cursor
+  and last-attempt status live in `crm_sync_state`; a 401/404/timeout/malformed-response is recorded
+  as `last_status = 'failed'` with a reason, never silently read as zero events, and never advances
+  the cursor. `crm_event_types` tracks, per event type, `live_as_of` (NULL until the workflow's
+  first real sighting of that type) — this is what lets `/outcomes` distinguish "the CRM hasn't
+  wired this milestone up yet" from "zero of these so far," per the explicit warning against
+  inferring coverage from silence.
+- **15 event types, one canonical list:** `lib/crm/events.ts`'s `CRM_EVENT_TYPES` — buyer journey
+  (`LeadCreated` → `QualifiedBuyerLead` → `ViewingBooked` → `ViewingCompleted` → `OfferStarted` →
+  `OfferAccepted` → `ReservationSigned` → `DealClosed`), seller journey (`QualifiedSellerLead` →
+  `ValuationBooked` → `PriceAgreementReached` → `ListingAgreementSigned`), property track
+  (`ListingActivated`, `ListingSold`), plus reserved `QualifiedLead` (CRM hasn't finalized its
+  definition). **`ReservationSigned` (Arras signed) is the meaningful "won" event for scoring
+  campaigns in Spain — deposit paid, property off market — not `DealClosed`** (notary date, trails
+  months behind); see `PRIMARY_WIN_EVENT` in `lib/crm/events.ts`. Seven types were confirmed live by
+  the CRM on 2026-08-11 (seeded `live_as_of = now()` in the migration); the other eight start `NULL`.
+- **No personal data anywhere in this path** — `crm_lead_outcomes` holds only `response_id` (the
+  same opaque Typeform token already in `leads:all`), `event`, and a timestamp. Verified identical
+  join key against real data 2026-08-11 (25 sampled Typeform responses vs. 391/391 CRM attribution
+  records).
+- **Storage:** `db/migrations/006_crm_lead_outcomes.sql` — same Supabase project as the Instagram
+  module and `funnel_daily_history`, but fully decoupled tables (`crm_lead_outcomes`,
+  `crm_event_types`, `crm_sync_state`). **Migration not yet applied** — no DDL execution path exists
+  via the REST service-role key this project uses; run it in the Supabase SQL editor, same manual
+  step every prior migration (001–005) has needed.
+- **Visibility (Part 4):** `GET /api/crm/outcomes` (unguarded, internal — like `/api/leads`, not
+  part of the CRM contract) joins `crm_lead_outcomes` to campaigns via `leads:all` and returns
+  per-campaign event counts + the full event-coverage list. `/outcomes` (new nav item, `lib/nav.ts`)
+  renders a coverage-badge row (greys out + labels "not live yet" for any `liveAsOf === null` type)
+  and a by-campaign table (Viewings Booked/Completed, Offers Started/Accepted, **Arras Signed**,
+  €/Qualified Lead) — verified rendering correctly against the current empty state (migration not
+  yet applied, so every type reads "not live yet" and the table shows its empty-state copy; this is
+  the intended fallback behavior in `lib/crm/db.ts`, not a bug).
+- **Not yet done, blocking full verification:** the CRM's `GET /api/intelligence/lead-outcomes`
+  endpoint doesn't exist yet — the pull workflow's URL is a placeholder
+  (`https://REPLACE-WITH-CRM-BASE-URL/...`) and its `CRM Lead Outcomes Token` credential
+  (`kMzVQ3Yg7trSrDZr`) holds a placeholder value. Swap both once the CRM confirms deployment; nothing
+  else in the workflow needs to change. Until then, expect every run to fail at the Supabase-table
+  step (migration 006 not applied) — which is the correct, visible "failed" state, not a silent gap.

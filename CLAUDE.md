@@ -106,6 +106,16 @@ reference if extending this.
   confirmed set in Vercel's project env vars for production. `social-competitors` (W6) is tracking 8
   real competitors as of 2026-07-30 — see `n8n/social-workflows.md` for the list.
 
+## CRM two-way data exchange (added 2026-08-11, see CONTEXT.md §16)
+
+`/api/config` and the new `GET /api/funnel-export` require `Authorization: Bearer <FUNNEL_API_TOKEN>`
+(`lib/api-auth.ts`) — missing/wrong → 401, token unset → 503. `/api/public-view/[slug]/*` stays
+unauthenticated on purpose. A new n8n workflow (`Funnel Dashboard - CRM Lead Outcomes Pull`, hourly)
+pulls the CRM's lead-outcome events into Supabase `crm_lead_outcomes`/`crm_event_types`/
+`crm_sync_state` (`db/migrations/006_crm_lead_outcomes.sql`, **not yet applied**), surfaced at
+`/outcomes`. The CRM's own endpoint isn't live yet — see `n8n/crm-integration.md` for exact
+placeholders to swap once it is, and what's confirmed vs. still pending in Vercel/Supabase.
+
 ## Verifying changes
 
 Use the preview tools to run the dev server. Note: **stop the dev server before running
