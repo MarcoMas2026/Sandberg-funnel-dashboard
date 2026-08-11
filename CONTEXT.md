@@ -592,20 +592,25 @@ coupled deploys. Full detail in `n8n/crm-integration.md`; summary here.
   records).
 - **Storage:** `db/migrations/006_crm_lead_outcomes.sql` — same Supabase project as the Instagram
   module and `funnel_daily_history`, but fully decoupled tables (`crm_lead_outcomes`,
-  `crm_event_types`, `crm_sync_state`). **Migration not yet applied** — no DDL execution path exists
-  via the REST service-role key this project uses; run it in the Supabase SQL editor, same manual
-  step every prior migration (001–005) has needed.
+  `crm_event_types`, `crm_sync_state`). **Applied 2026-08-11, verified**: `crm_event_types` has all
+  15 seeded rows (7 stamped `live_as_of`, 8 `null`), `crm_sync_state` sits in its clean `never_run`
+  row, `crm_lead_outcomes` is empty as expected. The pull workflow's very first run hit a transient
+  PostgREST schema-cache 404 on `crm_sync_state` right after the migration landed (a known
+  Supabase lag, not a migration bug) — resolved on its own within minutes, confirmed via a direct
+  REST query and the workflow's next run.
 - **Visibility (Part 4):** `GET /api/crm/outcomes` (unguarded, internal — like `/api/leads`, not
   part of the CRM contract) joins `crm_lead_outcomes` to campaigns via `leads:all` and returns
   per-campaign event counts + the full event-coverage list. `/outcomes` (new nav item, `lib/nav.ts`)
   renders a coverage-badge row (greys out + labels "not live yet" for any `liveAsOf === null` type)
   and a by-campaign table (Viewings Booked/Completed, Offers Started/Accepted, **Arras Signed**,
-  €/Qualified Lead) — verified rendering correctly against the current empty state (migration not
-  yet applied, so every type reads "not live yet" and the table shows its empty-state copy; this is
-  the intended fallback behavior in `lib/crm/db.ts`, not a bug).
-- **Not yet done, blocking full verification:** the CRM's `GET /api/intelligence/lead-outcomes`
-  endpoint doesn't exist yet — the pull workflow's URL is a placeholder
-  (`https://REPLACE-WITH-CRM-BASE-URL/...`) and its `CRM Lead Outcomes Token` credential
-  (`kMzVQ3Yg7trSrDZr`) holds a placeholder value. Swap both once the CRM confirms deployment; nothing
+  €/Qualified Lead) — **verified live in production reading real Supabase data**
+  (`/api/crm/outcomes` returns `connected: true` with the real per-type `liveAsOf` values, not the
+  static fallback `lib/crm/db.ts` falls back to when Supabase is unreachable).
+- **The one thing still unverified, and the only remaining blocker on full end-to-end status:** the
+  CRM's `GET /api/intelligence/lead-outcomes` endpoint doesn't exist yet — the pull workflow's URL is
+  a placeholder (`https://REPLACE-WITH-CRM-BASE-URL/...`) and its `CRM Lead Outcomes Token`
+  credential (`kMzVQ3Yg7trSrDZr`) holds a placeholder value. Everything upstream of that one call
+  (auth, storage, sync-state bookkeeping, the UI) is confirmed working end to end; swap both once the
+  CRM confirms deployment — nothing
   else in the workflow needs to change. Until then, expect every run to fail at the Supabase-table
   step (migration 006 not applied) — which is the correct, visible "failed" state, not a silent gap.

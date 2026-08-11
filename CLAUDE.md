@@ -106,15 +106,29 @@ reference if extending this.
   confirmed set in Vercel's project env vars for production. `social-competitors` (W6) is tracking 8
   real competitors as of 2026-07-30 — see `n8n/social-workflows.md` for the list.
 
-## CRM two-way data exchange (added 2026-08-11, see CONTEXT.md §16)
+## CRM two-way data exchange (added 2026-08-11, fully verified on our side same day — see CONTEXT.md §16)
 
 `/api/config` and the new `GET /api/funnel-export` require `Authorization: Bearer <FUNNEL_API_TOKEN>`
-(`lib/api-auth.ts`) — missing/wrong → 401, token unset → 503. `/api/public-view/[slug]/*` stays
-unauthenticated on purpose. A new n8n workflow (`Funnel Dashboard - CRM Lead Outcomes Pull`, hourly)
-pulls the CRM's lead-outcome events into Supabase `crm_lead_outcomes`/`crm_event_types`/
-`crm_sync_state` (`db/migrations/006_crm_lead_outcomes.sql`, **not yet applied**), surfaced at
-`/outcomes`. The CRM's own endpoint isn't live yet — see `n8n/crm-integration.md` for exact
-placeholders to swap once it is, and what's confirmed vs. still pending in Vercel/Supabase.
+(`lib/api-auth.ts`) — missing/wrong → 401, token unset → 503. **Verified live in production**: all
+three auth outcomes tested against `https://sandberg-funnel-dashboard.vercel.app` (`FUNNEL_API_TOKEN`
+is set in Vercel), plus confirmed the existing Typeform Sync/Update orchestrator n8n nodes that read
+`/api/config` still work (via the new `Funnel API Token` n8n credential). `/api/public-view/[slug]/*`
+confirmed still unauthenticated, unchanged.
+
+`db/migrations/006_crm_lead_outcomes.sql` **has been applied** — `crm_event_types` verified seeded
+with all 15 rows (7 stamped live, 8 pending), `crm_sync_state` verified in its clean `never_run`
+state, `crm_lead_outcomes` verified empty (correct, nothing to ingest yet). `/api/crm/outcomes` and
+`/outcomes` confirmed reading these live tables in production (`connected: true`), not the static
+fallback. One transient PostgREST schema-cache 404 hit the pull workflow's first run right after the
+migration (expected — Supabase's schema cache lags new tables by anywhere from seconds to a couple
+minutes) and resolved on its own; not a migration problem, no action was needed.
+
+**The one thing still unverified, and the only thing left blocking full end-to-end status:** the
+CRM's own `GET /api/intelligence/lead-outcomes` endpoint isn't live yet, so the pull workflow
+(`Funnel Dashboard - CRM Lead Outcomes Pull`, hourly, active) still points at a placeholder URL/token
+and has never pulled real data. Everything upstream of that call — auth, storage, the sync-state
+bookkeeping, the UI — is confirmed working; only the actual CRM fetch is unproven. See
+`n8n/crm-integration.md` for the exact two values to swap once the CRM confirms deployment.
 
 ## Verifying changes
 
