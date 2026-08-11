@@ -67,31 +67,67 @@ on a CRM endpoint that isn't even live yet.
   **placeholder value** (`Bearer REPLACE_ME_WHEN_CRM_SHARES_TOKEN`) until the
   CRM team hands over their real bearer token.
 
-## What's still blocked on the CRM / on you
+## CRM endpoint went live 2026-08-11 — real URL + token now wired in
 
-1. **The CRM endpoint isn't live yet.** The "Pull CRM Lead Outcomes" node's
-   URL is a placeholder (`https://REPLACE-WITH-CRM-BASE-URL/...`) — swap it
-   for the real `GET /api/intelligence/lead-outcomes` base URL once the CRM
-   confirms it's deployed, and update the `CRM Lead Outcomes Token`
-   credential with their real token. Nothing else in the workflow needs to
-   change.
-2. **`db/migrations/006_crm_lead_outcomes.sql` needs to be run in the
-   Supabase SQL editor** (same manual step every prior migration in this repo
-   has needed — no DDL execution path is available via the REST API key this
-   project uses). Until it is, every run of this workflow will fail at "Get
-   Sync State" / the final Supabase writes, which is expected and shows up as
-   `last_status = 'failed'` — not silently.
-3. **`FUNNEL_API_TOKEN` needs to be added to Vercel's env vars** (see above)
-   before the CRM's own pull against the live dashboard will authenticate.
+Daniel (CRM) confirmed their side is live the same day. What changed:
 
-## Verification done vs. not done
+- **Real endpoint**: `https://crm.sandberg-estates.com/api/intelligence/lead-outcomes?since=<ISO>`
+  — the "Pull CRM Lead Outcomes" node's URL was updated from the placeholder
+  to this. Confirmed via a direct curl: returns `{"complete":true,"events":[...]}`,
+  matching `Classify Pull Result`'s expected shape exactly, no surprises.
+- **Real token** wired into the `CRM Lead Outcomes Token` credential
+  (`kMzVQ3Yg7trSrDZr`), replacing the placeholder.
+- **Contract, confirmed by Daniel, now enforced in `Classify Pull Result`**: a
+  200 ALWAYS carries `complete: true` — they never send a partial 200. If a
+  200 body is ever missing that flag, the code node now treats it as a
+  failure (never advances the cursor) rather than a clean empty success, per
+  Daniel's own words: "a silently short window would be permanent loss rather
+  than a delay." A 503 from them means they couldn't see a full window —
+  same handling, retry the same `since` next run. Response rows are exactly
+  `{response_id, event, occurred_at}`, nothing else — no names/emails/phones.
+- **Correction on event coverage** (Daniel's own words: "a correction... in
+  your favour" — he miscounted first time): **14 of 15 event types are wired
+  and live**, not 7. Only `QualifiedLead` is permanently dormant by design —
+  it's an alias of `QualifiedBuyerLead`/`QualifiedSellerLead`, deliberately
+  never fired (would double-count one qualification under two names).
+  `crm_event_types.live_as_of` in Supabase and `lib/crm/events.ts`'s
+  `liveAsOfSeed` were both updated to match (2026-08-11 date-stamp).
+- **Important caveat, also from Daniel — don't lose this**: of those 14 live
+  types, only `LeadCreated` and `QualifiedBuyerLead` are producing data
+  *today*. The rest (viewings, offers, Arras, all seller-side events) are
+  wired correctly but return zero because of an **attribution gap on the
+  CRM's side** — as of 2026-08-11, only 1 of 963 seller leads and 0 of 443
+  offers are linked to a campaign. **A zero count on those event types is a
+  data gap, not a campaign verdict** — `/outcomes` now says this explicitly.
+  Closing that gap is the CRM's stated top priority; when it lands, those
+  events start flowing with no change needed on our side.
+- **Also flagged by Daniel, worth remembering**: their "qualified" signal is
+  currently broader than intended — ~25% of `QualifiedBuyerLead` events have
+  no search criteria recorded. They're tightening this, so expect
+  `QualifiedBuyerLead` volume to drop noticeably at some point — that's a
+  data-quality correction on their side, not a sign campaigns got worse.
 
-- Verified: workflow structure accepted by n8n's API (POST + activate
-  succeeded, `triggerCount: 1`), both existing workflows' `/api/config` calls
-  still carry a valid credential, `/api/funnel-export` and `/api/config`
-  tested locally for all three auth outcomes (missing/wrong/correct token).
-- **Not verified end to end** — the CRM endpoint doesn't exist yet, so the
-  success branch (rows actually landing in `crm_lead_outcomes`) has not run
-  against real data. Per the brief: treat 404 as the expected state until the
-  CRM confirms, and make sure that shows up as a distinct failure, not a
-  quiet zero — which is exactly what `Classify Pull Result` does.
+**Bug found and fixed during verification**: the "Pull CRM Lead Outcomes"
+node originally threw a hard, uncaught error on a DNS/network failure (it
+was still pointed at the placeholder URL at the time) instead of flowing
+into the failure-handling branch — meaning every hourly run before the real
+URL/token landed was crashing outright rather than logging a clean `failed`
+status. Fixed by setting `onError: "continueRegularOutput"` on that node.
+Confirmed working: the run that hit this (execution `64010`) crashed; the
+next one (`64422`, still on the old placeholder URL at that point) failed
+*gracefully* into `Update Sync State Failed` instead.
+
+## Verification done
+
+- Token guard (`/api/config`, `/api/funnel-export`): all three auth outcomes
+  (missing/wrong/correct) verified against the live production URL.
+- `db/migrations/006_crm_lead_outcomes.sql` applied and verified (15 event
+  types seeded, `crm_sync_state` clean, `crm_lead_outcomes` empty pre-pull).
+- `/outcomes` and `/api/crm/outcomes` confirmed reading real Supabase data in
+  production (`connected: true`).
+- CRM endpoint confirmed reachable and returning the expected shape via a
+  direct curl with the real token.
+- **Still pending**: confirming an actual n8n scheduled run (not a manual
+  curl) lands rows in `crm_lead_outcomes` and advances
+  `crm_sync_state.last_success_cursor` — being watched for as of this
+  writing; update this doc once confirmed.

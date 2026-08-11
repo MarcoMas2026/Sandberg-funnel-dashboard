@@ -606,11 +606,19 @@ coupled deploys. Full detail in `n8n/crm-integration.md`; summary here.
   €/Qualified Lead) — **verified live in production reading real Supabase data**
   (`/api/crm/outcomes` returns `connected: true` with the real per-type `liveAsOf` values, not the
   static fallback `lib/crm/db.ts` falls back to when Supabase is unreachable).
-- **The one thing still unverified, and the only remaining blocker on full end-to-end status:** the
-  CRM's `GET /api/intelligence/lead-outcomes` endpoint doesn't exist yet — the pull workflow's URL is
-  a placeholder (`https://REPLACE-WITH-CRM-BASE-URL/...`) and its `CRM Lead Outcomes Token`
-  credential (`kMzVQ3Yg7trSrDZr`) holds a placeholder value. Everything upstream of that one call
-  (auth, storage, sync-state bookkeeping, the UI) is confirmed working end to end; swap both once the
-  CRM confirms deployment — nothing
-  else in the workflow needs to change. Until then, expect every run to fail at the Supabase-table
-  step (migration 006 not applied) — which is the correct, visible "failed" state, not a silent gap.
+- **CRM endpoint went live 2026-08-11** — real URL (`https://crm.sandberg-estates.com/api/intelligence/lead-outcomes`)
+  and real token wired into the pull workflow same day. Confirmed via direct curl: returns
+  `{"complete":true,"events":[{response_id,event,occurred_at}, ...]}`, matching the workflow's
+  parsing exactly. Full detail (including a hard bug found and fixed in the failure-handling path,
+  and Daniel's corrections/caveats on event coverage) in `n8n/crm-integration.md`.
+- **Event coverage corrected same day**: 14 of 15 types are actually wired and live (not the
+  original 7) — only `QualifiedLead` is permanently dormant by design (alias of
+  `QualifiedBuyerLead`/`QualifiedSellerLead`, deliberately never fired). `lib/crm/events.ts` and
+  `crm_event_types` both updated to match. **Important**: most of those 14 still show zero counts
+  today because of an attribution gap on the CRM's side (1/963 seller leads, 0/443 offers linked to
+  a campaign as of 2026-08-11) — a zero on ViewingBooked/OfferAccepted/ReservationSigned/etc. is a
+  data gap, not a campaign verdict; `/outcomes` says this explicitly now. Also flagged: the CRM's
+  "qualified" signal is currently broader than intended (~25% of `QualifiedBuyerLead` lack search
+  criteria) and will tighten later, dropping that count — a data-quality fix, not a regression.
+- **Still pending**: confirming an actual scheduled n8n run (not a manual curl) lands rows in
+  `crm_lead_outcomes` and advances the cursor — being watched for; update this note once confirmed.

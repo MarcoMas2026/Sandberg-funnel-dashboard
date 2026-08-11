@@ -123,12 +123,15 @@ fallback. One transient PostgREST schema-cache 404 hit the pull workflow's first
 migration (expected — Supabase's schema cache lags new tables by anywhere from seconds to a couple
 minutes) and resolved on its own; not a migration problem, no action was needed.
 
-**The one thing still unverified, and the only thing left blocking full end-to-end status:** the
-CRM's own `GET /api/intelligence/lead-outcomes` endpoint isn't live yet, so the pull workflow
-(`Funnel Dashboard - CRM Lead Outcomes Pull`, hourly, active) still points at a placeholder URL/token
-and has never pulled real data. Everything upstream of that call — auth, storage, the sync-state
-bookkeeping, the UI — is confirmed working; only the actual CRM fetch is unproven. See
-`n8n/crm-integration.md` for the exact two values to swap once the CRM confirms deployment.
+**CRM endpoint went live 2026-08-11, same day** — real URL + token wired into the pull workflow,
+verified via a direct curl returning the expected `{complete:true, events:[...]}` shape. A real bug
+(an uncaught DNS error crashing the whole run instead of failing gracefully) was found and fixed in
+the process — see `n8n/crm-integration.md`. Event coverage was also corrected the same day: **14 of
+15 types are live**, not 7 — only `QualifiedLead` is permanently dormant by design. Most of those 14
+still show zero data today due to an attribution gap on the CRM's side, not campaign performance —
+`/outcomes` says so explicitly. Full detail, including Daniel's caveats, in `n8n/crm-integration.md`
+and CONTEXT.md §16. **Still open:** confirming an actual scheduled n8n run (not just a manual curl)
+lands rows in `crm_lead_outcomes`.
 
 ## Verifying changes
 

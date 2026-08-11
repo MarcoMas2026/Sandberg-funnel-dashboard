@@ -64,9 +64,11 @@ export default function OutcomesPage() {
         </div>
         <p className="mt-2 max-w-2xl text-xs text-[var(--text-faint)]">
           Pulled hourly from the CRM's lead-outcomes feed and joined back to campaigns by Typeform
-          response id. Rows only appear once the CRM confirms an event type is actually emitting —
-          a badge below reading "not live yet" means the CRM hasn't wired that milestone up, not
-          that zero of them have happened.
+          response id. A badge below reading "not live yet" means the CRM hasn't wired that
+          milestone up at all — as opposed to a milestone that IS wired but currently shows zero.
+          As of 2026-08-11, most post-qualification stages (viewings, offers, Arras, seller-side
+          events) are wired but blocked by an attribution gap on the CRM's side, not by campaign
+          performance — a zero there is a data gap, not a verdict on the campaign.
         </p>
       </GlowPanel>
 
