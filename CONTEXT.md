@@ -446,15 +446,26 @@ used to be a purely static "QUALIFIED" label chip).
 - **Capture (n8n, Typeform Sync `8ddVaAR0TNyZkvGZ`):** a new `Build Leads` code node, wired as a
   parallel fan-out off the existing `Get Started Responses` node (NOT a merge — `Build
   TypeformForms`'s existing aggregate-counting branch is untouched), extracts
-  `{response_id, campaign_id, campaign_name, form_id, submitted_at, first_name, language, budget,
-  stage}` per completed response. Field extraction matches by **normalized question title**
-  (`"preferred language"`, `"invest"/"budget"`, `"stage"` + `"search"/"property"`) plus the
-  `contact_info` field's stable `subfield_key: "first_name"` — verified against the live forms
+  `{response_id, campaign_id, campaign_name, form_id, submitted_at, first_name, last_name,
+  language, budget, stage, buying_timeline}` per completed response. Field extraction matches by
+  **normalized question title** (`"preferred language"`, `"invest"/"budget"`, `"stage"` +
+  `"search"/"property"`, `"intend"` + `"buying"` for buying_timeline) plus the `contact_info`
+  field's stable `subfield_key: "first_name"`/`"last_name"` — verified against the live forms
   (`OigsrlQl` S'Olivera, `QlXsNtIY` Sa Vinya), which share identical field wording from a common
   template. `form_id → {campaign_id, campaign_name}` is resolved the same way the Merge step
   resolves Typeform pairings: `CAMPAIGN_MAP` override → `typeform:auto_pairings` cache → live
   `meta:campaigns` name lookup. Writes the full array to KV **`leads:all`** (full replace every
   ~30-min sync, same scope as `typeform:forms` — currently-active campaigns only).
+- **`last_name`/`buying_timeline` added 2026-08-12** (pushed live via the n8n API using the
+  `N8N_API_KEY` already in `.env.local` — CLAUDE.md's older note that this key lives only in the
+  LANDINGS memory file is stale). Confirmed via execution `71293` that both fields already exist in
+  the live form (`JFxP4C8D`, current active form) before touching the node: surname is
+  `subfield_key: "last_name"` in the same `contact_info` field `first_name` already read, and the
+  buying-timeline question's exact live title is *"When do you intend on buying in Mallorca?"*.
+  After pushing the node update, triggered a fresh run via the `NEXT_PUBLIC_N8N_WEBHOOK_URL`
+  funnel-update webhook (execution `71362`) and confirmed **73/73 leads** came back with both
+  fields populated, then confirmed the same via a direct `GET /api/leads` — no schema/type change
+  needed anywhere else in the pipeline, since `leads:all` is just JSON passed through KV.
 - **Tags are a SEPARATE KV key, `leads:tags`** (`{ [response_id]: "red"|"orange"|"blue" }`),
   written **only by this Next.js app** (`lib/kv.ts`'s `setLeadTag`), never by n8n — this is what
   lets a tag survive `leads:all` being fully overwritten every sync (matched back by the stable
@@ -479,6 +490,40 @@ used to be a purely static "QUALIFIED" label chip).
   `leads:all` for the two active campaigns with correct field extraction; tagged a lead red via the
   UI, confirmed it persisted in `leads:tags` and the campaign page's funnel showed the updated
   `1/0/0` red/orange/blue breakdown.
+
+### 14.1 Property registry — `lib/properties.ts` (added 2026-08-12, prep for a card-based leads UI)
+
+Not part of the n8n pipeline. A separate, purely local content source: **`~/Desktop/LANDINGS`**
+(outside this repo — `IMAGES/<ref>/*.jpg` and `BROCHURES/<ref>.pdf`, one folder/file per property
+ref) is the only place property asking price, a listing photo, and the responsible agent's name
+exist anywhere in this stack — `lib/config.ts`'s `CAMPAIGN_MAP` only ever had a property name
+string, never a price or image.
+
+- **`scripts/sync-properties.py`** (run manually, `python3 scripts/sync-properties.py` from repo
+  root, needs `pip install pdfplumber` — not a repo/build dependency) reads every
+  `BROCHURES/<ref>.pdf`, regex-extracts price/location/agent (two known brochure template layouts:
+  an older "YOUR CONTACT"/"PRICE:" one and a newer "LISTING AGENT"/cover-page "€X.XXX.XXX" one),
+  picks one hero image per ref from `IMAGES/<ref>/` (filename-keyword heuristic — prefers
+  exterior/aerial/pool-ish names, excludes obvious interior-detail-room shots, falls back to lowest
+  file number), copies it into `public/properties/<ref>.<ext>` resized to 1200px wide via `sips`
+  (raw camera JPGs were 2-10MB each; resized set is ~7MB total for 29 properties), and writes
+  `lib/properties.ts`'s `PROPERTY_REGISTRY: Record<string, PropertyInfo>` (`price`/`location`/
+  `agent` as raw brochure-scraped strings, `image` as a `/properties/...` public path).
+- **Keyed by ref**, not by campaign — matches `CampaignMapEntry.ref` in `lib/config.ts` for active
+  campaigns, and also covers refs that only exist in historical/retired `campaign_name` strings
+  (e.g. `"SP - 32785 - Finca Bugambilia"`) so the registry works for leads whose campaign has since
+  left `CAMPAIGN_MAP` — this was a deliberate scope decision (**29 refs synced 2026-08-12**, not
+  just the 3 currently-active property campaigns) since new brochures landing in LANDINGS should
+  "just work" on a re-run without a matching code change.
+- **Image selection is a heuristic guess, not a vision check** — spot-checked manually for the 3
+  currently-active campaigns; two of three auto-picks were wrong (`32606` CAN VILA picked a
+  bathroom, corrected to a rooftop-terrace shot; `6648` Catalina Duplex has no exterior photos in
+  its folder at all, kept an interior shot) and are recorded in the script's `IMAGE_OVERRIDES` dict
+  — extend that dict rather than re-guessing when a future auto-pick turns out wrong. The other 26
+  refs' picks are unverified best-effort.
+- **`agent` is a free-text name scraped from the brochure PDF**, normalized to title-case in the
+  script (two brochure templates render it differently — one all-caps) — no agent ID, no link to
+  any other system, display-only.
 
 ## 15. Agency-wide productization — PENDING, not started (discussed 2026-08-04)
 
@@ -563,9 +608,12 @@ coupled deploys. Full detail in `n8n/crm-integration.md`; summary here.
   "Read Config") nodes that already call `/api/config` were updated with a new n8n credential
   **`Funnel API Token`** (`httpHeaderAuth`, id `gnuvIzBvRB6JZSml`) carrying the same token, so
   guarding the route didn't break the existing pipeline.
-- **`FUNNEL_API_TOKEN`** is in `.env.local`. **Not yet confirmed set in Vercel's project env vars** —
-  add it there (same "confirm it's in Vercel" step every other env var here has needed) before
-  giving the CRM team the value out of band.
+- **`FUNNEL_API_TOKEN`** is in `.env.local` and **confirmed live in Vercel** (2026-08-12: direct curl
+  against `https://sandberg-funnel-dashboard.vercel.app/api/funnel-export` with the local token
+  returned 200) — the earlier "not yet confirmed" note is stale. Base URL
+  (`https://sandberg-funnel-dashboard.vercel.app`) and `/api/funnel-export`'s response shape (all
+  campaigns in one array, not per-campaign/per-id) were confirmed back to Daniel (CRM) the same day.
+  Token itself goes to Daniel out of band (WhatsApp, his call) — not in this repo, not in chat logs.
 - **Inbound (CRM → this app):** a new n8n workflow **`Funnel Dashboard - CRM Lead Outcomes Pull`**
   (id `gREsPFHua1LbUqnK`, active, hourly schedule, exported to
   `n8n/exports/crm-lead-outcomes-pull.json`) pulls the CRM's
@@ -584,8 +632,9 @@ coupled deploys. Full detail in `n8n/crm-integration.md`; summary here.
   (`ListingActivated`, `ListingSold`), plus reserved `QualifiedLead` (CRM hasn't finalized its
   definition). **`ReservationSigned` (Arras signed) is the meaningful "won" event for scoring
   campaigns in Spain — deposit paid, property off market — not `DealClosed`** (notary date, trails
-  months behind); see `PRIMARY_WIN_EVENT` in `lib/crm/events.ts`. Seven types were confirmed live by
-  the CRM on 2026-08-11 (seeded `live_as_of = now()` in the migration); the other eight start `NULL`.
+  months behind); see `PRIMARY_WIN_EVENT` in `lib/crm/events.ts`. **14 of the 15 types are confirmed
+  live by the CRM** (corrected 2026-08-11 — Daniel originally said 7, miscounted); only
+  `QualifiedLead` stays permanently `NULL` (deliberate alias, see below).
 - **No personal data anywhere in this path** — `crm_lead_outcomes` holds only `response_id` (the
   same opaque Typeform token already in `leads:all`), `event`, and a timestamp. Verified identical
   join key against real data 2026-08-11 (25 sampled Typeform responses vs. 391/391 CRM attribution
@@ -593,8 +642,9 @@ coupled deploys. Full detail in `n8n/crm-integration.md`; summary here.
 - **Storage:** `db/migrations/006_crm_lead_outcomes.sql` — same Supabase project as the Instagram
   module and `funnel_daily_history`, but fully decoupled tables (`crm_lead_outcomes`,
   `crm_event_types`, `crm_sync_state`). **Applied 2026-08-11, verified**: `crm_event_types` has all
-  15 seeded rows (7 stamped `live_as_of`, 8 `null`), `crm_sync_state` sits in its clean `never_run`
-  row, `crm_lead_outcomes` is empty as expected. The pull workflow's very first run hit a transient
+  15 seeded rows (14 stamped `live_as_of`, only `QualifiedLead` `null` — updated to match the
+  2026-08-11 coverage correction), `crm_sync_state` sits in its clean `never_run` row,
+  `crm_lead_outcomes` is empty as expected. The pull workflow's very first run hit a transient
   PostgREST schema-cache 404 on `crm_sync_state` right after the migration landed (a known
   Supabase lag, not a migration bug) — resolved on its own within minutes, confirmed via a direct
   REST query and the workflow's next run.
@@ -620,5 +670,20 @@ coupled deploys. Full detail in `n8n/crm-integration.md`; summary here.
   data gap, not a campaign verdict; `/outcomes` says this explicitly now. Also flagged: the CRM's
   "qualified" signal is currently broader than intended (~25% of `QualifiedBuyerLead` lack search
   criteria) and will tighten later, dropping that count — a data-quality fix, not a regression.
+- **Further detail from Daniel, 2026-08-12**: the attribution gap isn't evenly spread across lead
+  sources — **no portal enquiry carries attribution at all** (0 for Idealista, James Edition, and
+  Rightmove). Only Typeform enquiries attribute reliably (109 of 115). So the buyer/seller-journey
+  zeros aren't just "attribution work in progress" generically — they're concentrated on non-Typeform
+  intake specifically; Typeform-sourced leads are the ones most likely to start showing
+  post-qualification events first as the CRM's fix lands.
+  Every response from the CRM also carries a `coverage` block (which event types are flowing vs.
+  dormant, derived from their code, not a maintained list) — no need to track this manually here.
+  Contract for the n8n puller: **200 ⇒ store rows and advance the cursor; anything else ⇒ change
+  nothing and retry the same window.** Every 200 carries `complete: true` explicitly (never inferred);
+  a 503 means the CRM couldn't see a full window — same retry-same-window handling, never a silent
+  partial 200 (a short window would be permanent data loss on an incremental pull, not just a delay).
 - **Still pending**: confirming an actual scheduled n8n run (not a manual curl) lands rows in
-  `crm_lead_outcomes` and advances the cursor — being watched for; update this note once confirmed.
+  `crm_lead_outcomes` and advances the cursor — being watched for. Also pending: Daniel's promised
+  dry pull against `/api/funnel-export` once he has the token, which he said will surface anything
+  that doesn't match his expectations before it becomes a silent mismatch. Update this note once
+  either lands.

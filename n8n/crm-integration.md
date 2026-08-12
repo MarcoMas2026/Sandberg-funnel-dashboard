@@ -13,10 +13,10 @@ Both routes 401 without `Authorization: Bearer <FUNNEL_API_TOKEN>`, and 503 if
 open). `/api/public-view/[slug]/*` is deliberately untouched — still fully
 public by design.
 
-- **`FUNNEL_API_TOKEN`** lives in `.env.local` for local dev. **Not yet
-  confirmed set in Vercel's project env vars** — add it there before the CRM's
-  own pull against the live site will work (same "confirm it's in Vercel"
-  step every other env var addition in this repo has needed).
+- **`FUNNEL_API_TOKEN`** lives in `.env.local` for local dev, and is
+  **confirmed live in Vercel** (2026-08-12: direct curl against
+  `https://sandberg-funnel-dashboard.vercel.app/api/funnel-export` with the
+  local token returned 200) — the earlier "not yet confirmed" note was stale.
 - The Typeform Sync (`8ddVaAR0TNyZkvGZ`, node "Get Config") and Update
   orchestrator (`g9vuAw5CwhWl6SXf`, node "Read Config") workflows both call
   `/api/config` themselves — updated in place to send the same token via a new
@@ -25,7 +25,16 @@ public by design.
   pipeline. Verified live: both nodes carry the credential; workflows are
   still active.
 - Give the CRM team the `FUNNEL_API_TOKEN` value out of band (not this repo,
-  not chat logs) once Vercel's copy is confirmed set.
+  not chat logs) — Vercel's copy is confirmed set.
+
+**Daniel confirmed 2026-08-12 he's wiring the pull on his side and asked for
+three things alongside the token: the exact base URL, and whether
+`/api/funnel-export` returns all campaigns in one response or one per call.**
+Both answered: base URL is `https://sandberg-funnel-dashboard.vercel.app`;
+`/api/funnel-export` returns **all campaigns in a single array** (`{campaigns:
+[...], last_updated, status}`, see `app/api/funnel-export/route.ts`), no
+per-campaign/per-id path. He'll run a dry pull against it once he has the
+token and report back anything that doesn't match his expectations.
 
 ## Inbound: `Funnel Dashboard - CRM Lead Outcomes Pull` (n8n id `gREsPFHua1LbUqnK`)
 
@@ -106,6 +115,20 @@ Daniel (CRM) confirmed their side is live the same day. What changed:
   no search criteria recorded. They're tightening this, so expect
   `QualifiedBuyerLead` volume to drop noticeably at some point — that's a
   data-quality correction on their side, not a sign campaigns got worse.
+- **Follow-up detail from Daniel, 2026-08-12**: the attribution gap isn't
+  even across lead sources — **no portal enquiry carries attribution at all**
+  (0 for Idealista, James Edition, Rightmove). Only Typeform attributes
+  reliably (109 of 115). So Typeform-sourced leads are the ones most likely
+  to start showing post-qualification events first once the CRM's fix lands,
+  not portal leads generally. He also restated the pull contract plainly:
+  **200 ⇒ store and advance the cursor; anything else ⇒ change nothing,
+  retry the same window** — every 200 carries `complete: true` explicitly
+  (never inferred), and a 503 (can't see a full window) gets the same
+  retry-same-window handling as a failure, never a silent partial 200 (a
+  short window would be permanent loss on an incremental pull, not a delay).
+  Every CRM response also carries a `coverage` block listing which event
+  types are flowing vs. dormant, derived from their code — no need to
+  maintain that list by hand on our side either.
 
 **Bug found and fixed during verification**: the "Pull CRM Lead Outcomes"
 node originally threw a hard, uncaught error on a DNS/network failure (it
@@ -127,7 +150,11 @@ next one (`64422`, still on the old placeholder URL at that point) failed
   production (`connected: true`).
 - CRM endpoint confirmed reachable and returning the expected shape via a
   direct curl with the real token.
+- `FUNNEL_API_TOKEN` reconfirmed live in Vercel 2026-08-12 via a direct curl
+  against production `/api/funnel-export` (200 with the `.env.local` token).
 - **Still pending**: confirming an actual n8n scheduled run (not a manual
   curl) lands rows in `crm_lead_outcomes` and advances
   `crm_sync_state.last_success_cursor` — being watched for as of this
-  writing; update this doc once confirmed.
+  writing. Also pending: Daniel's own dry pull against `/api/funnel-export`
+  once he has the token — he'll report anything that doesn't match his
+  puller's expectations. Update this doc once either lands.

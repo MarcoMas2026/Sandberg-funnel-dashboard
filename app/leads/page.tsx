@@ -8,6 +8,7 @@ import { LeadIcon } from "@/components/icons";
 import { GlowPanel } from "@/components/ui/glow-panel";
 import { Pill } from "@/components/viz";
 import { LeadTagSheet } from "@/components/ui/lead-tag-sheet";
+import { LeadSwipeDeck } from "@/components/leads/LeadSwipeDeck";
 
 const TIMEFRAMES = [
   { label: "7 days", days: 7 },
@@ -30,6 +31,7 @@ export default function LeadsPage() {
   const [timeframeDays, setTimeframeDays] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [pickerId, setPickerId] = useState<string | null>(null);
+  const [view, setView] = useState<"table" | "sort">("table");
 
   useEffect(() => {
     fetch("/api/leads", { cache: "no-store" })
@@ -109,21 +111,39 @@ export default function LeadsPage() {
       </GlowPanel>
 
       <GlowPanel className="panel p-5">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <Pill label="All campaigns" active={campaignFilter === null} onClick={() => setCampaignFilter(null)} />
-          {campaigns.map((c) => (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Pill
-              key={c.campaign_id}
-              label={c.campaign_name}
-              active={campaignFilter === c.campaign_id}
-              onClick={() => setCampaignFilter(c.campaign_id)}
+              label="All campaigns"
+              active={campaignFilter === null}
+              onClick={() => setCampaignFilter(null)}
+              className="pill-sm"
             />
-          ))}
+            {campaigns.map((c) => (
+              <Pill
+                key={c.campaign_id}
+                label={c.campaign_name}
+                active={campaignFilter === c.campaign_id}
+                onClick={() => setCampaignFilter(c.campaign_id)}
+                className="pill-sm"
+              />
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Pill label="Table" active={view === "table"} onClick={() => setView("table")} />
+            <Pill label="Sort" active={view === "sort"} onClick={() => setView("sort")} />
+          </div>
         </div>
+
+        {view === "sort" && (
+          <div className="py-2">
+            <LeadSwipeDeck leads={filtered} onSetTag={setTag} />
+          </div>
+        )}
 
         {/* Mobile: one card per lead, all fields visible without horizontal
             scroll. Desktop (md+): unchanged wide table. */}
-        <div className="space-y-3 md:hidden">
+        <div className={`space-y-3 md:hidden ${view === "sort" ? "hidden" : ""}`}>
           {filtered.map((lead) => (
             <button
               key={lead.response_id}
@@ -132,7 +152,7 @@ export default function LeadsPage() {
               className="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel2)] p-4 text-left"
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="font-semibold text-[var(--text)]">{lead.first_name || "—"}</p>
+                <p className="font-semibold text-[var(--text)]">{`${lead.first_name} ${lead.last_name}`.trim() || "—"}</p>
                 <div className="flex shrink-0 gap-1.5 pt-1">
                   {(["red", "orange", "blue"] as const).map((color) => (
                     <span
@@ -152,6 +172,7 @@ export default function LeadsPage() {
                 <LeadField label="Language" value={lead.language} />
                 <LeadField label="Budget" value={lead.budget} />
                 <LeadField label="Stage" value={lead.stage} />
+                <LeadField label="Timeline" value={lead.buying_timeline} />
                 <LeadField label="Campaign" value={lead.campaign_name} />
               </div>
               <p className="mt-3 border-t border-[var(--border)] pt-2 text-[10px] text-[var(--text-faint)]">
@@ -172,14 +193,15 @@ export default function LeadsPage() {
             return <LeadTagSheet lead={pickerLead} onSelect={setTag} onClose={() => setPickerId(null)} />;
           })()}
 
-        <div className="hidden overflow-x-auto md:block">
+        <div className={`hidden overflow-x-auto md:block ${view === "sort" ? "md:hidden" : ""}`}>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
-                <th className="pb-2 pl-1">First name</th>
+                <th className="pb-2 pl-1">Name</th>
                 <th className="pb-2">Language</th>
                 <th className="pb-2">Budget</th>
                 <th className="pb-2">Stage</th>
+                <th className="pb-2">Timeline</th>
                 <th className="pb-2">Campaign</th>
                 <th className="pb-2">Submitted</th>
                 <th className="pb-2 pr-1 text-right">Tag</th>
@@ -188,10 +210,11 @@ export default function LeadsPage() {
             <tbody>
               {filtered.map((lead) => (
                 <tr key={lead.response_id} className="border-t border-[var(--border)]">
-                  <td className="py-3 pl-1 font-medium text-[var(--text)]">{lead.first_name || "—"}</td>
+                  <td className="py-3 pl-1 font-medium text-[var(--text)]">{`${lead.first_name} ${lead.last_name}`.trim() || "—"}</td>
                   <td className="py-3 text-[var(--text)]">{lead.language || "—"}</td>
                   <td className="py-3 text-[var(--text)]">{lead.budget || "—"}</td>
                   <td className="py-3 text-[var(--text)]">{lead.stage || "—"}</td>
+                  <td className="py-3 text-[var(--text)]">{lead.buying_timeline || "—"}</td>
                   <td className="py-3 text-[var(--text-faint)]">{lead.campaign_name || "—"}</td>
                   <td className="py-3 text-[var(--text-faint)]">{formatDate(lead.submitted_at)}</td>
                   <td className="py-3 pr-1">
@@ -215,7 +238,7 @@ export default function LeadsPage() {
               ))}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-[var(--text-faint)]">
+                  <td colSpan={8} className="py-8 text-center text-[var(--text-faint)]">
                     No leads in this range.
                   </td>
                 </tr>

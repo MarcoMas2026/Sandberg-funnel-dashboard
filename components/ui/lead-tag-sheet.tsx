@@ -28,9 +28,9 @@ export function LeadTagSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3">
-          <div className="text-sm font-semibold">{lead.first_name || "Lead"}</div>
+          <div className="text-sm font-semibold">{`${lead.first_name} ${lead.last_name}`.trim() || "Lead"}</div>
           <div className="text-xs text-white/70">
-            {lead.language || "—"} · {lead.budget || "—"} · {lead.stage || "—"}
+            {lead.language || "—"} · {lead.budget || "—"} · {lead.stage || "—"} · {lead.buying_timeline || "—"}
           </div>
         </div>
         <div className="flex flex-col gap-2">

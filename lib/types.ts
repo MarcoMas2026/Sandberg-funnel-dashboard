@@ -173,9 +173,11 @@ export interface LeadRecord {
   form_id: string;
   submitted_at: string | null; // ISO
   first_name: string;
+  last_name: string;
   language: string;
   budget: string;
   stage: string;
+  buying_timeline: string;
   tag: LeadTag;
 }
 

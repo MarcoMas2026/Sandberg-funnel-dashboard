@@ -50,8 +50,10 @@ value-based CAPI feedback loop) with build-order and zero-API-cost constraints.
 **Next agreed build step: Phase 1 (daily history snapshots) — see CONTEXT.md §11 and
 ARCHITECTURE.md.** Not started yet as of 2026-07-16.
 
-Editing workflows needs the n8n API key (in the LANDINGS Claude memory `reference_n8n.md`, not in
-this repo) — ask the user for it if needed. KV token + webhook URL are in `.env.local`.
+Editing workflows needs the n8n API key — **it's in `.env.local`** as `N8N_API_KEY` /
+`N8N_BASE_URL` (confirmed working against the live n8n instance 2026-08-12; the older note that
+this only lived in the LANDINGS Claude memory `reference_n8n.md` was stale). KV token + webhook URL
+are in `.env.local` too.
 
 ## OKR view (added 2026-07-17, read-only as of 2026-07-21, separate from the n8n pipeline above)
 
@@ -116,12 +118,13 @@ is set in Vercel), plus confirmed the existing Typeform Sync/Update orchestrator
 confirmed still unauthenticated, unchanged.
 
 `db/migrations/006_crm_lead_outcomes.sql` **has been applied** — `crm_event_types` verified seeded
-with all 15 rows (7 stamped live, 8 pending), `crm_sync_state` verified in its clean `never_run`
-state, `crm_lead_outcomes` verified empty (correct, nothing to ingest yet). `/api/crm/outcomes` and
-`/outcomes` confirmed reading these live tables in production (`connected: true`), not the static
-fallback. One transient PostgREST schema-cache 404 hit the pull workflow's first run right after the
-migration (expected — Supabase's schema cache lags new tables by anywhere from seconds to a couple
-minutes) and resolved on its own; not a migration problem, no action was needed.
+with all 15 rows (14 stamped live, only `QualifiedLead` permanently null — see correction below),
+`crm_sync_state` verified in its clean `never_run` state, `crm_lead_outcomes` verified empty
+(correct, nothing to ingest yet). `/api/crm/outcomes` and `/outcomes` confirmed reading these live
+tables in production (`connected: true`), not the static fallback. One transient PostgREST
+schema-cache 404 hit the pull workflow's first run right after the migration (expected — Supabase's
+schema cache lags new tables by anywhere from seconds to a couple minutes) and resolved on its own;
+not a migration problem, no action was needed.
 
 **CRM endpoint went live 2026-08-11, same day** — real URL + token wired into the pull workflow,
 verified via a direct curl returning the expected `{complete:true, events:[...]}` shape. A real bug
@@ -129,9 +132,18 @@ verified via a direct curl returning the expected `{complete:true, events:[...]}
 the process — see `n8n/crm-integration.md`. Event coverage was also corrected the same day: **14 of
 15 types are live**, not 7 — only `QualifiedLead` is permanently dormant by design. Most of those 14
 still show zero data today due to an attribution gap on the CRM's side, not campaign performance —
-`/outcomes` says so explicitly. Full detail, including Daniel's caveats, in `n8n/crm-integration.md`
-and CONTEXT.md §16. **Still open:** confirming an actual scheduled n8n run (not just a manual curl)
-lands rows in `crm_lead_outcomes`.
+`/outcomes` says so explicitly. **Also from Daniel (2026-08-12): no portal enquiry carries
+attribution at all — 0 for Idealista, James Edition, and Rightmove; only Typeform is reliable
+(109/115).** Full detail, including Daniel's caveats, in `n8n/crm-integration.md` and CONTEXT.md
+§16.
+
+**`FUNNEL_API_TOKEN` in Vercel — reconfirmed live 2026-08-12**: a direct curl against
+`https://sandberg-funnel-dashboard.vercel.app/api/funnel-export` with the `.env.local` token
+returned 200, so the earlier "not yet confirmed set in Vercel" note was stale — it's set correctly.
+Base URL and `/api/funnel-export`'s response shape (**all campaigns in one array**, not
+per-campaign/per-id) were confirmed back to Daniel the same day so his puller can be wired
+correctly. **Still open:** confirming an actual scheduled n8n run (not just a manual curl) lands
+rows in `crm_lead_outcomes`, and Daniel's promised dry-pull-and-report once he has the token.
 
 ## Verifying changes
 
