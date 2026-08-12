@@ -88,7 +88,7 @@ export function LeadSwipeCard({ lead, property, propertyName, stackPosition, onC
     <motion.div
       className="absolute inset-0"
       style={{ zIndex: 10 - stackPosition }}
-      animate={isFront ? undefined : stackStyle}
+      animate={stackStyle}
       initial={false}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
