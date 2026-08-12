@@ -13,6 +13,8 @@ import { LeadRecord } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
 import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { Pinnable } from "@/components/Pinnable";
+import { propertyInfoForCampaign } from "@/lib/property-lookup";
+import { AGENT_ROSTER } from "@/lib/agents";
 
 const SEV_COLOR: Record<Severity, string> = {
   critical: "#f87171",
@@ -169,6 +171,12 @@ export default function MissionControl() {
   // ones, deduped by id, ranked by leads — mirrors the reference "Market
   // Overview" table.
   const leaderboard = buildLeaderboard(active, leaderboardHistory);
+
+  // Agent Count: how many currently-active campaigns each listing agent owns,
+  // resolved via lib/property-lookup.ts -> lib/properties.ts's brochure-scraped
+  // registry (see CONTEXT.md §14.1). Campaigns whose ref has no registry match
+  // fall into "Unassigned" rather than being dropped silently.
+  const agentCounts = useMemo(() => buildAgentCounts(active), [active]);
 
   if (loading) {
     return (
@@ -392,6 +400,30 @@ export default function MissionControl() {
           </div>
         </GlowPanel>
       )}
+
+      {/* agent count — currently-active campaigns per listing agent */}
+      {agentCounts.length > 0 && (
+        <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.4s" }} className="panel p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--text)]">Agent Count</h2>
+            <Pill label="Active campaigns" active={false} />
+          </div>
+          <div className="flex flex-col gap-2">
+            {agentCounts.map((row) => (
+              <div key={row.agent} className="flex items-center gap-3">
+                <p className="w-40 shrink-0 truncate text-xs font-medium text-[var(--text)]">{row.agent}</p>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--panel2)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)]"
+                    style={{ width: `${agentCounts[0].count > 0 ? (row.count / agentCounts[0].count) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="w-4 shrink-0 text-right text-xs font-semibold text-[var(--text)]">{row.count}</p>
+              </div>
+            ))}
+          </div>
+        </GlowPanel>
+      )}
     </div>
   );
 }
@@ -608,6 +640,7 @@ function LiveCampaignCard({
 }) {
   const tTotal = t.red + t.orange + t.blue;
   const tint = TYPE_COLOR[c.campaign_type];
+  const agent = propertyInfoForCampaign(c.campaign_id, c.campaign_name)?.agent;
   return (
     <Link
       href={`/campaign/${c.campaign_id}`}
@@ -655,7 +688,10 @@ function LiveCampaignCard({
             <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
           </div>
         </Pinnable>
-        <Sparkline data={c.meta.daily.map((d) => d.leads)} stroke="#6e7aab" width={110} height={40} />
+        <div className="flex flex-col items-end gap-1">
+          <Sparkline data={c.meta.daily.map((d) => d.leads)} stroke="#6e7aab" width={110} height={40} />
+          {agent && <p className="text-[10px] text-[var(--text-faint)]">{agent}</p>}
+        </div>
       </div>
 
       {/* connection badges, echoing the GPS/LTE chips from the reference */}
@@ -802,4 +838,21 @@ function buildLeaderboard(
     .filter((r) => r.type === "property")
     .sort((a, b) => b.leads - a.leads)
     .slice(0, 8);
+}
+
+// How many currently-active campaigns each listing agent owns, resolved via
+// lib/property-lookup.ts against the brochure-scraped lib/properties.ts
+// registry. Seeded from the full lib/agents.ts roster so every agent shows up
+// even with zero active campaigns; campaigns whose ref has no registry match
+// (or whose registry entry has no agent) fall into "Unassigned" instead of
+// being dropped. Sorted by count desc, alphabetically within a tie.
+function buildAgentCounts(active: FunnelCampaign[]): { agent: string; count: number }[] {
+  const counts = new Map<string, number>(AGENT_ROSTER.map((agent) => [agent, 0]));
+  for (const c of active) {
+    const agent = propertyInfoForCampaign(c.campaign_id, c.campaign_name)?.agent ?? "Unassigned";
+    counts.set(agent, (counts.get(agent) ?? 0) + 1);
+  }
+  return Array.from(counts, ([agent, count]) => ({ agent, count })).sort(
+    (a, b) => b.count - a.count || a.agent.localeCompare(b.agent)
+  );
 }
