@@ -688,6 +688,14 @@ function LiveCampaignCard({
             <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
           </div>
         </Pinnable>
+        <Pinnable type="campaign-cpl" campaignId={c.campaign_id}>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-[var(--text)]">
+              {leads > 0 ? formatCurrency(c.meta.cpl, 2) : "—"}
+            </p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">cpl</p>
+          </div>
+        </Pinnable>
         <div className="flex flex-col items-end gap-1">
           <Sparkline data={c.meta.daily.map((d) => d.leads)} stroke="#6e7aab" width={110} height={40} />
           {agent && <p className="text-[10px] text-[var(--text-faint)]">{agent}</p>}
