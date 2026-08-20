@@ -439,13 +439,21 @@ function renderOffsetDot() {
   };
 }
 
+// Boosts calibrated sensitivity so reaching the screen edges needs less head
+// rotation - MediaPipe's face landmarks get unreliable at wide yaw angles, and
+// without this, pointing at the far-left sidebar can turn the head past the
+// point where a face is still detected, freezing the cursor (see onGaze).
+// Anchored at meanRaw/meanTarget so the boost doesn't shift the mapping at
+// the calibration's center of mass, only its slope.
+const GAZE_GAIN_BOOST = 1.3;
+
 function linearFit(pairs: { raw: number; target: number }[]) {
   const n = pairs.length;
   const meanRaw = pairs.reduce((s, p) => s + p.raw, 0) / n;
   const meanTarget = pairs.reduce((s, p) => s + p.target, 0) / n;
   let num = 0, den = 0;
   for (const p of pairs) { num += (p.raw - meanRaw) * (p.target - meanTarget); den += (p.raw - meanRaw) ** 2; }
-  const a = den > 1e-6 ? num / den : 1;
+  const a = (den > 1e-6 ? num / den : 1) * GAZE_GAIN_BOOST;
   const b = meanTarget - a * meanRaw;
   return { a, b };
 }
