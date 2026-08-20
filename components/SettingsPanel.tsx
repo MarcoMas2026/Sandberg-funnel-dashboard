@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { GESTURE_TEMPLATES, LAYER_GESTURE_TEMPLATES } from "@/lib/gesture-templates";
 import { getCustomTemplates, saveCustomTemplate, resetCustomTemplate } from "@/lib/gesture-settings";
 import type { GesturePoint } from "@/lib/gesture-recognizer";
+import { getEyeTrackStatus, onEyeTrackStatusChange, startEyeTracking, stopEyeTracking, type EyeTrackStatus } from "@/lib/eye-tracker";
 
 const EDITOR_SIZE = 120;
 
@@ -52,7 +53,9 @@ export default function SettingsPanel({ open, onClose }: { open: boolean; onClos
           </button>
         </div>
 
-        <section>
+        <EyeTrackingSection />
+
+        <section className="mt-6">
           <h3 className="text-sm font-semibold text-[var(--text)]">Gesture shortcuts</h3>
           <p className="mt-1 text-xs text-[var(--text-faint)]">
             Hold Shift and drag anywhere in the app to draw a shape that jumps straight to a section. Redraw any
@@ -238,5 +241,34 @@ function GestureEditor({
         )}
       </div>
     </div>
+  );
+}
+
+function EyeTrackingSection() {
+  const [status, setStatus] = useState<EyeTrackStatus>("off");
+
+  useEffect(() => onEyeTrackStatusChange(setStatus), []);
+
+  const label =
+    status === "off" ? "Activate" : status === "loading" ? "Loading…" : status === "calibrating" ? "Calibrating…" : "Deactivate";
+
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-[var(--text)]">Head tracking</h3>
+      <p className="mt-1 text-xs text-[var(--text-faint)]">
+        Control the dashboard hands-free using your webcam: move your head to point, wink (or hold both eyes shut
+        briefly) to click, and reach the top or bottom edge of the screen to scroll. Stays on as you move between
+        pages until you turn it off.
+      </p>
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          onClick={() => (status === "off" ? startEyeTracking() : stopEyeTracking())}
+          disabled={status === "loading" || status === "calibrating"}
+          className="rounded-full border border-[var(--border-strong)] bg-[var(--panel2)] px-4 py-2 text-xs font-medium text-[var(--text)] shadow-[var(--shadow-card)] transition hover:bg-[var(--panel3)] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {label}
+        </button>
+      </div>
+    </section>
   );
 }
