@@ -86,7 +86,11 @@ const state = {
   camCanvas: null as HTMLCanvasElement | null,
   camCtx: null as CanvasRenderingContext2D | null,
   detectLoopId: 0,
+  lastGazeAt: 0,
+  faceLost: false,
 };
+
+const FACE_LOST_MS = 400;
 
 let faceLandmarker: any = null;
 let mediapipeLoadPromise: Promise<any> | null = null;
@@ -105,6 +109,12 @@ function ensureStyles() {
       transform: translate(-50%, -50%); display: none;
     }
     .et-gaze-cursor.et-blink-flash { animation: et-blink-pulse 0.26s ease-out; }
+    .et-gaze-cursor.et-gaze-lost {
+      background: rgba(120,120,120,0.35); border-style: dashed; animation: et-gaze-lost-pulse 1.1s ease-in-out infinite;
+    }
+    @keyframes et-gaze-lost-pulse {
+      0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; }
+    }
     @keyframes et-blink-pulse {
       0% { transform: translate(-50%, -50%) scale(1); }
       40% { transform: translate(-50%, -50%) scale(2.2); background: rgba(47,138,92,0.95); }
@@ -258,6 +268,8 @@ export function stopEyeTracking() {
   clearDwellVisual();
   state.dwellEl = null;
   state.smoothed = null;
+  state.lastGazeAt = 0;
+  state.faceLost = false;
   const cursor = document.getElementById("etGazeCursor");
   if (cursor) cursor.style.display = "none";
   document.getElementById("etCalibOverlay")?.remove();
@@ -592,6 +604,8 @@ function applyCalib(x: number, y: number) {
 function onGaze(x: number, y: number) {
   if (state.watchdogTimer) { clearTimeout(state.watchdogTimer); state.watchdogTimer = 0; }
   document.getElementById("etGazeWarning")?.remove();
+  state.lastGazeAt = performance.now();
+  state.faceLost = false;
   if (!state.smoothed) { state.smoothed = { x, y }; return; }
   state.smoothed = {
     x: state.smoothed.x + GAZE_EMA_ALPHA * (x - state.smoothed.x),
@@ -607,15 +621,27 @@ function startDwellLoop() {
   function tick() {
     if (!state.active) return;
     const cursor = document.getElementById("etGazeCursor");
+    const lostNow = performance.now() - state.lastGazeAt > FACE_LOST_MS;
+    if (lostNow !== state.faceLost) {
+      state.faceLost = lostNow;
+      cursor?.classList.toggle("et-gaze-lost", lostNow);
+      if (lostNow) {
+        console.debug("[eye-track] face lost, cursor holding last known position");
+        clearDwellVisual();
+        state.dwellEl = null;
+      }
+    }
     if (state.smoothed && cursor) {
       const corrected = applyCalib(state.smoothed.x, state.smoothed.y);
       const gx = Math.max(0, Math.min(window.innerWidth - 1, corrected.x));
       const gy = Math.max(0, Math.min(window.innerHeight - 1, corrected.y));
       cursor.style.left = gx + "px";
       cursor.style.top = gy + "px";
-      handleEdgeScroll(gy);
-      const el = document.elementFromPoint(gx, gy);
-      handleDwellTarget(isEyeTrackClickable(el));
+      if (!lostNow) {
+        handleEdgeScroll(gy);
+        const el = document.elementFromPoint(gx, gy);
+        handleDwellTarget(isEyeTrackClickable(el));
+      }
     }
     state.loopId = requestAnimationFrame(tick);
   }
