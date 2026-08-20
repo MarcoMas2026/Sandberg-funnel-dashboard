@@ -350,6 +350,19 @@ get built later, they're additive — this lighter engine doesn't need to be tor
   ~30s then silently stops). No error-alert workflow exists.
 - Funnel conversion %s are cross-source ratios (Meta stage ÷ previous Meta stage; Typeform starts ÷
   Meta link clicks) — approximations, not strict subsets.
+- **Head tracking (Settings → "Head tracking", `lib/eye-tracker.ts`): the gaze cursor freezes when
+  turning far enough to point at the sidebar.** Root cause confirmed 2026-08-20: MediaPipe
+  FaceLandmarker loses face lock at the wide head-turn angle needed to reach the screen's far-left
+  edge, and `onGaze()` simply stops updating `state.smoothed` when no face is detected, so the
+  cursor holds its last position with no feedback. Two fixes were tried and both reverted at the
+  user's request (they made things worse / didn't resolve it): (1) a "lost tracking" dashed/pulsing
+  cursor indicator when face detection goes stale >400ms, (2) boosting calibration gain 1.3x so
+  less physical head-turn is needed to reach screen edges. Current code is back to the original,
+  simplest version (no lost-tracking indicator, no gain boost). **Not addressed — revisit later**:
+  ideas not yet tried include a non-linear/edge-weighted calibration curve (amplify only near the
+  screen edges, leave center-screen precision alone), synthesizing real `mouseenter`/`mousemove`
+  events so hover-driven UI (e.g. the sidebar's expand-on-hover) also responds to gaze, or widening
+  the camera's effective FOV via crop/zoom so a face stays detectable at wider yaw angles.
 
 ## 13. OKR view — read-only (added 2026-07-17, reworked into current form 2026-07-21)
 
