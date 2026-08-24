@@ -76,7 +76,7 @@ function BrandLogo() {
 
 function SidebarFooter() {
   const { open } = useSidebar();
-  const { data, updating, triggerUpdate } = useDashboard();
+  const { data, updating, error, triggerUpdate } = useDashboard();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
@@ -113,12 +113,20 @@ function SidebarFooter() {
         </motion.span>
       </button>
       <div className="flex items-center gap-2 py-2">
-        <span className="pulse-dot h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400" />
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+          <span
+            className={`h-2.5 w-2.5 shrink-0 rounded-full ${error ? "bg-amber-400" : "pulse-dot bg-emerald-400"}`}
+          />
+        </span>
         <motion.span
           animate={{ display: open ? "inline-block" : "none", opacity: open ? 1 : 0 }}
-          className="whitespace-pre text-sm text-neutral-700 dark:text-neutral-200"
+          className={`whitespace-pre text-sm ${error ? "text-amber-600 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-200"}`}
         >
-          {data?.last_updated ? `Synced ${formatDate(data.last_updated)}` : "Pipeline operational"}
+          {error
+            ? error
+            : data?.last_updated
+              ? `Synced ${formatDate(data.last_updated)}`
+              : "Pipeline operational"}
         </motion.span>
       </div>
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />

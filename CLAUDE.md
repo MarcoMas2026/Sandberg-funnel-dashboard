@@ -35,11 +35,36 @@ value-based CAPI feedback loop) with build-order and zero-API-cost constraints.
   `computePortfolioHealth()` run rule-based detectors directly on `funnel:merged` (Meta's
   `meta.daily[]`, Typeform field drop-off, Clarity friction) at render time in the browser; no
   mock data, no `insights:feed` KV key. This is a lighter, non-n8n path than ARCHITECTURE.md's
-  original Phase 3 spec (see CONTEXT.md §11.1) — ad-level fatigue and lifecycle "winner curves"
-  (Phases 4–5) still need the n8n history-snapshot workflow and remain unbuilt. Demand Map and
-  Patterns are real pages but still render `lib/mock.ts` data pending their ARCHITECTURE.md
-  backend phases — every mocked number is tagged "preview" in the UI. Don't assume any nav item
-  is inert — check `lib/mock.ts` vs live KV/computed reads per page if unsure.
+  original Phase 3 spec (see CONTEXT.md §11.1). Demand Map and Patterns are real pages but still
+  render `lib/mock.ts` data pending their ARCHITECTURE.md backend phases — every mocked number is
+  tagged "preview" in the UI. Don't assume any nav item is inert — check `lib/mock.ts` vs live
+  KV/computed/Supabase reads per page if unsure.
+- **STALE NOTE, corrected 2026-08-13: Phase 1 (history snapshots) is built — in Supabase, not the
+  n8n/KV path ARCHITECTURE.md §2.1 specced.** `funnel_daily_history` +
+  `funnel_monthly_totals` tables (`db/migrations/003`–`005`), data layer `lib/history/db.ts`,
+  writer `POST /api/history/sync`. Instead of a daily n8n cron, it's upsert-on-every-load: called
+  client-side from Mission Control (`app/page.tsx`) whenever fresh `funnel:merged` data lands —
+  idempotent, so frequent calls are harmless. Powers Mission Control's month picker, Portfolio
+  Leaderboard, Inactive Campaigns (replacing the old hand-curated `historical:campaigns` KV pool,
+  which drifted and was retired), and the `/curve` "Campaign Curve" page (day-N-of-runtime
+  comparison across campaigns — the groundwork for ARCHITECTURE.md's Phase 5 winner curves).
+  **Known gap:** the sync only fires while someone has Mission Control open in a browser — no
+  guaranteed daily write if the dashboard goes unopened for a stretch. See CONTEXT.md §11 for the
+  full current state.
+- **STALE NOTE, corrected 2026-08-24: the "known gap" above is closed.** The orchestrator workflow
+  (`g9vuAw5CwhWl6SXf`) now has a `Sync History (Supabase)` node — a plain HTTP Request to
+  `POST /api/history/sync`, wired right after `Write funnel:merged to KV` — so history capture runs
+  on every scheduled trigger (every 30 min) regardless of whether anyone has the dashboard open, not
+  just via the browser-side call from `app/page.tsx`. This depends on the orchestrator actually
+  reaching that node: until 2026-08-24 there was a separate bug where Typeform Sync's discovery
+  logic (`Plan Resolution` → `Finalize Form List (No Discovery)`) emitted zero output items whenever
+  `meta:campaigns` was empty (all campaigns paused), and n8n skips every downstream node on a
+  zero-item input — silently halting the chain before `Merge & Finalize`/the KV writes/history sync
+  ever ran. Fixed by adding a `Has Forms To Process?` IF node (with `alwaysOutputData: true` on both
+  `Finalize Form List (...)` nodes so an empty result still emits one item to gate on) that routes
+  the "nothing to resolve" case straight to a `Write Empty typeform:forms to KV` node instead of
+  falling through to nothing — verified end-to-end via a live webhook fire landing in
+  `funnel:merged` + `funnel:last_updated` + a fresh `/api/history/sync` call.
 
 ## The 3 n8n workflows (instance: n8n.srv980538.hstgr.cloud)
 
@@ -47,8 +72,8 @@ value-based CAPI feedback loop) with build-order and zero-API-cost constraints.
 - Typeform Sync `8ddVaAR0TNyZkvGZ` → KV `typeform:forms`
 - Update (orchestrator) `g9vuAw5CwhWl6SXf` → webhook `/webhook/funnel-update` → KV `funnel:merged`
 
-**Next agreed build step: Phase 1 (daily history snapshots) — see CONTEXT.md §11 and
-ARCHITECTURE.md.** Not started yet as of 2026-07-16.
+**Phase 1 (daily history snapshots) is built — see the correction above and CONTEXT.md §11 for
+the full picture; not the n8n workflow ARCHITECTURE.md originally specced.**
 
 Editing workflows needs the n8n API key — **it's in `.env.local`** as `N8N_API_KEY` /
 `N8N_BASE_URL` (confirmed working against the live n8n instance 2026-08-12; the older note that

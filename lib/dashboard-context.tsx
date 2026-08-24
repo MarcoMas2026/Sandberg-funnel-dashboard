@@ -53,14 +53,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       // Poll for fresh data (the n8n chain takes a few seconds).
+      let landed = false;
       for (let i = 0; i < 15; i++) {
         await new Promise((r) => setTimeout(r, 2000));
         const r = await fetch("/api/funnel", { cache: "no-store" });
         const next: FunnelData = await r.json();
         if (next.last_updated && next.last_updated !== before) {
           setData(next);
+          landed = true;
           break;
         }
+      }
+      if (!landed) {
+        setError("Update sent, but no new data has landed yet — check back in a minute");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
