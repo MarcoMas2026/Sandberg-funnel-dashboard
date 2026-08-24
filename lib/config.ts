@@ -57,4 +57,22 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     campaign_type: "community",
     landing_slug: "Anchorage-Club",
   },
+  {
+    meta_campaign_id: "120251686476280071",
+    meta_campaign_name: "SP - 31482 - Es Revellar",
+    typeform_form_id: "PlRHbzZk",
+    typeform_form_name: "Es Revellar 31482",
+    property: "Es Revellar",
+    ref: "31482",
+    campaign_type: "property",
+  },
+  {
+    meta_campaign_id: "120251685514180071",
+    meta_campaign_name: "Sp - 32826 - Penthouse Amber",
+    typeform_form_id: "TvdyiUHP",
+    typeform_form_name: "Penthouse Amber 32826",
+    property: "Penthouse Amber",
+    ref: "32826",
+    campaign_type: "property",
+  },
 ];
