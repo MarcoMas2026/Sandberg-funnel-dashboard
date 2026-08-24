@@ -137,6 +137,18 @@ export default function MissionControl() {
     fetchStoredTotals();
   }, [fetchStoredTotals]);
 
+  // Real vs-previous-month deltas for the three hero KPI chips (spend, leads,
+  // avg CPL) — replaces what used to be hardcoded placeholder percentages.
+  // `null` (no previous-month data, e.g. before HISTORY_START) means the
+  // chip is omitted rather than showing a fabricated number.
+  const [kpiDeltas, setKpiDeltas] = useState<{ spendPct: number | null; leadsPct: number | null; cplPct: number | null } | null>(null);
+  useEffect(() => {
+    fetch(`/api/history/report?year=${selMonth.year}&month=${selMonth.month + 1}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => setKpiDeltas(json.portfolio?.deltaVsPreviousMonth ?? null))
+      .catch(() => setKpiDeltas(null));
+  }, [selMonth]);
+
   // Sync current live daily rows into Supabase whenever fresh funnel data
   // lands, then re-read so the just-synced data shows up immediately instead
   // of waiting for the next month change.
@@ -233,7 +245,7 @@ export default function MissionControl() {
             accent="#2f3b63"
             delay="0.05s"
             value={<CountUp value={totalSpend} format={(v) => formatCurrency(v)} />}
-            delta={8}
+            delta={kpiDeltas?.spendPct ?? undefined}
             goodWhenUp
             spark={<Sparkline data={spendSpark} stroke="#4a5786" width={130} height={44} markers peakLabel={(v) => `€${Math.round(v)}`} />}
             menu={
@@ -251,7 +263,7 @@ export default function MissionControl() {
             accent="#4a5786"
             delay="0.1s"
             value={<CountUp value={totalLeads} format={(v) => formatNumber(v)} />}
-            delta={12}
+            delta={kpiDeltas?.leadsPct ?? undefined}
             goodWhenUp
             spark={<Sparkline data={leadsSpark} stroke="#6e7aab" width={130} height={44} markers peakLabel={(v) => `${Math.round(v)}`} />}
           />
@@ -262,7 +274,7 @@ export default function MissionControl() {
             accent="#98a3c9"
             delay="0.15s"
             value={<CountUp value={avgCpl} format={(v) => formatCurrency(v, 2)} />}
-            delta={-6}
+            delta={kpiDeltas?.cplPct ?? undefined}
             goodWhenUp={false}
             footnote={
               <>

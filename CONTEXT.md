@@ -289,19 +289,51 @@ auto-paired to Typeform form `QlXsNtIY`) and `SP - 31653 - S'OLIVERA` `120250902
 expected going forward: new campaigns no longer need a `lib/config.ts` push before their funnel
 data appears.
 
-## 11. What to build next — Phase 1 (agreed, not yet built)
+## 11. Phase 1 (history snapshots) — built 2026-08-13ish, discovered/documented 2026-08-13
 
-Per `ARCHITECTURE.md`'s 7-phase roadmap (§8 there has the full table), **Phase 1 — daily history
-snapshots** is the agreed next step, decided 2026-07-16. Rationale: it's the cheapest phase AND
-the enabler — Phases 4–5 (per-ad fatigue detection, lifecycle "winner curves", budget pacing
-advice at ad granularity) all need a day-by-day trend to read from, which doesn't exist yet (the
-pipeline only keeps *current* state). Concretely: a new small n8n workflow, same proven pattern as
-the existing 3 (see §5) — daily schedule trigger (e.g. 07:00), for each active campaign append
-that day's row to a new KV key `history:{campaign_id}`. No new Meta/Typeform API calls needed —
-Meta Sync already fetches this data, it just isn't retained over time. Cost: ~1 KV write per
-active campaign per day, negligible against the free tier. Nothing has been built for this yet —
-when picking this up, read `ARCHITECTURE.md` in full first (`§2.1` has the original spec). Note:
-Phase 3 (the Insight Feed) shipped ahead of Phase 1 via a different, lighter path — see §11.1.
+**Stale note removed:** this section previously said Phase 1 was "agreed, not yet built" as of
+2026-07-16. That went stale silently — the feature shipped since, undocumented in either this file
+or `CLAUDE.md`, and was only surfaced by reading the actual code on 2026-08-13. Lesson: don't trust
+this section's framing without checking `lib/history/db.ts` / `db/migrations/003`–`005` first.
+
+**What actually got built, and how it differs from `ARCHITECTURE.md` §2.1's original spec:**
+- **Storage: Supabase Postgres, not the KV `history:{campaign_id}` list the spec called for.**
+  Two tables — `funnel_daily_history` (`db/migrations/003_funnel_history.sql`, one row per
+  campaign per day) and `funnel_monthly_totals` (`004`/`005`, Meta's own accurate monthly
+  aggregate + full campaign-detail fields, not summed daily rows — same accuracy rule as §5 below).
+  This is the same reasoning that put the Instagram module on Supabase (§ Instagram Analytics in
+  `CLAUDE.md`): rolling windows, per-campaign runtime series, and cross-campaign day-N comparisons
+  are Postgres queries, not KV list fetches.
+- **Data layer:** `lib/history/db.ts` — upserts (idempotent on `(campaign_id, date)` /
+  `(campaign_id, year, month)`), per-campaign daily series, monthly rollups preferring the
+  monthly-aggregate table and falling back to summing daily rows only for months not yet
+  backfilled, a "most active month" resolver, and a portfolio-wide leaderboard aggregator.
+- **Writer: `POST /api/history/sync`**, called client-side from Mission Control
+  (`app/page.tsx`) every time fresh `funnel:merged` data lands (i.e. whenever `data.last_updated`
+  changes) — not a daily n8n cron. Upsert-only, so calling it often is harmless; it's what makes
+  history accumulate "from now on" with zero new n8n workflow.
+- **What it replaced:** the old hand-curated `historical:campaigns` KV pool (§7's Compare
+  benchmark data) is retired — this store is now the single source of truth for any campaign not
+  currently active, since the manual pool drifted out of sync with nothing keeping it in step.
+- **What it powers today:** Mission Control's month picker + KPI cards, the Portfolio Leaderboard,
+  the Inactive Campaigns section, and **`/curve`** — a "Campaign Curve" page plotting one or more
+  campaigns' metrics over each campaign's own runtime (day 1, day 2, ...), i.e. the day-N
+  comparison groundwork for `ARCHITECTURE.md`'s Phase 5 "winner curves" (still needs an actual
+  cross-campaign "median winner" overlay to fully match that spec, but the data and per-campaign
+  chart exist).
+- **Known real gap (not yet fixed): the sync trigger is client-side-only.** History only advances
+  on a day someone has Mission Control open in a browser (or the page reloads while data is
+  fresh) — there's no guaranteed write if the dashboard goes unopened for a stretch (e.g. a
+  weekend). Unlike the rest of the pipeline (which runs on n8n's own 30-min schedule trigger
+  regardless of who's looking at the dashboard, see §5), this one piece depends on traffic.
+  Candidate fix discussed 2026-08-13: have the existing orchestrator workflow
+  (`g9vuAw5CwhWl6SXf`, already schedule-triggered every 30 min) call `POST /api/history/sync`
+  itself after its merge step, matching the pattern for everything else in the pipeline. Not yet
+  built — needs the n8n API key (`.env.local`, see §8) to edit the live workflow.
+
+Note: Phase 3 (the Insight Feed) shipped ahead of Phase 1 via a different, lighter path — see
+§11.1 below — and doesn't depend on any of the above; it reads live `funnel:merged` data directly,
+not `funnel_daily_history`.
 
 ### 11.1 Insights (Phase 3, shipped 2026-07-29 — a lighter path than the original spec)
 

@@ -61,6 +61,18 @@ Today the pipeline keeps only the *current* state. Three cheap additions unlock 
 intelligence feature above them:
 
 ### 2.1 Daily history snapshots
+
+> **Built — see CONTEXT.md §11.** Shipped differently than this spec: Supabase Postgres
+> (`funnel_daily_history`/`funnel_monthly_totals`) instead of a KV `history:{campaign_id}`
+> list, since the downstream queries (rolling windows, per-campaign runtime series,
+> cross-campaign day-N comparisons) are a better fit for Postgres than KV — same reasoning
+> that put the Instagram module on Supabase. Writer is `/api/history/sync`, called both from
+> Mission Control on every fresh load and (as of 2026-08-13) from the orchestrator's 30-min
+> schedule trigger, so it no longer depends on dashboard traffic. Powers the Portfolio
+> Leaderboard, Inactive Campaigns, month picker, and `/curve` (per-campaign runtime chart —
+> the data foundation for this section's lifecycle-curve ambitions, though the
+> cross-campaign "winner" overlay itself isn't built).
+
 A scheduled n8n workflow (daily 07:00, same pattern as the meta-ads-dashboard) appends
 each campaign's daily row to `history:{campaign_id}` in KV. ~1 KV command/campaign/day —
 irrelevant against the 10k/day free tier. **This is the single highest-leverage build**:
@@ -244,7 +256,7 @@ data asset that survives any tool migration and that competitors cannot buy.
 
 | Phase | Scope | Est. effort |
 |---|---|---|
-| 1 | History snapshots + scheduled daily run (L1.1) | ~1 short session |
+| 1 | ~~History snapshots + scheduled daily run (L1.1)~~ **Built — see CONTEXT.md §11.** Shipped as a Supabase-backed store (`funnel_daily_history`/`funnel_monthly_totals`, not the KV `history:{campaign_id}` list this spec described), with `/api/history/sync` as the writer. As of 2026-08-13, that writer is called both client-side (Mission Control, on every fresh data load) AND from the orchestrator workflow's schedule trigger (added 2026-08-13, so history now accumulates on a guaranteed cadence, not just on dashboard traffic) | Done |
 | 2 | Answer extraction + lead scoring + quality UI (L1.3, L2.1–2.2) | ~1 session |
 | 3 | ~~Insight Feed: anomaly + pacing engines + Insights tab (L3.2, L3.3)~~ **Shipped 2026-07-29 as a lighter live-computed version — see CONTEXT.md §11.1; the n8n/`insights:feed` version here stays open only for the per-ad/historical pieces that need Phases 1 & 4** | ~1 session |
 | 4 | Ad-level sync + fatigue detector + per-ad UI (L1.2, L3.1) | ~1 session |

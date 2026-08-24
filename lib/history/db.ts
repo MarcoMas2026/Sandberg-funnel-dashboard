@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { FunnelCampaign } from "@/lib/types";
+import { FunnelCampaign, LeadRecord, MetaBreakdownRow } from "@/lib/types";
 
 // Server-only client — SUPABASE_SERVICE_ROLE_KEY must never reach the browser
 // bundle (same rule as lib/kv.ts's KV_REST_API_TOKEN and lib/social/db.ts).
@@ -411,6 +411,173 @@ export async function getCampaignDailyRows(campaignId: string, monthStart: strin
   }));
 }
 
+// Shifts a (year, month) pair by `delta` calendar months (month is 1-indexed,
+// matching every other function in this file — see callers' `start.split("-")`
+// convention). Handles year rollover in either direction.
+function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
+  const d = new Date(year, month - 1 + delta, 1);
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+}
+
+function monthBounds(year: number, month: number): { start: string; end: string } {
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { start: ymd(new Date(year, month - 1, 1)), end: ymd(new Date(year, month, 0)) };
+}
+
+function pctDelta(current: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
+export interface PeriodTotals extends MonthlyTotals {
+  cpl: number | null;
+}
+
+export interface PortfolioComparison {
+  current: PeriodTotals;
+  previousMonth: PeriodTotals;
+  previousYear: PeriodTotals;
+  deltaVsPreviousMonth: { spendPct: number | null; leadsPct: number | null; cplPct: number | null };
+  deltaVsPreviousYear: { spendPct: number | null; leadsPct: number | null; cplPct: number | null };
+}
+
+function withCpl(t: MonthlyTotals): PeriodTotals {
+  return { ...t, cpl: t.leads > 0 ? t.spend / t.leads : null };
+}
+
+// Current month's portfolio totals plus the same figures for the previous
+// calendar month and the same month a year ago, with pct deltas computed here
+// so callers (the report page, Mission Control's KPI chips) don't duplicate
+// this math. A comparison period with no data (`connected: false`, or
+// `connected: true` but zero campaigns — i.e. before HISTORY_START) yields
+// `null` deltas rather than a misleading 0%/±100%.
+export async function getPortfolioComparison(year: number, month: number): Promise<PortfolioComparison> {
+  const cur = monthBounds(year, month);
+  const prevM = shiftMonth(year, month, -1);
+  const prevMBounds = monthBounds(prevM.year, prevM.month);
+  const prevY = shiftMonth(year, month, -12);
+  const prevYBounds = monthBounds(prevY.year, prevY.month);
+
+  const [current, previousMonth, previousYear] = await Promise.all([
+    getMonthlyTotals(year, month, cur.start, cur.end),
+    getMonthlyTotals(prevM.year, prevM.month, prevMBounds.start, prevMBounds.end),
+    getMonthlyTotals(prevY.year, prevY.month, prevYBounds.start, prevYBounds.end),
+  ]);
+
+  const curT = withCpl(current);
+  const prevMT = withCpl(previousMonth);
+  const prevYT = withCpl(previousYear);
+
+  const noData = (t: PeriodTotals) => !t.connected || (t.spend === 0 && t.leads === 0);
+
+  return {
+    current: curT,
+    previousMonth: prevMT,
+    previousYear: prevYT,
+    deltaVsPreviousMonth: noData(prevMT)
+      ? { spendPct: null, leadsPct: null, cplPct: null }
+      : {
+          spendPct: pctDelta(curT.spend, prevMT.spend),
+          leadsPct: pctDelta(curT.leads, prevMT.leads),
+          cplPct: curT.cpl !== null && prevMT.cpl !== null ? pctDelta(curT.cpl, prevMT.cpl) : null,
+        },
+    deltaVsPreviousYear: noData(prevYT)
+      ? { spendPct: null, leadsPct: null, cplPct: null }
+      : {
+          spendPct: pctDelta(curT.spend, prevYT.spend),
+          leadsPct: pctDelta(curT.leads, prevYT.leads),
+          cplPct: curT.cpl !== null && prevYT.cpl !== null ? pctDelta(curT.cpl, prevYT.cpl) : null,
+        },
+  };
+}
+
+export interface PortfolioMonthPoint {
+  year: number;
+  month: number;
+  spend: number;
+  leads: number;
+  cpl: number | null;
+}
+
+// Portfolio spend/leads summed across all campaigns, one point per calendar
+// month, from `sinceYear`/`sinceMonth` through the current month — powers the
+// report page's trend chart. Reads funnel_monthly_totals directly (Meta's own
+// monthly aggregate, same accuracy rule as everywhere else in this file)
+// rather than summing daily rows, since every month this old is expected to
+// already be backfilled.
+export async function getPortfolioMonthlySeries(sinceYear: number, sinceMonth: number): Promise<PortfolioMonthPoint[]> {
+  const supabase = getClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("funnel_monthly_totals")
+    .select("year, month, spend, leads")
+    .or(`year.gt.${sinceYear},and(year.eq.${sinceYear},month.gte.${sinceMonth})`);
+  if (error || !data) return [];
+
+  const byMonth = new Map<string, { year: number; month: number; spend: number; leads: number }>();
+  for (const r of data) {
+    const key = `${r.year}-${r.month}`;
+    const acc = byMonth.get(key) ?? { year: r.year, month: r.month, spend: 0, leads: 0 };
+    acc.spend += Number(r.spend ?? 0);
+    if (r.leads !== null && r.leads !== undefined) acc.leads += Number(r.leads);
+    byMonth.set(key, acc);
+  }
+  return Array.from(byMonth.values())
+    .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month))
+    .map((p) => ({ ...p, cpl: p.leads > 0 ? p.spend / p.leads : null }));
+}
+
+export interface CampaignComparisonRow {
+  campaign_id: string;
+  campaign_name: string;
+  property: string;
+  ref: string;
+  campaign_type: string;
+  status: string;
+  spend: number;
+  leads: number | null;
+  cpl: number | null;
+  deltaSpendPct: number | null;
+  deltaLeadsPct: number | null;
+  deltaCplPct: number | null;
+}
+
+// Per-campaign totals for the given month, each with a MoM delta vs the
+// previous calendar month. A campaign with no previous-month row (newly
+// launched, or simply didn't run that month) gets `null` deltas rather than a
+// fabricated 0%/±100%.
+export async function getCampaignComparisonRows(year: number, month: number): Promise<{ connected: boolean; rows: CampaignComparisonRow[] }> {
+  const cur = monthBounds(year, month);
+  const prev = shiftMonth(year, month, -1);
+  const prevBounds = monthBounds(prev.year, prev.month);
+
+  const [current, previous] = await Promise.all([
+    getMonthlyCampaignRows(year, month, cur.start, cur.end),
+    getMonthlyCampaignRows(prev.year, prev.month, prevBounds.start, prevBounds.end),
+  ]);
+  if (!current.connected) return { connected: false, rows: [] };
+
+  const prevById = new Map(previous.rows.map((r) => [r.campaign_id, r]));
+  const rows: CampaignComparisonRow[] = current.rows.map((r) => {
+    const p = prevById.get(r.campaign_id);
+    return {
+      campaign_id: r.campaign_id,
+      campaign_name: r.campaign_name,
+      property: r.property,
+      ref: r.ref,
+      campaign_type: r.campaign_type,
+      status: r.status,
+      spend: r.spend,
+      leads: r.leads,
+      cpl: r.cpl,
+      deltaSpendPct: p ? pctDelta(r.spend, p.spend) : null,
+      deltaLeadsPct: p && r.leads !== null && p.leads !== null ? pctDelta(r.leads, p.leads) : null,
+      deltaCplPct: p && r.cpl !== null && p.cpl !== null ? pctDelta(r.cpl, p.cpl) : null,
+    };
+  });
+  return { connected: true, rows };
+}
+
 export interface CatalogCampaign {
   campaign_id: string;
   campaign_name: string;
@@ -630,4 +797,315 @@ export async function getLeaderboardTotals(): Promise<{ connected: boolean; rows
     });
   }
   return { connected: true, rows };
+}
+
+// ================================================================
+// Campaign detail snapshots — platform/device split, Typeform field
+// drop-off, individual lead responses, landing engagement. See
+// db/migrations/007_campaign_detail_snapshots.sql for why these exist: none
+// of this ever survived a campaign rotating out of lib/config.ts before now,
+// since it only ever lived in the live KV funnel:merged blob. Written
+// continuously by /api/history/sync while a campaign is live (upsert on
+// every load, same pattern as everything else in this file), plus backfilled
+// once for campaigns already archived before this migration existed.
+// ================================================================
+
+export interface PlatformDeviceRow {
+  campaign_id: string;
+  year: number;
+  month: number;
+  dimension: "platform" | "device";
+  key: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  link_clicks: number;
+  ctr: number;
+  outbound_ctr: number;
+}
+
+export function platformDeviceRowsFromCampaigns(campaigns: FunnelCampaign[], year: number, month: number): PlatformDeviceRow[] {
+  const rows: PlatformDeviceRow[] = [];
+  for (const c of campaigns) {
+    for (const p of c.meta.by_platform) {
+      if (!p.platform) continue;
+      rows.push({
+        campaign_id: c.campaign_id, year, month, dimension: "platform", key: p.platform,
+        spend: p.spend, impressions: p.impressions, clicks: p.clicks, link_clicks: p.link_clicks,
+        ctr: p.ctr, outbound_ctr: p.outbound_ctr,
+      });
+    }
+    for (const d of c.meta.by_device) {
+      if (!d.device) continue;
+      rows.push({
+        campaign_id: c.campaign_id, year, month, dimension: "device", key: d.device,
+        spend: d.spend, impressions: d.impressions, clicks: d.clicks, link_clicks: d.link_clicks,
+        ctr: d.ctr, outbound_ctr: d.outbound_ctr,
+      });
+    }
+  }
+  return rows;
+}
+
+// Same row shape as platformDeviceRowsFromCampaigns, but built directly from
+// raw MetaBreakdownRow arrays instead of a full FunnelCampaign — used by the
+// one-off recovery route (POST /api/history/backfill-meta-breakdown), which
+// gets its data from a Graph API call for a single archived campaign ID, not
+// from getFunnelData()'s live-roster-scoped snapshot.
+export function platformDeviceRowsFromBreakdown(
+  campaignId: string, year: number, month: number,
+  byPlatform: MetaBreakdownRow[], byDevice: MetaBreakdownRow[]
+): PlatformDeviceRow[] {
+  const rows: PlatformDeviceRow[] = [];
+  for (const p of byPlatform) {
+    if (!p.platform) continue;
+    rows.push({ campaign_id: campaignId, year, month, dimension: "platform", key: p.platform, spend: p.spend, impressions: p.impressions, clicks: p.clicks, link_clicks: p.link_clicks, ctr: p.ctr, outbound_ctr: p.outbound_ctr });
+  }
+  for (const d of byDevice) {
+    if (!d.device) continue;
+    rows.push({ campaign_id: campaignId, year, month, dimension: "device", key: d.device, spend: d.spend, impressions: d.impressions, clicks: d.clicks, link_clicks: d.link_clicks, ctr: d.ctr, outbound_ctr: d.outbound_ctr });
+  }
+  return rows;
+}
+
+export async function upsertPlatformDeviceSnapshots(rows: PlatformDeviceRow[]): Promise<{ ok: boolean; written: number; error?: string }> {
+  const supabase = getClient();
+  if (!supabase) return { ok: false, written: 0, error: "Supabase not configured" };
+  if (rows.length === 0) return { ok: true, written: 0 };
+  const { error } = await supabase.from("funnel_platform_device_snapshots").upsert(rows, { onConflict: "campaign_id,year,month,dimension,key" });
+  if (error) return { ok: false, written: 0, error: error.message };
+  return { ok: true, written: rows.length };
+}
+
+export interface PlatformDeviceSnapshotRow {
+  dimension: "platform" | "device";
+  key: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  link_clicks: number;
+  ctr: number;
+  outbound_ctr: number;
+}
+
+// Latest known snapshot for a campaign (any month) — Meta's breakdown figures
+// are lifetime-to-date, not month-scoped, so the most recently synced row is
+// the freshest total, same convention as getLatestMonthWithData.
+export async function getPlatformDeviceSnapshot(campaignId: string): Promise<PlatformDeviceSnapshotRow[]> {
+  const supabase = getClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("funnel_platform_device_snapshots")
+    .select("year, month, dimension, key, spend, impressions, clicks, link_clicks, ctr, outbound_ctr")
+    .eq("campaign_id", campaignId)
+    .order("year", { ascending: false })
+    .order("month", { ascending: false });
+  if (error || !data || data.length === 0) return [];
+  const latestYm = `${data[0].year}-${data[0].month}`;
+  return data
+    .filter((r) => `${r.year}-${r.month}` === latestYm)
+    .map((r) => ({
+      dimension: r.dimension,
+      key: r.key,
+      spend: Number(r.spend ?? 0),
+      impressions: Number(r.impressions ?? 0),
+      clicks: Number(r.clicks ?? 0),
+      link_clicks: Number(r.link_clicks ?? 0),
+      ctr: Number(r.ctr ?? 0),
+      outbound_ctr: Number(r.outbound_ctr ?? 0),
+    }));
+}
+
+interface TypeformFieldRow {
+  campaign_id: string;
+  year: number;
+  month: number;
+  field_index: number;
+  label: string;
+  views: number;
+  dropoffs: number;
+  dropoff_rate: number;
+}
+
+export function typeformFieldRowsFromCampaigns(campaigns: FunnelCampaign[], year: number, month: number): TypeformFieldRow[] {
+  const rows: TypeformFieldRow[] = [];
+  for (const c of campaigns) {
+    c.typeform.fields.forEach((f, i) => {
+      rows.push({ campaign_id: c.campaign_id, year, month, field_index: i, label: f.label, views: f.views, dropoffs: f.dropoffs, dropoff_rate: f.dropoff_rate });
+    });
+  }
+  return rows;
+}
+
+export async function upsertTypeformFieldSnapshots(rows: TypeformFieldRow[]): Promise<{ ok: boolean; written: number; error?: string }> {
+  const supabase = getClient();
+  if (!supabase) return { ok: false, written: 0, error: "Supabase not configured" };
+  if (rows.length === 0) return { ok: true, written: 0 };
+  const { error } = await supabase.from("funnel_typeform_field_snapshots").upsert(rows, { onConflict: "campaign_id,year,month,field_index" });
+  if (error) return { ok: false, written: 0, error: error.message };
+  return { ok: true, written: rows.length };
+}
+
+export interface TypeformFieldSnapshotRow {
+  label: string;
+  views: number;
+  dropoffs: number;
+  dropoff_rate: number;
+}
+
+export async function getTypeformFieldSnapshot(campaignId: string): Promise<TypeformFieldSnapshotRow[]> {
+  const supabase = getClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("funnel_typeform_field_snapshots")
+    .select("year, month, field_index, label, views, dropoffs, dropoff_rate")
+    .eq("campaign_id", campaignId)
+    .order("year", { ascending: false })
+    .order("month", { ascending: false });
+  if (error || !data || data.length === 0) return [];
+  const latestYm = `${data[0].year}-${data[0].month}`;
+  return data
+    .filter((r) => `${r.year}-${r.month}` === latestYm)
+    .sort((a, b) => a.field_index - b.field_index)
+    .map((r) => ({ label: r.label, views: Number(r.views ?? 0), dropoffs: Number(r.dropoffs ?? 0), dropoff_rate: Number(r.dropoff_rate ?? 0) }));
+}
+
+interface LeadResponseRow {
+  response_id: string;
+  campaign_id: string;
+  submitted_at: string | null;
+  first_name: string;
+  last_name: string;
+  language: string;
+  budget: string;
+  stage: string;
+  buying_timeline: string;
+}
+
+// Deliberately drops `tag` — manual lead-quality tags live in KV leads:tags,
+// keyed globally by response_id (see lib/kv.ts), so they already survive a
+// campaign's archival on their own and are joined in at read time instead.
+export function leadResponseRowsFromLeads(leads: LeadRecord[]): LeadResponseRow[] {
+  return leads.map((l) => ({
+    response_id: l.response_id,
+    campaign_id: l.campaign_id,
+    submitted_at: l.submitted_at,
+    first_name: l.first_name,
+    last_name: l.last_name,
+    language: l.language,
+    budget: l.budget,
+    stage: l.stage,
+    buying_timeline: l.buying_timeline,
+  }));
+}
+
+export async function upsertLeadResponses(rows: LeadResponseRow[]): Promise<{ ok: boolean; written: number; error?: string }> {
+  const supabase = getClient();
+  if (!supabase) return { ok: false, written: 0, error: "Supabase not configured" };
+  if (rows.length === 0) return { ok: true, written: 0 };
+  const { error } = await supabase.from("funnel_lead_responses").upsert(rows, { onConflict: "response_id" });
+  if (error) return { ok: false, written: 0, error: error.message };
+  return { ok: true, written: rows.length };
+}
+
+export interface LeadResponseSnapshotRow {
+  response_id: string;
+  submitted_at: string | null;
+  first_name: string;
+  last_name: string;
+  language: string;
+  budget: string;
+  stage: string;
+  buying_timeline: string;
+}
+
+export async function getLeadResponsesForCampaign(campaignId: string): Promise<LeadResponseSnapshotRow[]> {
+  const supabase = getClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("funnel_lead_responses")
+    .select("response_id, submitted_at, first_name, last_name, language, budget, stage, buying_timeline")
+    .eq("campaign_id", campaignId);
+  if (error || !data) return [];
+  return data;
+}
+
+export interface LeadResponseCampaignRow {
+  response_id: string;
+  campaign_id: string;
+}
+
+// Every response_id -> campaign_id this store has ever seen, durable across a
+// campaign's later pause/archival (unlike KV leads:all, which is a full
+// replace scoped to currently-active campaigns only — see lib/kv.ts). This is
+// the correct join key for anything that needs to attribute a lead to a
+// campaign after the fact, e.g. CRM lead-outcomes (/api/crm/outcomes).
+export async function getAllLeadResponseCampaigns(): Promise<LeadResponseCampaignRow[]> {
+  const supabase = getClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase.from("funnel_lead_responses").select("response_id, campaign_id");
+  if (error || !data) return [];
+  return data;
+}
+
+interface LandingEngagementRow {
+  campaign_id: string;
+  year: number;
+  month: number;
+  page_views: number;
+  cta_clicks: number;
+  cta_click_rate: number;
+  steps: FunnelCampaign["landing_engagement"]["steps"];
+  events: FunnelCampaign["landing_engagement"]["events"];
+}
+
+export function landingEngagementRowsFromCampaigns(campaigns: FunnelCampaign[], year: number, month: number): LandingEngagementRow[] {
+  return campaigns
+    .filter((c) => c.landing_engagement.page_views > 0)
+    .map((c) => ({
+      campaign_id: c.campaign_id, year, month,
+      page_views: c.landing_engagement.page_views,
+      cta_clicks: c.landing_engagement.cta_clicks,
+      cta_click_rate: c.landing_engagement.cta_click_rate,
+      steps: c.landing_engagement.steps,
+      events: c.landing_engagement.events,
+    }));
+}
+
+export async function upsertLandingEngagementSnapshots(rows: LandingEngagementRow[]): Promise<{ ok: boolean; written: number; error?: string }> {
+  const supabase = getClient();
+  if (!supabase) return { ok: false, written: 0, error: "Supabase not configured" };
+  if (rows.length === 0) return { ok: true, written: 0 };
+  const { error } = await supabase.from("funnel_landing_engagement_snapshots").upsert(rows, { onConflict: "campaign_id,year,month" });
+  if (error) return { ok: false, written: 0, error: error.message };
+  return { ok: true, written: rows.length };
+}
+
+export interface LandingEngagementSnapshotRow {
+  page_views: number;
+  cta_clicks: number;
+  cta_click_rate: number;
+  steps: FunnelCampaign["landing_engagement"]["steps"];
+  events: FunnelCampaign["landing_engagement"]["events"];
+}
+
+export async function getLandingEngagementSnapshot(campaignId: string): Promise<LandingEngagementSnapshotRow | null> {
+  const supabase = getClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("funnel_landing_engagement_snapshots")
+    .select("year, month, page_views, cta_clicks, cta_click_rate, steps, events")
+    .eq("campaign_id", campaignId)
+    .order("year", { ascending: false })
+    .order("month", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    page_views: Number(data.page_views ?? 0),
+    cta_clicks: Number(data.cta_clicks ?? 0),
+    cta_click_rate: Number(data.cta_click_rate ?? 0),
+    steps: data.steps,
+    events: data.events,
+  };
 }

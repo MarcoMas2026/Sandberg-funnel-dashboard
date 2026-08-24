@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAllOutcomes, getEventTypeStatus, isCrmConfigured } from "@/lib/crm/db";
-import { getLeads } from "@/lib/kv";
+import { getAllLeadResponseCampaigns, getCampaignsCatalog } from "@/lib/history/db";
 
 export const dynamic = "force-dynamic";
 
@@ -9,16 +9,30 @@ export const dynamic = "force-dynamic";
 // /api/history/*, not token-gated like /api/config and /api/funnel-export.
 //
 // Joins crm_lead_outcomes (Supabase, keyed by response_id) back to a campaign
-// via leads:all (Upstash KV) — response_id is the shared key on both sides,
-// verified identical to the CRM's own token (see CONTEXT.md). A lead whose
-// campaign has since been paused/removed drops out of leads:all (same known
-// limitation as everywhere else leads:all is read) and its outcomes land in
-// `unattributed` rather than being silently dropped.
+// via funnel_lead_responses (Supabase) — response_id is the shared key on
+// both sides, verified identical to the CRM's own token (see CONTEXT.md).
+// Deliberately NOT KV leads:all: that key is a full replace scoped to only
+// currently-active campaigns (lib/kv.ts), so a lead whose campaign has since
+// been paused drops out of it entirely — which made ~99% of real outcome
+// rows unattributable the moment the CRM pull's 13-day backlog landed.
+// funnel_lead_responses is upsert-only and never forgets a response_id, so
+// it stays valid after a campaign's status changes. Campaign names come from
+// getCampaignsCatalog() (funnel_daily_history) for the same durability
+// reason — a paused campaign's name isn't in leads:all either. A response_id
+// this store has never seen (predates history-sync's tracking, or predates
+// the CRM's own data) still lands in `unattributed` rather than being
+// silently dropped.
 export async function GET() {
   try {
-    const [outcomes, eventTypes, leads] = await Promise.all([getAllOutcomes(), getEventTypeStatus(), getLeads()]);
+    const [outcomes, eventTypes, leadResponses, catalog] = await Promise.all([
+      getAllOutcomes(),
+      getEventTypeStatus(),
+      getAllLeadResponseCampaigns(),
+      getCampaignsCatalog(),
+    ]);
 
-    const leadById = new Map(leads.map((l) => [l.response_id, l]));
+    const campaignIdByResponseId = new Map(leadResponses.map((r) => [r.response_id, r.campaign_id]));
+    const campaignById = new Map(catalog.campaigns.map((c) => [c.campaign_id, c]));
 
     interface CampaignBucket {
       campaign_id: string;
@@ -30,15 +44,16 @@ export async function GET() {
     let unattributed = 0;
 
     for (const o of outcomes) {
-      const lead = leadById.get(o.response_id);
-      if (!lead) {
+      const campaignId = campaignIdByResponseId.get(o.response_id);
+      const campaign = campaignId ? campaignById.get(campaignId) : undefined;
+      if (!campaignId || !campaign) {
         unattributed += 1;
         continue;
       }
-      let bucket = byCampaign.get(lead.campaign_id);
+      let bucket = byCampaign.get(campaignId);
       if (!bucket) {
-        bucket = { campaign_id: lead.campaign_id, campaign_name: lead.campaign_name, property: lead.campaign_name, counts: {} };
-        byCampaign.set(lead.campaign_id, bucket);
+        bucket = { campaign_id: campaignId, campaign_name: campaign.campaign_name, property: campaign.campaign_name, counts: {} };
+        byCampaign.set(campaignId, bucket);
       }
       bucket.counts[o.event] = (bucket.counts[o.event] ?? 0) + 1;
     }

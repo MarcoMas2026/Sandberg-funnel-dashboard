@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getFunnelData } from "@/lib/kv";
+import { getFunnelData, getLeads } from "@/lib/kv";
 import { todayISOMadrid } from "@/lib/format";
 import {
   isHistoryConfigured,
@@ -7,6 +7,14 @@ import {
   upsertDailySnapshots,
   monthlyTotalsFromCampaigns,
   upsertMonthlyTotals,
+  platformDeviceRowsFromCampaigns,
+  upsertPlatformDeviceSnapshots,
+  typeformFieldRowsFromCampaigns,
+  upsertTypeformFieldSnapshots,
+  landingEngagementRowsFromCampaigns,
+  upsertLandingEngagementSnapshots,
+  leadResponseRowsFromLeads,
+  upsertLeadResponses,
 } from "@/lib/history/db";
 
 export const dynamic = "force-dynamic";
@@ -33,15 +41,24 @@ export async function POST() {
     const dailyRows = rowsFromCampaigns(data.campaigns);
     const [year, month] = todayISOMadrid().split("-").map(Number);
     const monthlyRows = monthlyTotalsFromCampaigns(data.campaigns, year, month);
-    const [dailyResult, monthlyResult] = await Promise.all([
+    const platformDeviceRows = platformDeviceRowsFromCampaigns(data.campaigns, year, month);
+    const typeformFieldRows = typeformFieldRowsFromCampaigns(data.campaigns, year, month);
+    const landingRows = landingEngagementRowsFromCampaigns(data.campaigns, year, month);
+    const leads = await getLeads();
+    const leadRows = leadResponseRowsFromLeads(leads);
+    const [dailyResult, monthlyResult, platformDeviceResult, typeformFieldResult, landingResult, leadResult] = await Promise.all([
       upsertDailySnapshots(dailyRows),
       upsertMonthlyTotals(monthlyRows),
+      upsertPlatformDeviceSnapshots(platformDeviceRows),
+      upsertTypeformFieldSnapshots(typeformFieldRows),
+      upsertLandingEngagementSnapshots(landingRows),
+      upsertLeadResponses(leadRows),
     ]);
     return NextResponse.json({
-      ok: dailyResult.ok && monthlyResult.ok,
+      ok: dailyResult.ok && monthlyResult.ok && platformDeviceResult.ok && typeformFieldResult.ok && landingResult.ok && leadResult.ok,
       written: dailyResult.written,
       monthlyWritten: monthlyResult.written,
-      error: dailyResult.error ?? monthlyResult.error,
+      error: dailyResult.error ?? monthlyResult.error ?? platformDeviceResult.error ?? typeformFieldResult.error ?? landingResult.error ?? leadResult.error,
     });
   } catch (error) {
     return NextResponse.json({ ok: false, written: 0, error: "Failed to sync history" }, { status: 500 });
