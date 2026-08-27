@@ -1,6 +1,7 @@
 import { ClarityMetrics, FunnelData, LandingEngagement, LandingEngagementRaw, LeadRecord, LeadTag, PublicViewConfig, PublicViewIndexEntry, PublicViewWidgetType } from "./types";
 import { CAMPAIGN_MAP, LANDING_SECTION_ORDER } from "./config";
 import { createWidget } from "./public-view-widgets";
+import { THANK_YOU_AGENT_NAMES } from "./thank-you-agents";
 
 const FUNNEL_KEY = "funnel:merged";
 const LEADS_KEY = "leads:all";
@@ -94,6 +95,50 @@ async function getClarityMetricsBySlug(): Promise<Record<string, ClarityMetrics>
   const { result } = await res.json();
   if (!result) return {};
   return JSON.parse(result) as Record<string, ClarityMetrics>;
+}
+
+// WhatsApp click stats for agent thank-you pages (sandbergestates.es/thank-you-<agent>/),
+// sourced from the SAME landing:funnel KV key as property-page engagement — the
+// thank-you-template tracking script beacons page_view + cta_click(whatsapp_header/
+// whatsapp_footer) events to the identical "Funnel Dashboard - Landing Engagement
+// Collector/Sync" n8n pipeline, keyed by slug (thank-you-<agent>). No backend changes
+// were needed; this just reads the same aggregate and filters/reshapes it for agents.
+export interface WhatsAppAgentStats {
+  slug: string;
+  agent: string;
+  page_views: number;
+  whatsapp_clicks: number;
+  click_rate: number; // 0..1 of page_views
+}
+
+function slugToAgentName(slug: string): string {
+  return (
+    THANK_YOU_AGENT_NAMES[slug] ??
+    slug
+      .replace(/^thank-you-/, "")
+      .split("-")
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(" ")
+  );
+}
+
+export async function getWhatsAppClickStats(): Promise<WhatsAppAgentStats[]> {
+  const bySlug = await getLandingEngagementBySlug();
+  return Object.entries(bySlug)
+    .filter(([slug]) => slug.startsWith("thank-you-"))
+    .map(([slug, raw]) => {
+      const page_views = raw.page_views ?? 0;
+      const whatsapp_clicks =
+        (raw.cta_clicks?.whatsapp_header ?? 0) + (raw.cta_clicks?.whatsapp_footer ?? 0);
+      return {
+        slug,
+        agent: slugToAgentName(slug),
+        page_views,
+        whatsapp_clicks,
+        click_rate: page_views ? whatsapp_clicks / page_views : 0,
+      };
+    })
+    .sort((a, b) => b.whatsapp_clicks - a.whatsapp_clicks);
 }
 
 export async function getFunnelData(): Promise<FunnelData> {

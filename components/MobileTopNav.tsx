@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useDashboard } from "@/lib/dashboard-context";
-import { NAV_ITEMS } from "@/lib/nav";
+import { VISIBLE_NAV_ITEMS } from "@/lib/nav";
 import { AnimatedMobileNav } from "./ui/animated-mobile-nav";
 
 // Mobile-only (md:hidden inside AnimatedMobileNav) horizontal top nav —
@@ -14,7 +14,7 @@ export default function MobileTopNav() {
   const { data } = useDashboard();
   const firstCampaignId = data?.campaigns?.[0]?.campaign_id;
 
-  const items = NAV_ITEMS.map((item) => {
+  const items = VISIBLE_NAV_ITEMS.map((item) => {
     const href = item.href === "/campaign" ? (firstCampaignId ? `/campaign/${firstCampaignId}` : "/") : item.href;
     const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
     const Icon = item.icon;

@@ -15,6 +15,11 @@ function arc(cx: number, cy: number, r: number, fromDeg: number, toDeg: number, 
   return pts;
 }
 
+// Covers every currently-visible nav section (see lib/nav.ts NAV_ITEMS,
+// filtered by `hidden`) — folders like "Analytics"/"CRM" are a sidebar-only
+// grouping, so gestures still target the underlying leaf routes directly,
+// same as before consolidation. OKRs is parked/hidden, so it has no gesture
+// either — re-add one here if it's ever un-hidden.
 export const GESTURE_TEMPLATES: (GestureTemplate & { href: string; label: string })[] = [
   {
     // caret / roof — "home"
@@ -36,16 +41,6 @@ export const GESTURE_TEMPLATES: (GestureTemplate & { href: string; label: string
     points: arc(0.5, 0.5, 0.5, 45, 315, 32),
   },
   {
-    name: "L",
-    href: "/leads",
-    label: "Leads",
-    points: [
-      { x: 0, y: 0 },
-      { x: 0, y: 1 },
-      { x: 1, y: 1 },
-    ],
-  },
-  {
     // ~ — a wave, echoing the Curve nav icon's rise-fall-rise line
     name: "~",
     href: "/curve",
@@ -55,27 +50,6 @@ export const GESTURE_TEMPLATES: (GestureTemplate & { href: string; label: string
       { x: 0.35, y: 0.05 },
       { x: 0.62, y: 0.55 },
       { x: 1, y: 0.05 },
-    ],
-  },
-  {
-    name: "I",
-    href: "/insights",
-    label: "Insights",
-    points: [
-      { x: 0.5, y: 0 },
-      { x: 0.5, y: 1 },
-    ],
-  },
-  {
-    name: "M",
-    href: "/demand",
-    label: "Demand Map",
-    points: [
-      { x: 0, y: 1 },
-      { x: 0, y: 0 },
-      { x: 0.5, y: 0.65 },
-      { x: 1, y: 0 },
-      { x: 1, y: 1 },
     ],
   },
   {
@@ -91,11 +65,58 @@ export const GESTURE_TEMPLATES: (GestureTemplate & { href: string; label: string
     ],
   },
   {
+    // R — spine, top bowl, kicked-out leg
+    name: "R",
+    href: "/report",
+    label: "Meta Ads Report",
+    points: [
+      { x: 0, y: 1 },
+      { x: 0, y: 0 },
+      { x: 0.6, y: 0 },
+      { x: 0.7, y: 0.25 },
+      { x: 0.6, y: 0.5 },
+      { x: 0, y: 0.5 },
+      { x: 0.7, y: 1 },
+    ],
+  },
+  {
+    name: "L",
+    href: "/leads",
+    label: "Leads",
+    points: [
+      { x: 0, y: 0 },
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+    ],
+  },
+  {
+    // O — full circle, freed up now OKRs is hidden/unmapped
     name: "O",
-    href: "/okrs",
-    label: "OKRs",
-    // start at top, sweep clockwise all the way around
+    href: "/outcomes",
+    label: "Outcomes",
     points: arc(0.5, 0.5, 0.5, -90, 270, 40),
+  },
+  {
+    // W — zigzag
+    name: "W",
+    href: "/whatsapp",
+    label: "WhatsApp",
+    points: [
+      { x: 0, y: 0 },
+      { x: 0.25, y: 1 },
+      { x: 0.5, y: 0.4 },
+      { x: 0.75, y: 1 },
+      { x: 1, y: 0 },
+    ],
+  },
+  {
+    name: "I",
+    href: "/insights",
+    label: "Insights",
+    points: [
+      { x: 0.5, y: 0 },
+      { x: 0.5, y: 1 },
+    ],
   },
   {
     // S — top hump bulges right, bottom hump bulges left, meeting in the middle

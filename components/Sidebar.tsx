@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import { usePathname } from "next/navigation";
-import { Settings } from "lucide-react";
+import { Settings, ChevronDown } from "lucide-react";
 import { useDashboard } from "@/lib/dashboard-context";
 import { Logo } from "./Logo";
 import { Sidebar as SidebarShell, DesktopSidebar, SidebarLink, useSidebar } from "./ui/sidebar";
-import { NAV_ITEMS } from "@/lib/nav";
+import { NAV_ITEMS, NAV_GROUPS } from "@/lib/nav";
 import { formatDate } from "@/lib/format";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import SettingsPanel from "./SettingsPanel";
 
 // Mirrors the aceternity sidebar demo's shape/colors exactly: bg-neutral-100
@@ -21,6 +21,10 @@ export default function Sidebar() {
   const { data } = useDashboard();
   const firstCampaignId = data?.campaigns?.[0]?.campaign_id;
 
+  const resolveHref = (href: string) => (href === "/campaign" ? (firstCampaignId ? `/campaign/${firstCampaignId}` : "/") : href);
+  const isActive = (item: { href: string; exact?: boolean }) => (item.exact ? pathname === item.href : pathname.startsWith(item.href));
+  const itemByHref = (href: string) => NAV_ITEMS.find((i) => i.href === href)!;
+
   return (
     <div className="hidden shrink-0 md:sticky md:top-3 md:block md:h-[calc(100vh-1.5rem)]">
       <SidebarShell>
@@ -28,20 +32,52 @@ export default function Sidebar() {
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
             <BrandLogo />
             <div className="mt-8 flex flex-col gap-2">
-              {NAV_ITEMS.map((item) => {
-                const href = item.href === "/campaign" ? (firstCampaignId ? `/campaign/${firstCampaignId}` : "/") : item.href;
-                const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-                const Icon = item.icon;
+              {NAV_GROUPS.map((entry) => {
+                if (entry.kind === "item") {
+                  const item = itemByHref(entry.href);
+                  const href = resolveHref(item.href);
+                  const active = isActive(item);
+                  const Icon = item.icon;
+                  return (
+                    <SidebarLink
+                      key={item.href}
+                      link={{
+                        label: item.label,
+                        href,
+                        icon: <Icon className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />,
+                      }}
+                      className={active ? "font-semibold" : undefined}
+                    />
+                  );
+                }
+
+                const children = entry.hrefs.map((href) => itemByHref(href));
+                const groupActive = children.some((c) => isActive(c));
                 return (
-                  <SidebarLink
-                    key={item.href}
-                    link={{
-                      label: item.label,
-                      href,
-                      icon: <Icon className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />,
-                    }}
-                    className={active ? "font-semibold" : undefined}
-                  />
+                  <NavGroupRow
+                    key={entry.label}
+                    label={entry.label}
+                    Icon={entry.icon}
+                    active={groupActive}
+                    defaultOpen={groupActive}
+                  >
+                    {children.map((item) => {
+                      const href = resolveHref(item.href);
+                      const active = isActive(item);
+                      const Icon = item.icon;
+                      return (
+                        <SidebarLink
+                          key={item.href}
+                          link={{
+                            label: item.label,
+                            href,
+                            icon: <Icon className="h-4 w-4 shrink-0 text-neutral-700 dark:text-neutral-200" />,
+                          }}
+                          className={active ? "font-semibold" : undefined}
+                        />
+                      );
+                    })}
+                  </NavGroupRow>
                 );
               })}
             </div>
@@ -50,6 +86,56 @@ export default function Sidebar() {
           <SidebarFooter />
         </DesktopSidebar>
       </SidebarShell>
+    </div>
+  );
+}
+
+function NavGroupRow({
+  label,
+  Icon,
+  active,
+  defaultOpen,
+  children,
+}: {
+  label: string;
+  Icon: ComponentType<{ className?: string }>;
+  active: boolean;
+  defaultOpen: boolean;
+  children: React.ReactNode;
+}) {
+  const { open: sidebarOpen } = useSidebar();
+  const [expanded, setExpanded] = useState(defaultOpen);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className={`group/sidebar flex w-full items-center gap-2 py-2 text-sm ${active ? "font-semibold" : ""} text-neutral-700 dark:text-neutral-200`}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        <motion.span
+          animate={{ display: sidebarOpen ? "inline-block" : "none", opacity: sidebarOpen ? 1 : 0 }}
+          className="flex-1 whitespace-pre text-left transition duration-150 group-hover/sidebar:translate-x-1"
+        >
+          {label}
+        </motion.span>
+        {sidebarOpen && (
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        )}
+      </button>
+      <AnimatePresence initial={false}>
+        {expanded && sidebarOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="ml-4 flex flex-col gap-1 overflow-hidden border-l border-neutral-200 pl-3 dark:border-neutral-700"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
