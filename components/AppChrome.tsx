@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import MobileTopNav from "@/components/MobileTopNav";
-import Topbar from "@/components/Topbar";
 import CommandPalette from "@/components/CommandPalette";
 import GestureNav from "@/components/GestureNav";
 import PublicViewDock from "@/components/PublicViewDock";
@@ -37,16 +36,10 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
           <div className="min-w-0 flex-1">
             <main className="py-1 pt-20 md:pt-3">
               {isMissionControl ? (
-                <>
-                  <Topbar />
-                  {children}
-                </>
+                children
               ) : (
                 <div className="vantage-canvas min-h-[calc(100vh-1.5rem)] p-4 sm:p-6">
-                  <div className="mx-auto max-w-[1440px]">
-                    <Topbar />
-                    {children}
-                  </div>
+                  <div className="mx-auto max-w-[1440px]">{children}</div>
                 </div>
               )}
             </main>
