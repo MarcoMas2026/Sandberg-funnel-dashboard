@@ -228,7 +228,7 @@ function PanelHeader({ icon, title }: { icon: React.ReactNode; title: string }) 
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <span className="panel-icon">{icon}</span>
+        <span className="text-[var(--accent)]">{icon}</span>
         <h2 className="text-sm font-semibold text-[var(--text)]">{title}</h2>
       </div>
       <button className="icon-btn" aria-label="Options" disabled>

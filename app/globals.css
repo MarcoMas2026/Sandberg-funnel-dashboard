@@ -59,20 +59,6 @@ body {
   color: var(--text-muted);
 }
 
-/* Panel title icon — the light cyan box behind a panel header's leading
-   icon, matching the KpiIconBox treatment on Mission Control's cards. */
-.panel-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.5rem;
-  background: var(--panel3);
-  color: var(--accent);
-}
-
 /* Neutral gradient used by the Update button + accents */
 .accent-gradient {
   background-image: linear-gradient(135deg, #171717 0%, #404040 100%);

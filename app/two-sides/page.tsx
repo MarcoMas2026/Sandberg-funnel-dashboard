@@ -18,7 +18,7 @@ export default function TwoSidesPage() {
   return (
     <div className="space-y-5 pt-2">
       <div className="flex items-center gap-3">
-        <span className="panel-icon">
+        <span className="text-[var(--accent)]">
           <Scales className="h-4 w-4" />
         </span>
         <div>
