@@ -177,7 +177,7 @@ export default function CurvePage() {
           <GlowPanel className="panel overflow-hidden p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-[var(--accent)]">
+                <span className="panel-icon">
                   <ChartLineUp className="h-4 w-4" />
                 </span>
                 <AnimatePresence mode="wait">

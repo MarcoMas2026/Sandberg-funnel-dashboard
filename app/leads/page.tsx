@@ -80,7 +80,7 @@ export default function LeadsPage() {
     <div className="space-y-5 pt-2">
       <GlowPanel className="panel flex flex-col items-stretch gap-3 p-5 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-[var(--accent)]">
+          <span className="panel-icon">
             <UserPlus className="h-4 w-4" />
           </span>
           <h1 className="text-sm font-semibold text-[var(--text)]">Leads</h1>

@@ -93,7 +93,7 @@ export default function MarketingFunnel({
     <GlowPanel wrapperClassName="h-full" className="panel flex h-full flex-col p-5">
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-[var(--accent)]">
+          <span className="panel-icon">
             <Funnel className="h-4 w-4" />
           </span>
           <h2 className="text-sm font-semibold text-[var(--text)]">Marketing Funnel</h2>
