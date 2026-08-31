@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CaretDown } from "@phosphor-icons/react";
+import { formatCurrency } from "@/lib/format";
 
 export interface CompareCatalogCampaign {
   campaign_id: string;
   property: string;
   status: string;
+  spend: number | null;
 }
 
 // Single-select campaign dropdown for the Two Sides comparison page. Unlike
@@ -61,6 +63,9 @@ export default function ComparePicker({
         <span className={`flex-1 truncate ${current ? "font-medium text-[var(--text)]" : "text-[var(--text-faint)]"}`}>
           {current?.property ?? placeholder}
         </span>
+        {current && current.spend != null && (
+          <span className="shrink-0 text-xs text-[var(--text-faint)]">{formatCurrency(current.spend)}</span>
+        )}
         <CaretDown className={`h-4 w-4 shrink-0 text-[var(--text-faint)] transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -78,7 +83,8 @@ export default function ComparePicker({
                   }`}
                 >
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-                  <span className="truncate">{c.property}</span>
+                  <span className="flex-1 truncate">{c.property}</span>
+                  {c.spend != null && <span className="shrink-0 text-xs text-[var(--text-faint)]">{formatCurrency(c.spend)}</span>}
                 </button>
               ))}
             </>
@@ -96,7 +102,8 @@ export default function ComparePicker({
                   }`}
                 >
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--text-faint)]" />
-                  <span className="truncate">{c.property}</span>
+                  <span className="flex-1 truncate">{c.property}</span>
+                  {c.spend != null && <span className="shrink-0 text-xs text-[var(--text-faint)]">{formatCurrency(c.spend)}</span>}
                 </button>
               ))}
             </>
