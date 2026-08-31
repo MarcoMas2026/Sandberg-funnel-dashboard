@@ -229,7 +229,7 @@ export default function IsometricFunnel({
     i === 0 || labels[i - 1].value === 0 ? null : labels[i].value / labels[i - 1].value;
 
   return (
-    <GlowPanel wrapperClassName="h-full" className="panel flex h-full flex-col p-5">
+    <GlowPanel wrapperClassName="lg:h-full" className="panel flex flex-col p-5 lg:h-full">
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-[var(--accent)]">
@@ -242,8 +242,13 @@ export default function IsometricFunnel({
         </button>
       </div>
 
-      <div className="relative flex-1">
-        <svg viewBox={`0 0 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMid meet" className="h-full w-full" fontFamily="var(--font-inter), sans-serif">
+      <div className="relative w-full lg:min-h-0 lg:flex-1">
+        <svg
+          viewBox={`0 0 ${vbW} ${vbH}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="block h-auto w-full lg:h-full"
+          fontFamily="var(--font-inter), sans-serif"
+        >
           {/* SVG paints later elements on top, so draw back-to-front: the
               last/lowest layer (6) goes down first, then each earlier layer
               on top of it, ending with layer 1 painted last — frontmost,

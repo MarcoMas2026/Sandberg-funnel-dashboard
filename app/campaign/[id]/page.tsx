@@ -175,7 +175,7 @@ function CampaignDetail({
         <div className="order-1 lg:order-none lg:col-start-1 lg:row-start-1">
           <MetricsPanel meta={campaign.meta} tagCounts={tagCounts} campaignId={campaign.campaign_id} />
         </div>
-        <div className="order-2 h-[560px] lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:h-full">
+        <div className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:h-full">
           <IsometricFunnel campaign={campaign} tagCounts={tagCounts} disableDrilldown={isHistorical} />
         </div>
         <div className="order-3 lg:order-none lg:col-start-1 lg:row-start-2">

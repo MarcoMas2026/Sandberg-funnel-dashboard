@@ -110,7 +110,16 @@ export default function CompareSlot({ catalog }: { catalog: CompareCatalogCampai
             <MiniStat label="Landing page views" value={campaign.landing_engagement.page_views.toLocaleString()} />
           </div>
 
-          <div className="h-[520px]">
+          {/* Below lg: IsometricFunnel sizes itself off its own viewBox aspect
+              ratio (no height constraint needed here). At lg+: it fills
+              whatever height this wrapper has, so give it an aspect-ratio
+              matching the component's own desktop viewBox (750×1011, from
+              leftPad+DISPLAY_W+rightPad × topPad+TOTAL_H+30 in
+              IsometricFunnel.tsx) instead of a fixed px height — that way the
+              box grows/shrinks with column width and the diagram always
+              renders at its full, unshrunk size rather than being letterboxed
+              into an arbitrary shorter box. */}
+          <div className="lg:aspect-[750/1011]">
             <IsometricFunnel campaign={campaign} tagCounts={isHistorical ? NA_TAGS : tagCounts} disableDrilldown />
           </div>
         </div>
