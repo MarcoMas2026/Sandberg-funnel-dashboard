@@ -104,16 +104,10 @@ function NavRow({
   return (
     <Link
       href={href}
-      className={`mr-3 flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-[var(--vantage-text)] ${
+      className={`mr-3 flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-[13px] text-[var(--vantage-text)] ${
         active ? "vantage-nav-active font-semibold" : ""
       }`}
     >
-      {active && (
-        <>
-          <span className="nav-corner-tr" />
-          <span className="nav-corner-bl" />
-        </>
-      )}
       {Icon ? <Icon className="h-4 w-4 shrink-0" /> : <span className="w-4 shrink-0" />}
       <span className="whitespace-pre">{label}</span>
     </Link>
