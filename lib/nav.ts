@@ -13,6 +13,7 @@ import {
   Target,
   ChartLine,
   Users,
+  Scales,
 } from "@phosphor-icons/react";
 
 export type NavItem = {
@@ -37,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/whatsapp", label: "WhatsApp", icon: WhatsappLogo },
   { href: "/outcomes", label: "Outcomes", icon: Handshake },
   { href: "/curve", label: "Curve", icon: ChartLineUp },
+  { href: "/two-sides", label: "Two Sides", icon: Scales },
   { href: "/insights", label: "Insights", icon: Lightbulb },
   { href: "/report", label: "Meta Ads Report", icon: FileText },
   { href: "/patterns", label: "Patterns", icon: ShareNetwork },
@@ -61,7 +63,7 @@ export type NavGroup =
 const ALL_NAV_GROUPS: NavGroup[] = [
   { kind: "item", href: "/" },
   { kind: "item", href: "/campaign" },
-  { kind: "group", label: "Analytics", icon: ChartLine, hrefs: ["/curve", "/patterns", "/report"] },
+  { kind: "group", label: "Analytics", icon: ChartLine, hrefs: ["/curve", "/two-sides", "/patterns", "/report"] },
   { kind: "group", label: "CRM", icon: Users, hrefs: ["/leads", "/outcomes", "/whatsapp"] },
   { kind: "item", href: "/insights" },
   { kind: "item", href: "/social" },
