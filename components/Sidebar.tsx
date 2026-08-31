@@ -108,6 +108,12 @@ function NavRow({
         active ? "vantage-nav-active font-semibold" : ""
       }`}
     >
+      {active && (
+        <>
+          <span className="nav-corner-tr" />
+          <span className="nav-corner-bl" />
+        </>
+      )}
       {Icon ? <Icon className="h-4 w-4 shrink-0" /> : <span className="w-4 shrink-0" />}
       <span className="whitespace-pre">{label}</span>
     </Link>

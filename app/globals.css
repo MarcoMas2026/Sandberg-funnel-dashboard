@@ -240,9 +240,45 @@ body {
 /* Active sidebar nav item — same color as the sidebar itself; the shadow
    alone is what lifts it off the surface (per brandbook: highlight
    #f0f0f0, shadow #747474). */
+/* Viewfinder-style active marker: thin corner brackets, no fill — the icon
+   and label also switch to the vivid teal accent (#02bbbb, the same hex the
+   brackets use). Literal brandbook "light cyan" (#c1dfdf) was tried first
+   but sits almost illegibly close in lightness to the sidebar's own
+   background, so this uses the more saturated teal instead. */
 .vantage-nav-active {
-  background: var(--vantage-bg);
-  box-shadow: 0 2px 6px 0 rgba(116, 116, 116, 0.45);
+  position: relative;
+  color: #02bbbb;
+}
+.vantage-nav-active::before,
+.vantage-nav-active::after,
+.vantage-nav-active .nav-corner-tr,
+.vantage-nav-active .nav-corner-bl {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-color: #02bbbb;
+  border-style: solid;
+}
+.vantage-nav-active::before {
+  top: 1px;
+  left: 1px;
+  border-width: 1.5px 0 0 1.5px;
+}
+.vantage-nav-active::after {
+  bottom: 1px;
+  right: 1px;
+  border-width: 0 1.5px 1.5px 0;
+}
+.vantage-nav-active .nav-corner-tr {
+  top: 1px;
+  right: 1px;
+  border-width: 1.5px 1.5px 0 0;
+}
+.vantage-nav-active .nav-corner-bl {
+  bottom: 1px;
+  left: 1px;
+  border-width: 0 0 1.5px 1.5px;
 }
 
 /* staggered entrance */
