@@ -35,15 +35,20 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
         <div className="shell-grid flex min-h-screen gap-3 pb-3 pr-3">
           <Sidebar />
           <div className="min-w-0 flex-1">
-            <main
-              className={
-                isMissionControl
-                  ? "py-1 pt-20 md:pt-3"
-                  : "mx-auto max-w-[1440px] px-2 py-1 pt-20 md:pt-3 lg:px-5"
-              }
-            >
-              <Topbar />
-              {children}
+            <main className="py-1 pt-20 md:pt-3">
+              {isMissionControl ? (
+                <>
+                  <Topbar />
+                  {children}
+                </>
+              ) : (
+                <div className="vantage-canvas min-h-[calc(100vh-1.5rem)] p-4 sm:p-6">
+                  <div className="mx-auto max-w-[1440px]">
+                    <Topbar />
+                    {children}
+                  </div>
+                </div>
+              )}
             </main>
           </div>
         </div>
