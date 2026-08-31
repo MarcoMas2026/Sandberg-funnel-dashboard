@@ -45,12 +45,14 @@ function isUnavailable(n: number | null | undefined): n is null | undefined {
   return n === null || n === undefined || Number.isNaN(n);
 }
 
+// Symbol trails the digits (e.g. "4,486€") — the Vantage redesign's
+// convention, now the site-wide default.
 export function formatCurrency(n: number | null | undefined, decimals = 0): string {
   if (isUnavailable(n)) return "xxx";
-  return `€${n.toLocaleString("en-GB", {
+  return `${n.toLocaleString("en-GB", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  })}`;
+  })}€`;
 }
 
 export function formatNumber(n: number | null | undefined): string {

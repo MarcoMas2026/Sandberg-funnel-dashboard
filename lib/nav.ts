@@ -1,15 +1,19 @@
 import type { ComponentType } from "react";
-import { FileText, Handshake, LayoutDashboard, LineChart, Users } from "lucide-react";
 import {
-  BarIcon,
-  CurveIcon,
-  PatternsIcon,
-  InsightIcon,
-  TargetIcon,
-  LeadIcon,
-  SocialIcon,
-  WhatsAppIcon,
-} from "@/components/icons";
+  SquaresFour,
+  House,
+  UserPlus,
+  WhatsappLogo,
+  Handshake,
+  ChartLineUp,
+  Lightbulb,
+  FileText,
+  ShareNetwork,
+  InstagramLogo,
+  Target,
+  ChartLine,
+  Users,
+} from "@phosphor-icons/react";
 
 export type NavItem = {
   href: string;
@@ -27,19 +31,19 @@ export type NavItem = {
 // Sidebar visually clusters these same items (mobile nav still uses the flat
 // list, so this array must stay exactly as every existing consumer expects).
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Mission Control", icon: LayoutDashboard, exact: true },
-  { href: "/campaign", label: "Campaigns", icon: BarIcon },
-  { href: "/leads", label: "Leads", icon: LeadIcon },
-  { href: "/whatsapp", label: "WhatsApp", icon: WhatsAppIcon },
+  { href: "/", label: "Mission Control", icon: SquaresFour, exact: true },
+  { href: "/campaign", label: "Campaigns", icon: House },
+  { href: "/leads", label: "Leads", icon: UserPlus },
+  { href: "/whatsapp", label: "WhatsApp", icon: WhatsappLogo },
   { href: "/outcomes", label: "Outcomes", icon: Handshake },
-  { href: "/curve", label: "Curve", icon: CurveIcon },
-  { href: "/insights", label: "Insights", icon: InsightIcon },
+  { href: "/curve", label: "Curve", icon: ChartLineUp },
+  { href: "/insights", label: "Insights", icon: Lightbulb },
   { href: "/report", label: "Meta Ads Report", icon: FileText },
-  { href: "/patterns", label: "Patterns", icon: PatternsIcon },
-  { href: "/social", label: "Social", icon: SocialIcon },
+  { href: "/patterns", label: "Patterns", icon: ShareNetwork },
+  { href: "/social", label: "Social", icon: InstagramLogo },
   // Parked — building this out later (see CLAUDE.md OKR section). Route and
   // page stay in the codebase; only the nav entry is hidden.
-  { href: "/okrs", label: "OKRs", icon: TargetIcon, hidden: true },
+  { href: "/okrs", label: "OKRs", icon: Target, hidden: true },
 ];
 
 // Nav items actually shown in the UI — same list, minus anything parked via
@@ -57,7 +61,7 @@ export type NavGroup =
 const ALL_NAV_GROUPS: NavGroup[] = [
   { kind: "item", href: "/" },
   { kind: "item", href: "/campaign" },
-  { kind: "group", label: "Analytics", icon: LineChart, hrefs: ["/curve", "/patterns", "/report"] },
+  { kind: "group", label: "Analytics", icon: ChartLine, hrefs: ["/curve", "/patterns", "/report"] },
   { kind: "group", label: "CRM", icon: Users, hrefs: ["/leads", "/outcomes", "/whatsapp"] },
   { kind: "item", href: "/insights" },
   { kind: "item", href: "/social" },

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useDashboard } from "@/lib/dashboard-context";
 import { computeInsights, Severity } from "@/lib/insights";
 import { Sparkline } from "@/components/viz";
-import { InsightIcon } from "@/components/icons";
+import { Lightbulb } from "@phosphor-icons/react";
 import { GlowPanel } from "@/components/ui/glow-panel";
 
 const SEV: Record<Severity, { label: string; color: string; bg: string }> = {
@@ -100,7 +100,7 @@ export default function InsightsPage() {
 
               <div className="mt-4 flex items-center gap-2 rounded-xl bg-[var(--panel2)] px-4 py-3">
                 <span className="text-[var(--text)]">
-                  <InsightIcon className="h-4 w-4" />
+                  <Lightbulb className="h-4 w-4" />
                 </span>
                 <p className="text-sm text-[var(--text)]">{ins.recommendation}</p>
               </div>

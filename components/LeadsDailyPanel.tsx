@@ -1,6 +1,6 @@
 import { LeadRecord } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { DotsIcon } from "@/components/icons";
+import { DotsThree } from "@phosphor-icons/react";
 import { Sparkline } from "@/components/viz";
 import { formatNumber, shortDay } from "@/lib/format";
 
@@ -25,7 +25,7 @@ export default function LeadsDailyPanel({ leads }: { leads: LeadRecord[] }) {
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text)]">Daily activity</h2>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
 

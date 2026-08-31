@@ -1,36 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDashboard } from "@/lib/dashboard-context";
 import { FunnelCampaign } from "@/lib/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
-import { CountUp, DeltaChip, LeadQualityDonut, Pill, RingGauge, Sparkline } from "@/components/viz";
-import { MOCK_QUALITY } from "@/lib/mock";
-import { computeInsights, computePortfolioHealth, Severity } from "@/lib/insights";
-import { HomeIcon, InsightIcon } from "@/components/icons";
+import { Sparkline } from "@/components/viz";
+import { computeInsights, computePortfolioHealth } from "@/lib/insights";
+import { ChartBar, Users, Funnel } from "@phosphor-icons/react";
 import { LeadRecord } from "@/lib/types";
-import { GlowPanel } from "@/components/ui/glow-panel";
 import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
-import { Pinnable } from "@/components/Pinnable";
 import { propertyInfoForCampaign } from "@/lib/property-lookup";
 import { AGENT_ROSTER } from "@/lib/agents";
+import { MissionControlHeader, useMonthTabs } from "@/components/vantage/MissionControlHeader";
+import { KpiCard, PortfolioHealthCard, InsightsTicker } from "@/components/vantage/MissionControlKpis";
+import { DailyLeadsTrendChart, LeadCountByCampaignDonut } from "@/components/vantage/MissionControlCharts";
+import { VantageCampaignCard } from "@/components/vantage/VantageCampaignCard";
+import { AgentCountGrid } from "@/components/vantage/AgentCountGrid";
 
-const SEV_COLOR: Record<Severity, string> = {
-  critical: "#f87171",
-  warning: "#fbbf24",
-  opportunity: "#34d399",
-  info: "#7a9bff",
-};
-
-const TYPE_COLOR = { property: "#2f3b63", community: "#6e7aab" } as const;
-
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
-}
+const TYPE_COLOR = { property: "#02bbbb", community: "#c1dfdf" } as const;
 
 export default function MissionControl() {
   const { data, loading } = useDashboard();
@@ -165,9 +153,6 @@ export default function MissionControl() {
   const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
   const health = computePortfolioHealth(active, insights);
 
-  const spendSpark = mergeDaily(active, "spend");
-  const leadsSpark = mergeDaily(active, "leads");
-
   // Inactive Campaigns list: every campaign NOT currently active, all-time
   // totals (not scoped to the selected month — only the hero KPI cards above
   // change with the month picker). Merges still-live-but-paused campaigns
@@ -189,6 +174,7 @@ export default function MissionControl() {
   // registry (see CONTEXT.md §14.1). Campaigns whose ref has no registry match
   // fall into "Unassigned" rather than being dropped silently.
   const agentCounts = useMemo(() => buildAgentCounts(active), [active]);
+  const monthTabs = useMonthTabs();
 
   if (loading) {
     return (
@@ -200,7 +186,7 @@ export default function MissionControl() {
             <Skeleton className="h-4 w-48" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-5 xl:grid-cols-4">
           {Array.from({ length: 4 }, (_, i) => (
             <CardSkeleton key={i} />
           ))}
@@ -216,144 +202,69 @@ export default function MissionControl() {
   }
 
   return (
-    <div className="space-y-7">
-      {/* greeting header */}
-      <div className="fade-up flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="mb-1 hidden items-center gap-2 text-xs text-[var(--text-faint)] md:flex">
-            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            {data?.last_updated ? `Last update ${formatDate(data.last_updated)}` : "No sync yet"}
-          </p>
-          <h1 className="whitespace-nowrap text-[1.75rem] font-bold tracking-tight text-[var(--text)] sm:text-4xl">
-            {greeting()}, team <span className="align-middle">👋</span>
-          </h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {active.length} campaign{active.length === 1 ? "" : "s"} live right now across your portfolio
-          </p>
-          <p className="mt-2 flex items-center justify-center gap-2 text-xs text-[var(--text-faint)] md:hidden">
-            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            {data?.last_updated ? `Last update ${formatDate(data.last_updated)}` : "No sync yet"}
-          </p>
-        </div>
-      </div>
+    <div className="vantage-canvas min-h-[calc(100vh-1.5rem)] p-6 sm:p-8">
+      <div className="space-y-6">
+        <MissionControlHeader
+          lastUpdated={data?.last_updated ?? null}
+          activeCount={active.length}
+          months={monthTabs}
+          selMonth={selMonth}
+          onSelectMonth={(year, month) => setSelMonth({ year, month })}
+          onSearch={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+        />
 
-      {/* hero KPI price-cards */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <Pinnable type="portfolio-spend">
-          <PriceCard
+        <div className="grid grid-cols-2 gap-5 xl:grid-cols-4">
+          <KpiCard
             label={`Total Spend · ${monthLabel}`}
-            accent="#2f3b63"
-            delay="0.05s"
-            value={<CountUp value={totalSpend} format={(v) => formatCurrency(v)} />}
-            delta={kpiDeltas?.spendPct ?? undefined}
-            goodWhenUp
-            spark={<Sparkline data={spendSpark} stroke="#4a5786" width={130} height={44} markers peakLabel={(v) => `€${Math.round(v)}`} />}
-            menu={
-              <MonthPickerButton
-                year={selMonth.year}
-                month={selMonth.month}
-                onChange={(year, month) => setSelMonth({ year, month })}
-              />
-            }
+            icon={<ChartBar className="h-5 w-5" />}
+            value={totalSpend}
+            format={(v) => formatCurrency(v)}
+            deltaPct={kpiDeltas?.spendPct}
           />
-        </Pinnable>
-        <Pinnable type="portfolio-leads">
-          <PriceCard
+          <KpiCard
             label={`Leads (submissions) · ${monthLabel}`}
-            accent="#4a5786"
-            delay="0.1s"
-            value={<CountUp value={totalLeads} format={(v) => formatNumber(v)} />}
-            delta={kpiDeltas?.leadsPct ?? undefined}
-            goodWhenUp
-            spark={<Sparkline data={leadsSpark} stroke="#6e7aab" width={130} height={44} markers peakLabel={(v) => `${Math.round(v)}`} />}
+            icon={<Users className="h-5 w-5" />}
+            value={totalLeads}
+            format={(v) => formatNumber(v)}
+            deltaPct={kpiDeltas?.leadsPct}
           />
-        </Pinnable>
-        <Pinnable type="portfolio-cpl">
-          <PriceCard
+          <KpiCard
             label={`Avg Cost / Lead · ${monthLabel}`}
-            accent="#98a3c9"
-            delay="0.15s"
-            value={<CountUp value={avgCpl} format={(v) => formatCurrency(v, 2)} />}
-            delta={kpiDeltas?.cplPct ?? undefined}
-            goodWhenUp={false}
-            footnote={
-              <>
-                CPQL⁺ {formatCurrency(qualityFor(active[0]?.campaign_id).cpqlPlus, 2)} <MockTag />
-              </>
-            }
+            icon={<Funnel className="h-5 w-5" />}
+            value={avgCpl}
+            format={(v) => formatCurrency(v, 2)}
+            deltaPct={kpiDeltas?.cplPct}
           />
-        </Pinnable>
-        <GlowPanel wrapperClassName="fade-up h-full" style={{ animationDelay: "0.2s" }} className="panel flex h-full items-center justify-between p-5">
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Portfolio Health</p>
-            <p className="mt-2 hidden max-w-[120px] text-[11px] leading-snug text-[var(--text-faint)] md:block">
-              Composite of open findings across active campaigns
-            </p>
-          </div>
-          {health !== null ? (
-            <RingGauge value={health} />
-          ) : (
-            <span className="text-xs text-[var(--text-faint)]">No active campaigns</span>
-          )}
-        </GlowPanel>
-      </div>
-
-      {/* insight ticker */}
-      <Link href="/insights" className="glass fade-up block overflow-hidden" style={{ animationDelay: "0.25s" }}>
-        <div className="flex items-center gap-3 px-4 py-2.5">
-          <span className="flex shrink-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--text)]">
-            <InsightIcon className="h-4 w-4" /> Live insights
-          </span>
-          <div className="relative min-w-0 flex-1 overflow-hidden">
-            {insights.length > 0 ? (
-              <div className="ticker-track flex w-max items-center gap-10">
-                {[...insights, ...insights].map((ins, i) => (
-                  <span key={ins.id + i} className="flex items-center gap-2 whitespace-nowrap text-xs text-[var(--text-muted)]">
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: SEV_COLOR[ins.severity] }} />
-                    <span className="font-medium text-[var(--text)]">{ins.campaign}:</span> {ins.title}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <span className="whitespace-nowrap text-xs text-[var(--text-faint)]">
-                No findings right now. Detectors are watching for anomalies, fatigue and pacing opportunities.
-              </span>
-            )}
-          </div>
-          <span className="shrink-0 text-[11px] text-[var(--text-faint)]">view all →</span>
+          <PortfolioHealthCard value={health} />
         </div>
-      </Link>
 
-      {/* active campaigns */}
-      <div className="fade-up" style={{ animationDelay: "0.3s" }}>
-        <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Active Campaigns</h2>
+        <InsightsTicker insights={insights} />
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <DailyLeadsTrendChart />
+          <LeadCountByCampaignDonut />
+        </div>
+
         {active.length === 0 ? (
-          <GlowPanel className="panel flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-base font-medium text-[var(--text)]">No campaigns are active right now</p>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">Hit Update Data once campaigns are live in Meta</p>
-          </GlowPanel>
+          <div className="vantage-card flex flex-col items-center justify-center py-20 text-center">
+            <p className="text-base font-medium text-[var(--vantage-text)]">No campaigns are active right now</p>
+            <p className="mt-1 text-sm text-[var(--vantage-text-muted)]">Hit Update Data once campaigns are live in Meta</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {active.map((c) => (
-              <LiveCampaignCard
-                key={c.campaign_id}
-                campaign={c}
-                spend={c.meta.spend}
-                leads={c.meta.leads}
-                tagCounts={tagCounts[c.campaign_id] ?? { red: 0, orange: 0, blue: 0 }}
-                isCurrentlyActive
-                lastUpdated={data?.last_updated ?? null}
-              />
+              <VantageCampaignCard key={c.campaign_id} campaign={c} lastUpdated={data?.last_updated ?? null} />
             ))}
           </div>
         )}
       </div>
 
+      <div className="mt-7 space-y-7">
       {/* inactive campaigns */}
       <div className="fade-up" style={{ animationDelay: "0.32s" }}>
-        <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Inactive Campaigns</h2>
+        <div className="mb-5 h-px bg-[#2d4444]" />
         {inactiveCampaigns.length === 0 ? (
-          <p className="text-sm text-[var(--text-faint)]">No inactive campaigns</p>
+          <p className="text-sm text-[var(--vantage-text-muted)]">No inactive campaigns</p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
             {inactiveCampaigns.map((row) => (
@@ -365,219 +276,61 @@ export default function MissionControl() {
 
       {/* leaderboard */}
       {leaderboard.length > 0 && (
-        <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.35s" }} className="panel p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--text)]">Portfolio Leaderboard</h2>
-            <Pill label="All time" active={false} />
+        <div className="vantage-card fade-up p-6" style={{ animationDelay: "0.35s" }}>
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[var(--vantage-text)]">Portfolio Leaderboard</h2>
+            <span className="vantage-icon-box px-3 py-1 text-xs font-medium">All time</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
-                  <th className="pb-2 pl-1">#</th>
-                  <th className="pb-2">Campaign</th>
-                  <th className="pb-2 text-right">Spend</th>
-                  <th className="pb-2 text-right">Leads</th>
-                  <th className="pb-2 text-right">Trend</th>
-                  <th className="pb-2 pr-1 text-right">Cost / Lead</th>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--vantage-text-muted)]">
+                  <th className="pb-3 pl-1">#</th>
+                  <th className="pb-3">Campaign</th>
+                  <th className="pb-3 text-right">Spend</th>
+                  <th className="pb-3 text-right">Leads</th>
+                  <th className="pb-3 text-right">Trend</th>
+                  <th className="pb-3 pr-1 text-right">Cost / Lead</th>
                 </tr>
               </thead>
               <tbody>
                 {leaderboard.map((row, i) => (
-                  <tr key={row.id} className="border-t border-[var(--border)]">
-                    <td className="py-3 pl-1 text-xs text-[var(--text-faint)]">{i + 1}</td>
+                  <tr key={row.id} className="border-t border-[rgba(33,52,54,0.1)]">
+                    <td className="py-3 pl-1 text-xs text-[var(--vantage-text-muted)]">{i + 1}</td>
                     <td className="py-3">
                       <div className="flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full" style={{ background: TYPE_COLOR[row.type] }} />
-                        <span className="font-medium text-[var(--text)]">{row.property}</span>
+                        <span className="font-medium text-[var(--vantage-text)]">{row.property}</span>
                         {row.isActive && (
-                          <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-400">
+                          <span className="rounded-full bg-[var(--vantage-icon-box)] px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[var(--vantage-text)]">
                             Live
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3 text-right text-[var(--text)]">{formatCurrency(row.spend)}</td>
-                    <td className="py-3 text-right font-semibold text-[var(--text)]">{formatNumber(row.leads)}</td>
+                    <td className="py-3 text-right text-[var(--vantage-text)]">{formatCurrency(row.spend)}</td>
+                    <td className="py-3 text-right font-semibold text-[var(--vantage-text)]">{formatNumber(row.leads)}</td>
                     <td className="py-3 text-right">
                       <div className="flex justify-end">
-                        <Sparkline data={row.trend} stroke={TYPE_COLOR[row.type]} width={80} height={26} fill={false} />
+                        <Sparkline data={row.trend} stroke="#2d4444" width={80} height={26} fill={false} />
                       </div>
                     </td>
-                    <td className="py-3 pr-1 text-right text-[var(--text)]">{formatCurrency(row.cpl, 2)}</td>
+                    <td className="py-3 pr-1 text-right text-[var(--vantage-text)]">{formatCurrency(row.cpl, 2)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </GlowPanel>
+        </div>
       )}
 
       {/* agent count — currently-active campaigns per listing agent */}
-      {agentCounts.length > 0 && (
-        <GlowPanel wrapperClassName="fade-up" style={{ animationDelay: "0.4s" }} className="panel p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--text)]">Agent Count</h2>
-            <Pill label="Active campaigns" active={false} />
-          </div>
-          <div className="flex flex-col gap-2">
-            {agentCounts.map((row) => (
-              <div key={row.agent} className="flex items-center gap-3">
-                <p className="w-40 shrink-0 truncate text-xs font-medium text-[var(--text)]">{row.agent}</p>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--panel2)]">
-                  <div
-                    className="h-full rounded-full bg-[var(--accent)]"
-                    style={{ width: `${agentCounts[0].count > 0 ? (row.count / agentCounts[0].count) * 100 : 0}%` }}
-                  />
-                </div>
-                <p className="w-4 shrink-0 text-right text-xs font-semibold text-[var(--text)]">{row.count}</p>
-              </div>
-            ))}
-          </div>
-        </GlowPanel>
-      )}
+      <div className="fade-up" style={{ animationDelay: "0.4s" }}>
+        <AgentCountGrid rows={agentCounts} />
+      </div>
+      </div>
     </div>
   );
-}
-
-function PriceCard({
-  label,
-  accent,
-  delay,
-  value,
-  valueColor = "var(--text)",
-  delta,
-  goodWhenUp,
-  spark,
-  footnote,
-  menu,
-}: {
-  label: string;
-  accent: string;
-  delay: string;
-  value: React.ReactNode;
-  valueColor?: string;
-  delta?: number;
-  goodWhenUp?: boolean;
-  spark?: React.ReactNode;
-  footnote?: React.ReactNode;
-  menu?: React.ReactNode;
-}) {
-  return (
-    <GlowPanel wrapperClassName="fade-up h-full" style={{ animationDelay: delay }} className="panel relative flex h-full flex-col overflow-hidden p-5">
-      <div className="flex items-center justify-between">
-        <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: accent }} />
-          {label}
-        </p>
-        {menu ?? (
-          <span className="icon-btn h-6 w-6 text-[var(--text-faint)]">
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
-          </span>
-        )}
-      </div>
-      <p className="mt-1 text-3xl font-bold" style={{ color: valueColor }}>
-        {value}
-      </p>
-      <div className="mt-1.5 flex items-center gap-2">
-        {delta !== undefined && <DeltaChip pct={delta} goodWhenUp={goodWhenUp} />}
-        {footnote && <span className="text-[11px] text-[var(--text-faint)]">{footnote}</span>}
-      </div>
-      {spark && <div className="mt-2">{spark}</div>}
-    </GlowPanel>
-  );
-}
-
-// Dropdown replacing the Total Spend card's "..." button — lets the user pick
-// which calendar month the three linked KPI cards (Total Spend, Leads, Avg
-// Cost/Lead) are scoped to. Limited to the last 12 months since that's the
-// span meta.daily rows realistically cover.
-function MonthPickerButton({
-  year,
-  month,
-  onChange,
-}: {
-  year: number;
-  month: number;
-  onChange: (year: number, month: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
-
-  // Current month down through June — the earliest month we have real
-  // portfolio data for — and never into the future (no data to show yet).
-  const options = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const JUNE = 5;
-    const start = currentMonth >= JUNE ? new Date(currentYear, JUNE, 1) : new Date(currentYear - 1, JUNE, 1);
-    const list: { year: number; month: number; label: string }[] = [];
-    for (let d = new Date(currentYear, currentMonth, 1); d >= start; d.setMonth(d.getMonth() - 1)) {
-      list.push({ year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleDateString("en-US", { month: "long", year: "numeric" }) });
-    }
-    return list;
-  }, []);
-
-  return (
-    <div ref={wrapRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="icon-btn h-6 w-6 text-[var(--text-faint)]"
-        aria-label="Select month"
-        aria-expanded={open}
-      >
-        <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
-      </button>
-      {open && (
-        <div className="absolute right-0 top-8 z-20 max-h-64 w-40 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--panel)] p-1.5 shadow-lg">
-          {options.map((o) => {
-            const isActive = o.year === year && o.month === month;
-            return (
-              <button
-                key={`${o.year}-${o.month}`}
-                type="button"
-                onClick={() => {
-                  onChange(o.year, o.month);
-                  setOpen(false);
-                }}
-                className={`block w-full rounded-lg px-2.5 py-1.5 text-left text-xs ${
-                  isActive ? "bg-[var(--panel2)] font-semibold text-[var(--text)]" : "text-[var(--text-muted)] hover:bg-[var(--panel2)]"
-                }`}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MockTag() {
-  return (
-    <span
-      className="ml-1 rounded bg-[var(--panel2)] px-1 py-px text-[9px] uppercase tracking-wide text-[var(--text-faint)]"
-      title="Placeholder: real data ships with its backend phase"
-    >
-      preview
-    </span>
-  );
-}
-
-function qualityFor(id: string | undefined) {
-  return (id && MOCK_QUALITY[id]) || MOCK_QUALITY.DEFAULT;
 }
 
 interface InactiveCampaignRow {
@@ -635,130 +388,6 @@ function buildInactiveCampaigns(
   return rows;
 }
 
-function LiveCampaignCard({
-  campaign: c,
-  spend,
-  leads,
-  tagCounts: t,
-  isCurrentlyActive,
-  lastUpdated,
-}: {
-  campaign: FunnelCampaign;
-  spend: number;
-  leads: number;
-  tagCounts: { red: number; orange: number; blue: number };
-  isCurrentlyActive: boolean;
-  lastUpdated: string | null;
-}) {
-  const tTotal = t.red + t.orange + t.blue;
-  const tint = TYPE_COLOR[c.campaign_type];
-  const agent = propertyInfoForCampaign(c.campaign_id, c.campaign_name)?.agent;
-  return (
-    <Link
-      href={`/campaign/${c.campaign_id}`}
-      className="group panel relative block overflow-hidden p-5 transition-colors hover:border-[var(--border-strong)]"
-    >
-      {/* soft identity gradient wash, echoing the vehicle-card imagery */}
-      <div
-        className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full opacity-25 blur-2xl transition-opacity group-hover:opacity-40"
-        style={{ background: tint }}
-      />
-
-      <div className="relative mb-4 flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--panel2)]" style={{ color: tint }}>
-            <HomeIcon className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-base font-semibold text-[var(--text)]">{c.property}</p>
-            <p className="text-xs text-[var(--text-muted)]">
-              Ref {c.ref} · {c.campaign_type === "community" ? "Community" : "Property"}
-            </p>
-          </div>
-        </div>
-        {isCurrentlyActive ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400">
-            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--panel2)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-faint)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--text-faint)]" /> Inactive
-          </span>
-        )}
-      </div>
-
-      <div className="relative mb-3 flex items-end justify-between">
-        <Pinnable type="campaign-spend" campaignId={c.campaign_id}>
-          <div>
-            <p className="text-2xl font-bold text-[var(--text)]">{formatCurrency(spend)}</p>
-            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
-          </div>
-        </Pinnable>
-        <Pinnable type="campaign-leads" campaignId={c.campaign_id}>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-[var(--text)]">{formatNumber(leads)}</p>
-            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
-          </div>
-        </Pinnable>
-        <Pinnable type="campaign-cpl" campaignId={c.campaign_id}>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-[var(--text)]">
-              {leads > 0 ? formatCurrency(c.meta.cpl, 2) : "—"}
-            </p>
-            <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">cpl</p>
-          </div>
-        </Pinnable>
-        <div className="flex flex-col items-end gap-1">
-          <Sparkline data={c.meta.daily.map((d) => d.leads)} stroke="#6e7aab" width={110} height={40} />
-          {agent && <p className="text-[10px] text-[var(--text-faint)]">{agent}</p>}
-        </div>
-      </div>
-
-      {/* connection badges, echoing the GPS/LTE chips from the reference */}
-      <div className="relative mb-3 flex gap-1.5">
-        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--panel2)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Meta synced
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--panel2)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Typeform synced
-        </span>
-      </div>
-
-      {/* qualified-lead composition — real red/orange/blue tags from the Leads page */}
-      <div className="relative mb-1 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <LeadQualityDonut red={t.red} orange={t.orange} blue={t.blue} />
-          <div className="flex flex-col gap-1 text-[10px] text-[var(--text-faint)]">
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" />
-              {t.red} high
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#f59e0b]" />
-              {t.orange} mid
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#3b82f6]" />
-              {t.blue} low
-            </span>
-          </div>
-        </div>
-        {tTotal === 0 && <span className="self-start text-[10px] text-[var(--text-faint)]">no tagged leads yet</span>}
-        <span className="self-start text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100">
-          open →
-        </span>
-      </div>
-
-      {/* mini lifecycle timeline, echoing the 06AM/11PM slider */}
-      <div className="relative mt-3 flex items-center gap-2 border-t border-[var(--border)] pt-3 text-[10px] text-[var(--text-faint)]">
-        <span>{formatDate(c.meta.start_date)}</span>
-        <span className="h-px flex-1 bg-[var(--border-strong)]" />
-        <span>{lastUpdated ? formatDate(lastUpdated) : "today"}</span>
-      </div>
-    </Link>
-  );
-}
-
 // Compact card for a NOT-currently-active campaign — name, spend and leads
 // only, all-time totals, no funnel donut/sparkline/sync badges. Always links
 // straight to /campaign/[id] with no month param: live-tracked campaigns
@@ -769,33 +398,23 @@ function InactiveCampaignCard({ row }: { row: InactiveCampaignRow }) {
   const tint = TYPE_COLOR[row.campaign_type];
   const href = `/campaign/${row.campaign_id}`;
   return (
-    <Link
-      href={href}
-      className="group panel relative block overflow-hidden p-3 transition-colors hover:border-[var(--border-strong)]"
-    >
+    <Link href={href} className="vantage-card relative block overflow-hidden p-3">
       <div className="relative mb-2 flex items-center gap-2">
         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: tint }} />
-        <p className="truncate text-xs font-semibold text-[var(--text)]">{row.property}</p>
+        <p className="truncate text-xs font-semibold text-[var(--vantage-text)]">{row.property}</p>
       </div>
       <div className="relative flex items-end justify-between gap-2">
         <div>
-          <p className="text-sm font-bold text-[var(--text)]">{formatCurrency(row.spend)}</p>
-          <p className="text-[9px] uppercase tracking-wide text-[var(--text-muted)]">spend</p>
+          <p className="text-sm font-bold text-[var(--vantage-text)]">{formatCurrency(row.spend)}</p>
+          <p className="text-[9px] uppercase tracking-wide text-[var(--vantage-text-muted)]">spend</p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-bold text-[var(--text)]">{row.leads === null ? "—" : formatNumber(row.leads)}</p>
-          <p className="text-[9px] uppercase tracking-wide text-[var(--text-muted)]">leads</p>
+          <p className="text-sm font-bold text-[var(--vantage-text)]">{row.leads === null ? "—" : formatNumber(row.leads)}</p>
+          <p className="text-[9px] uppercase tracking-wide text-[var(--vantage-text-muted)]">leads</p>
         </div>
       </div>
     </Link>
   );
-}
-
-// element-wise sum of a daily metric across campaigns (aligned from day 0)
-function mergeDaily(campaigns: { meta: { daily: { spend: number; leads: number }[] } }[], key: "spend" | "leads") {
-  const len = Math.max(0, ...campaigns.map((c) => c.meta.daily.length));
-  if (len < 2) return [0, 0];
-  return Array.from({ length: len }, (_, i) => campaigns.reduce((s, c) => s + (c.meta.daily[i]?.[key] ?? 0), 0));
 }
 
 interface LeaderRow {

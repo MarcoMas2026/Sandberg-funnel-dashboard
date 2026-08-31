@@ -411,6 +411,70 @@ export async function getCampaignDailyRows(campaignId: string, monthStart: strin
   }));
 }
 
+export interface DailyPortfolioPoint {
+  date: string;
+  leads: number;
+}
+
+// Total portfolio leads per calendar day across every campaign — active AND
+// inactive — for an arbitrary date range. Powers Mission Control's "Daily
+// leads trend" line chart (see components/vantage/MissionControlCharts.tsx).
+export async function getDailyPortfolioLeads(startDate: string, endDate: string): Promise<{ connected: boolean; rows: DailyPortfolioPoint[] }> {
+  const supabase = getClient();
+  if (!supabase) return { connected: false, rows: [] };
+  const { data, error } = await supabase
+    .from("funnel_daily_history")
+    .select("date, leads")
+    .gte("date", startDate)
+    .lte("date", endDate);
+  if (error || !data) return { connected: false, rows: [] };
+
+  const byDate = new Map<string, number>();
+  for (const r of data) {
+    byDate.set(r.date, (byDate.get(r.date) ?? 0) + Number(r.leads ?? 0));
+  }
+  const rows = Array.from(byDate, ([date, leads]) => ({ date, leads })).sort((a, b) => a.date.localeCompare(b.date));
+  return { connected: true, rows };
+}
+
+export interface CampaignLeadTotal {
+  campaign_id: string;
+  property: string;
+  campaign_type: string;
+  leads: number;
+}
+
+// Per-campaign lead totals for an arbitrary date range, across every
+// campaign that has rows in the window — active AND inactive/paused, unlike
+// the ACTIVE-only feeds elsewhere on Mission Control. Powers the "Lead count
+// by campaign" donut's 7/15/30-day toggle (see components/vantage/MissionControlCharts.tsx).
+export async function getCampaignLeadTotals(startDate: string, endDate: string): Promise<{ connected: boolean; rows: CampaignLeadTotal[] }> {
+  const supabase = getClient();
+  if (!supabase) return { connected: false, rows: [] };
+  const { data, error } = await supabase
+    .from("funnel_daily_history")
+    .select("campaign_id, property, campaign_type, leads")
+    .gte("date", startDate)
+    .lte("date", endDate);
+  if (error || !data) return { connected: false, rows: [] };
+
+  const byCampaign = new Map<string, CampaignLeadTotal>();
+  for (const r of data) {
+    const existing = byCampaign.get(r.campaign_id);
+    if (existing) {
+      existing.leads += Number(r.leads ?? 0);
+    } else {
+      byCampaign.set(r.campaign_id, {
+        campaign_id: r.campaign_id,
+        property: r.property,
+        campaign_type: r.campaign_type,
+        leads: Number(r.leads ?? 0),
+      });
+    }
+  }
+  return { connected: true, rows: Array.from(byCampaign.values()) };
+}
+
 // Shifts a (year, month) pair by `delta` calendar months (month is 1-indexed,
 // matching every other function in this file — see callers' `start.split("-")`
 // convention). Handles year rollover in either direction.

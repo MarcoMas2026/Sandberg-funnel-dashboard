@@ -1,5 +1,5 @@
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { DotsIcon } from "@/components/icons";
+import { DotsThree } from "@phosphor-icons/react";
 import { formatNumber, formatPercent } from "@/lib/format";
 
 // Impressions -> Video Plays -> Link Clicks -> Leads, each bar width proportional to its
@@ -30,7 +30,7 @@ export default function VideoFunnelPanel({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text)]">Video → lead funnel</h2>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
 

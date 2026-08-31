@@ -58,10 +58,10 @@ export default function PatternsPage() {
                           onMouseLeave={() => setHover(null)}
                           className="relative flex h-11 min-w-[76px] cursor-default items-center justify-center rounded-lg text-sm font-semibold transition-transform"
                           style={{
-                            background: `rgba(27,37,64,${0.05 + t * 0.65})`,
+                            background: `rgba(2,187,187,${0.05 + t * 0.65})`,
                             color: t > 0.4 ? "#ffffff" : "var(--text-muted)",
                             transform: isHover ? "scale(1.06)" : undefined,
-                            outline: isHover ? "1px solid rgba(27,37,64,0.5)" : undefined,
+                            outline: isHover ? "1px solid rgba(2,187,187,0.5)" : undefined,
                           }}
                         >
                           {v}

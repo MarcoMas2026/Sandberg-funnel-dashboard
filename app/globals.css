@@ -3,25 +3,26 @@
 @tailwind utilities;
 
 :root {
-  /* Soft glassmorphism light theme — frosted translucent cards, big radii,
-     soft ambient shadows instead of hard borders, neutral gray/black accent
-     (matches the shadcn-style hover-expand sidebar). */
-  --bg: #f5f5f5;
+  /* Vantage theme (see the Vantage redesign block further down) — rolled
+     out site-wide by retargeting these existing shared tokens rather than
+     hand-editing every page: flat cards, minimal radius, no shadows, no
+     blur, brandbook teal/gray palette. */
+  --bg: #f0f0f0;
   --bg-2: #fafafa;
-  --panel: rgba(255, 255, 255, 0.86);
-  --panel2: #f0f0f0;
-  --panel3: #e5e5e5;
-  --border: rgba(23, 23, 23, 0.06);
-  --border-strong: rgba(23, 23, 23, 0.12);
-  --text: #171717;
-  --text-muted: #6b7076;
-  --text-faint: #a3a3a3;
-  --accent: #171717;
-  --accent-2: #d4d4d4;
-  --radius-lg: 1.75rem;
-  --radius-md: 1.25rem;
-  --sidebar-bg: rgba(245, 245, 245, 0.9);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 20px 40px -16px rgba(0, 0, 0, 0.14);
+  --panel: #f5f4f7;
+  --panel2: #dee9e9;
+  --panel3: #c1dfdf;
+  --border: rgba(33, 52, 54, 0.08);
+  --border-strong: rgba(33, 52, 54, 0.16);
+  --text: #213436;
+  --text-muted: #848484;
+  --text-faint: #a8a8a8;
+  --accent: #2d4444;
+  --accent-2: #c1dfdf;
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --sidebar-bg: #f0f0f0;
+  --shadow-card: none;
 }
 
 html,
@@ -163,25 +164,9 @@ body {
 
 /* ---- Command-center shell ---- */
 
-/* ambient mesh — soft neutral wash */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(700px 460px at 14% -8%, rgba(0, 0, 0, 0.05), transparent 70%),
-    radial-gradient(800px 560px at 96% 10%, rgba(0, 0, 0, 0.035), transparent 70%),
-    radial-gradient(560px 640px at 55% 115%, rgba(0, 0, 0, 0.03), transparent 70%);
-  pointer-events: none;
-}
-
-/* faint grid texture on the shell */
-.shell-grid {
-  background-image: linear-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.025) 1px, transparent 1px);
-  background-size: 42px 42px;
-}
+/* .shell-grid previously carried a faint grid texture + body::before an
+   ambient radial wash — both removed: flat #f0f0f0 everywhere, no texture,
+   per the Vantage redesign (see CLAUDE.md). */
 
 /* glass panel variant */
 .glass {
@@ -200,6 +185,64 @@ body::before {
     --radius-lg: 1.15rem;
     --radius-md: 0.85rem;
   }
+}
+
+/* ---- Vantage redesign (Mission Control + Sidebar only, see CLAUDE.md) ----
+   Deliberately separate from --bg/--panel/--text above so the rest of the
+   app is untouched until its own redesign pass. Exact hex values are the
+   user's brandbook, not derived from the existing palette. */
+:root {
+  --vantage-bg: #f0f0f0;
+  --vantage-canvas: #dee9e9;
+  --vantage-card: #f5f4f7;
+  --vantage-icon-box: #c1dfdf;
+  --vantage-text: #213436;
+  --vantage-text-muted: #848484;
+  --vantage-accent: #2d4444;
+  --vantage-highlight-shadow: #747474;
+}
+
+.vantage-shell {
+  background: var(--vantage-bg);
+  color: var(--vantage-text);
+}
+
+/* The "Dashboard" canvas — the panel Mission Control's whole content sits
+   on, to the right of the sidebar. Cards inside it are the lighter tone so
+   they read as a distinct surface on top of it. Minimal rounding — a panel,
+   not a floating card. */
+.vantage-canvas {
+  background: var(--vantage-canvas);
+  color: var(--vantage-text);
+  border-radius: 0.75rem;
+}
+
+.vantage-card {
+  background: var(--vantage-card);
+  border-radius: 1rem;
+}
+
+/* Fully-rounded variant — the Insights ticker only. */
+.vantage-pill {
+  background: var(--vantage-card);
+  border-radius: 9999px;
+}
+
+.vantage-icon-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vantage-icon-box);
+  color: var(--vantage-text);
+  border-radius: 0.35rem;
+}
+
+/* Active sidebar nav item — same color as the sidebar itself; the shadow
+   alone is what lifts it off the surface (per brandbook: highlight
+   #f0f0f0, shadow #747474). */
+.vantage-nav-active {
+  background: var(--vantage-bg);
+  box-shadow: 0 2px 6px 0 rgba(116, 116, 116, 0.45);
 }
 
 /* staggered entrance */

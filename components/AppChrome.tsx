@@ -19,6 +19,10 @@ import { PublicViewProvider } from "@/lib/public-view-context";
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPublicView = pathname?.startsWith("/view/") ?? false;
+  // Mission Control's canvas is meant to fill the space next to the
+  // sidebar edge-to-edge (see CLAUDE.md's Vantage redesign) — every other
+  // page keeps the centered, width-capped reading layout.
+  const isMissionControl = pathname === "/";
 
   if (isPublicView) {
     return <>{children}</>;
@@ -28,10 +32,16 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
     <DashboardProvider>
       <PublicViewProvider>
         <MobileTopNav />
-        <div className="shell-grid flex min-h-screen gap-3 p-3">
+        <div className="shell-grid flex min-h-screen gap-3 pb-3 pr-3">
           <Sidebar />
           <div className="min-w-0 flex-1">
-            <main className="mx-auto max-w-[1440px] px-2 py-1 pt-20 md:pt-1 lg:px-5">
+            <main
+              className={
+                isMissionControl
+                  ? "py-1 pt-20 md:pt-3"
+                  : "mx-auto max-w-[1440px] px-2 py-1 pt-20 md:pt-3 lg:px-5"
+              }
+            >
               <Topbar />
               {children}
             </main>

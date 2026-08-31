@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { WhatsAppIcon } from "@/components/icons";
+import { WhatsappLogo } from "@phosphor-icons/react";
 import { CountUp } from "@/components/viz";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { WhatsAppAgentStats } from "@/lib/kv";
@@ -69,7 +69,7 @@ export default function WhatsAppPage() {
               {agents.map((a) => (
                 <tr key={a.slug} className="border-b border-[var(--border)] last:border-0">
                   <td className="flex items-center gap-2 px-5 py-3 font-medium text-[var(--text)]">
-                    <WhatsAppIcon className="h-4 w-4 text-[#25d366]" />
+                    <WhatsappLogo className="h-4 w-4 text-[#25d366]" />
                     {a.agent}
                   </td>
                   <td className="px-5 py-3 text-[var(--text-muted)]">{formatNumber(a.page_views)}</td>

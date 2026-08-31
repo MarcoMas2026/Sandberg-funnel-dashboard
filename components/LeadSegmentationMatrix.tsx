@@ -1,6 +1,6 @@
 import { LeadRecord } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { DotsIcon } from "@/components/icons";
+import { DotsThree } from "@phosphor-icons/react";
 
 const MAX_AXIS_VALUES = 4; // top N distinct raw values per axis, rest folded into "Other"
 const OTHER = "Other";
@@ -47,7 +47,7 @@ export default function LeadSegmentationMatrix({ leads }: { leads: LeadRecord[] 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text)]">Response map</h2>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
 
@@ -77,7 +77,7 @@ export default function LeadSegmentationMatrix({ leads }: { leads: LeadRecord[] 
                       <td key={s} className="p-1 text-center">
                         <div
                           className="mx-auto flex h-8 w-full min-w-[36px] items-center justify-center rounded-md font-semibold text-[var(--text)]"
-                          style={{ background: v > 0 ? `rgba(74, 87, 134, ${alpha})` : "var(--panel2)" }}
+                          style={{ background: v > 0 ? `rgba(2, 187, 187, ${alpha})` : "var(--panel2)" }}
                         >
                           {v > 0 ? v : ""}
                         </div>

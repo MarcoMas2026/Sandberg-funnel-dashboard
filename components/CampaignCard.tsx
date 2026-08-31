@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FunnelCampaign } from "@/lib/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
-import { HomeIcon } from "./icons";
+import { House } from "@phosphor-icons/react";
 
 export default function CampaignCard({ campaign }: { campaign: FunnelCampaign }) {
   const { meta } = campaign;
@@ -13,7 +13,7 @@ export default function CampaignCard({ campaign }: { campaign: FunnelCampaign })
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--panel2)] text-[var(--accent)]">
-            <HomeIcon className="h-5 w-5" />
+            <House className="h-5 w-5" />
           </span>
           <div>
             <p className="text-base font-semibold text-[var(--text)]">{campaign.property}</p>

@@ -1,83 +1,75 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, type ComponentType } from "react";
 import { usePathname } from "next/navigation";
-import { Settings, ChevronDown } from "lucide-react";
+import { GearSix, CaretDown, House, ArrowsClockwise } from "@phosphor-icons/react";
 import { useDashboard } from "@/lib/dashboard-context";
-import { Logo } from "./Logo";
-import { Sidebar as SidebarShell, DesktopSidebar, SidebarLink, useSidebar } from "./ui/sidebar";
+import { Sidebar as SidebarShell, DesktopSidebar } from "./ui/sidebar";
 import { NAV_ITEMS, NAV_GROUPS } from "@/lib/nav";
 import { formatDate } from "@/lib/format";
-import { motion, AnimatePresence } from "framer-motion";
 import SettingsPanel from "./SettingsPanel";
 
-// Mirrors the aceternity sidebar demo's shape/colors exactly: bg-neutral-100
-// (dark:neutral-800) body, rounded-md, neutral-200 border, gap-10, plain
-// neutral-700/200 link text — same box the shared component ships with.
-// Desktop (md+) only — mobile uses MobileTopNav instead (see app/layout.tsx).
+// Sidebar is always expanded (see CLAUDE.md / user request) — no
+// hover-to-open collapse. `open` is fixed true and `animate` is off so the
+// shared aceternity-style shell never tries to shrink to the 60px rail.
 export default function Sidebar() {
   const pathname = usePathname();
   const { data } = useDashboard();
-  const firstCampaignId = data?.campaigns?.[0]?.campaign_id;
+  const activeCampaigns = (data?.campaigns ?? []).filter((c) => c.status === "ACTIVE" && c.campaign_type === "property");
 
-  const resolveHref = (href: string) => (href === "/campaign" ? (firstCampaignId ? `/campaign/${firstCampaignId}` : "/") : href);
   const isActive = (item: { href: string; exact?: boolean }) => (item.exact ? pathname === item.href : pathname.startsWith(item.href));
   const itemByHref = (href: string) => NAV_ITEMS.find((i) => i.href === href)!;
 
   return (
-    <div className="hidden shrink-0 md:sticky md:top-3 md:block md:h-[calc(100vh-1.5rem)]">
-      <SidebarShell>
-        <DesktopSidebar className="justify-between gap-10 rounded-md border border-neutral-200 dark:border-neutral-700 md:h-full">
-          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
+    <div className="hidden shrink-0 md:sticky md:top-0 md:block md:h-screen">
+      <SidebarShell open={true} setOpen={() => {}} animate={false}>
+        <DesktopSidebar className="vantage-shell justify-between gap-10 rounded-none md:h-full">
+          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto pl-2">
             <BrandLogo />
-            <div className="mt-8 flex flex-col gap-2">
-              {NAV_GROUPS.map((entry) => {
-                if (entry.kind === "item") {
-                  const item = itemByHref(entry.href);
-                  const href = resolveHref(item.href);
-                  const active = isActive(item);
-                  const Icon = item.icon;
-                  return (
-                    <SidebarLink
-                      key={item.href}
-                      link={{
-                        label: item.label,
-                        href,
-                        icon: <Icon className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />,
-                      }}
-                      className={active ? "font-semibold" : undefined}
-                    />
-                  );
-                }
+            <div className="mt-8 flex flex-col gap-1">
+              <NavRow href="/" label={itemByHref("/").label} Icon={itemByHref("/").icon} active={pathname === "/"} />
 
-                const children = entry.hrefs.map((href) => itemByHref(href));
-                const groupActive = children.some((c) => isActive(c));
+              <SidebarDivider />
+
+              <SectionLabel label="Campaigns" />
+              {activeCampaigns.length === 0 ? (
+                <p className="px-2 py-1.5 text-xs text-[var(--vantage-text-muted)]">No active campaigns</p>
+              ) : (
+                activeCampaigns.map((c) => {
+                  const href = `/campaign/${c.campaign_id}`;
+                  return (
+                    <NavRow key={c.campaign_id} href={href} label={c.property} Icon={House} active={pathname === href} />
+                  );
+                })
+              )}
+
+              <SidebarDivider />
+
+              {NAV_GROUPS.filter((e) => e.kind === "group").map((entry, i, arr) => {
+                if (entry.kind !== "group") return null;
                 return (
-                  <NavGroupRow
-                    key={entry.label}
-                    label={entry.label}
-                    Icon={entry.icon}
-                    active={groupActive}
-                    defaultOpen={groupActive}
-                  >
-                    {children.map((item) => {
-                      const href = resolveHref(item.href);
-                      const active = isActive(item);
-                      const Icon = item.icon;
-                      return (
-                        <SidebarLink
-                          key={item.href}
-                          link={{
-                            label: item.label,
-                            href,
-                            icon: <Icon className="h-4 w-4 shrink-0 text-neutral-700 dark:text-neutral-200" />,
-                          }}
-                          className={active ? "font-semibold" : undefined}
-                        />
-                      );
+                  <div key={entry.label} className="contents">
+                    <SectionLabel label={entry.label} />
+                    {entry.hrefs.map((href) => {
+                      const item = itemByHref(href);
+                      return <NavRow key={href} href={href} label={item.label} Icon={item.icon} active={isActive(item)} />;
                     })}
-                  </NavGroupRow>
+                    {i < arr.length - 1 && <SidebarDivider />}
+                  </div>
+                );
+              })}
+
+              <SidebarDivider />
+
+              {["insights", "social"].map((href, i) => {
+                const item = itemByHref(`/${href}`);
+                return (
+                  <div key={item.href} className="contents">
+                    <NavRow href={item.href} label={item.label} Icon={item.icon} active={isActive(item)} />
+                    {i === 0 && <SidebarDivider />}
+                  </div>
                 );
               })}
             </div>
@@ -90,140 +82,91 @@ export default function Sidebar() {
   );
 }
 
-function NavGroupRow({
+function SidebarDivider() {
+  return <div className="my-2 h-px bg-[rgba(33,52,54,0.1)]" />;
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return <p className="mt-3 px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--vantage-text-muted)]">{label}</p>;
+}
+
+function NavRow({
+  href,
   label,
   Icon,
   active,
-  defaultOpen,
-  children,
 }: {
+  href: string;
   label: string;
-  Icon: ComponentType<{ className?: string }>;
+  Icon?: ComponentType<{ className?: string }>;
   active: boolean;
-  defaultOpen: boolean;
-  children: React.ReactNode;
 }) {
-  const { open: sidebarOpen } = useSidebar();
-  const [expanded, setExpanded] = useState(defaultOpen);
-
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className={`group/sidebar flex w-full items-center gap-2 py-2 text-sm ${active ? "font-semibold" : ""} text-neutral-700 dark:text-neutral-200`}
-      >
-        <Icon className="h-5 w-5 shrink-0" />
-        <motion.span
-          animate={{ display: sidebarOpen ? "inline-block" : "none", opacity: sidebarOpen ? 1 : 0 }}
-          className="flex-1 whitespace-pre text-left transition duration-150 group-hover/sidebar:translate-x-1"
-        >
-          {label}
-        </motion.span>
-        {sidebarOpen && (
-          <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
-        )}
-      </button>
-      <AnimatePresence initial={false}>
-        {expanded && sidebarOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="ml-4 flex flex-col gap-1 overflow-hidden border-l border-neutral-200 pl-3 dark:border-neutral-700"
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function BrandLogo() {
-  const { open } = useSidebar();
-  return (
-    <Link href="/" className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal">
-      <span className="flex h-5 w-6 shrink-0 items-center justify-center rounded-br-lg rounded-tl-lg rounded-tr-sm rounded-bl-sm bg-black dark:bg-white">
-        <Logo className="h-3 w-3 text-white dark:text-black" />
-      </span>
-      {open && (
-        <motion.span
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="whitespace-pre font-medium text-black dark:text-white"
-        >
-          Sandberg Estates
-        </motion.span>
-      )}
+    <Link
+      href={href}
+      className={`mr-3 flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-[var(--vantage-text)] ${
+        active ? "vantage-nav-active font-semibold" : ""
+      }`}
+    >
+      {Icon ? <Icon className="h-4 w-4 shrink-0" /> : <span className="w-4 shrink-0" />}
+      <span className="whitespace-pre">{label}</span>
     </Link>
   );
 }
 
+function BrandLogo() {
+  return (
+    <div className="flex flex-col gap-3 py-1">
+      <Link href="/" className="block w-7">
+        <Image src="/brand/vantage-logo.svg" alt="Vantage" width={28} height={28} priority />
+      </Link>
+      <button
+        type="button"
+        className="flex items-center gap-1.5 self-start text-[13px] font-medium text-[var(--vantage-text)]"
+      >
+        Sandberg Estates
+        <CaretDown className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 function SidebarFooter() {
-  const { open } = useSidebar();
   const { data, updating, error, triggerUpdate } = useDashboard();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1">
       <button
         onClick={() => setSettingsOpen(true)}
         aria-label="Settings"
-        className="group/sidebar flex items-center gap-2 py-2"
+        className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-[13px] text-[var(--vantage-text)]"
       >
-        <Settings className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
-        <motion.span
-          animate={{ display: open ? "inline-block" : "none", opacity: open ? 1 : 0 }}
-          className="whitespace-pre text-sm text-neutral-700 transition duration-150 group-hover/sidebar:translate-x-1 dark:text-neutral-200"
-        >
-          Settings
-        </motion.span>
+        <GearSix className="h-4 w-4 shrink-0" />
+        <span className="whitespace-pre">Settings</span>
       </button>
       <button
         onClick={triggerUpdate}
         disabled={updating}
         aria-label="Update data"
-        className="group/sidebar flex items-center gap-2 py-2 disabled:opacity-60"
+        className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-[13px] text-[var(--vantage-text)] disabled:opacity-60"
       >
         {updating ? (
-          <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700 dark:border-neutral-600 dark:border-t-neutral-200" />
+          <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[var(--vantage-icon-box)] border-t-[var(--vantage-text)]" />
         ) : (
-          <SyncIcon className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+          <ArrowsClockwise className="h-4 w-4 shrink-0" />
         )}
-        <motion.span
-          animate={{ display: open ? "inline-block" : "none", opacity: open ? 1 : 0 }}
-          className="whitespace-pre text-sm text-neutral-700 transition duration-150 group-hover/sidebar:translate-x-1 dark:text-neutral-200"
-        >
-          {updating ? "Syncing…" : "Update Data"}
-        </motion.span>
+        <span className="whitespace-pre">{updating ? "Syncing…" : "Update Data"}</span>
       </button>
-      <div className="flex items-center gap-2 py-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-          <span
-            className={`h-2.5 w-2.5 shrink-0 rounded-full ${error ? "bg-amber-400" : "pulse-dot bg-emerald-400"}`}
-          />
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${error ? "bg-amber-500" : "pulse-dot bg-emerald-500"}`} />
         </span>
-        <motion.span
-          animate={{ display: open ? "inline-block" : "none", opacity: open ? 1 : 0 }}
-          className={`whitespace-pre text-sm ${error ? "text-amber-600 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-200"}`}
-        >
-          {error
-            ? error
-            : data?.last_updated
-              ? `Synced ${formatDate(data.last_updated)}`
-              : "Pipeline operational"}
-        </motion.span>
+        <span className={`whitespace-pre text-[13px] ${error ? "text-amber-600" : "text-[var(--vantage-text)]"}`}>
+          {error ? error : data?.last_updated ? `Synced ${formatDate(data.last_updated)}` : "Pipeline operational"}
+        </span>
       </div>
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
-  );
-}
-
-function SyncIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
-    </svg>
   );
 }

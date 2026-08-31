@@ -15,6 +15,9 @@ const LABELS: Record<string, string> = {
 
 export default function Topbar() {
   const pathname = usePathname();
+  // Mission Control has its own inline header (greeting + month tabs +
+  // search) matching the Vantage redesign — no separate breadcrumb bar there.
+  if (pathname === "/") return null;
   const segments = pathname.split("/").filter(Boolean);
   const section = segments[0] ?? "";
   const label = LABELS[section] ?? "Mission Control";

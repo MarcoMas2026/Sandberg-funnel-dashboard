@@ -1,7 +1,7 @@
 import { ClarityMetrics } from "@/lib/types";
 import { formatNumber } from "@/lib/format";
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { DotsIcon } from "@/components/icons";
+import { DotsThree } from "@phosphor-icons/react";
 
 // Mirrors Clarity's "Users overview" card. Two of its rows — Live users (real-time) and
 // the new-vs-returning session split — aren't exposed by Clarity's Data Export API at all
@@ -13,7 +13,7 @@ export default function ClarityUsersOverviewPanel({ clarity }: { clarity: Clarit
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text)]">Users Overview</h2>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
 

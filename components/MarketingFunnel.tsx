@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { FunnelCampaign } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
-import { DotsIcon, FunnelIcon } from "./icons";
+import { DotsThree, Funnel } from "@phosphor-icons/react";
 import { GlowPanel } from "@/components/ui/glow-panel";
 
 // ---- geometry (SVG user units; scales to the panel) ----
@@ -17,7 +17,7 @@ const N = 5;
 
 // light → near-black progression (top of funnel is a glance, the qualified
 // lead at the bottom is the highest-contrast, most emphasized stage)
-const HUES = ["#c7cfe0", "#98a3c9", "#6e7aab", "#4a5786", "#1b2540"];
+const HUES = ["#c1dfdf", "#91d6d6", "#62cdcd", "#32c4c4", "#02bbbb"];
 
 // boundary widths: clean, always-narrowing silhouette (magnitude lives in the
 // numbers + conversion %, so a 0-value stage never breaks the shape).
@@ -94,12 +94,12 @@ export default function MarketingFunnel({
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-[var(--accent)]">
-            <FunnelIcon className="h-4 w-4" />
+            <Funnel className="h-4 w-4" />
           </span>
           <h2 className="text-sm font-semibold text-[var(--text)]">Marketing Funnel</h2>
         </div>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
 
@@ -146,7 +146,7 @@ export default function MarketingFunnel({
                 y1={PAD_TOP}
                 x2={CX + dx}
                 y2={PAD_TOP + SEG_H * N}
-                stroke="#6e7aab"
+                stroke="#02bbbb"
                 strokeWidth={1.4}
                 strokeOpacity={0.4}
                 strokeDasharray="2 10"

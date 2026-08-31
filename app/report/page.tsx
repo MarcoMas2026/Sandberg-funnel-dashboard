@@ -164,7 +164,7 @@ export default function MetaAdsReportPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <OverviewCard
               label="Total Spend"
-              accent="#2f3b63"
+              accent="#02bbbb"
               value={<CountUp value={portfolio.current.spend} format={(v) => formatCurrency(v)} />}
               momPct={portfolio.deltaVsPreviousMonth.spendPct}
               yoyPct={portfolio.deltaVsPreviousYear.spendPct}
@@ -172,7 +172,7 @@ export default function MetaAdsReportPage() {
             />
             <OverviewCard
               label="Leads (submissions)"
-              accent="#4a5786"
+              accent="#02bbbb"
               value={<CountUp value={portfolio.current.leads} format={(v) => formatNumber(v)} />}
               momPct={portfolio.deltaVsPreviousMonth.leadsPct}
               yoyPct={portfolio.deltaVsPreviousYear.leadsPct}
@@ -180,7 +180,7 @@ export default function MetaAdsReportPage() {
             />
             <OverviewCard
               label="Avg Cost / Lead"
-              accent="#98a3c9"
+              accent="#c1dfdf"
               value={<CountUp value={portfolio.current.cpl ?? 0} format={(v) => formatCurrency(v, 2)} />}
               momPct={portfolio.deltaVsPreviousMonth.cplPct}
               yoyPct={portfolio.deltaVsPreviousYear.cplPct}
@@ -438,14 +438,14 @@ function DailyCampaignChart({
             <XAxis
               dataKey="day"
               stroke="transparent"
-              tick={{ fill: "#5b6579", fontSize: 11 }}
+              tick={{ fill: "#848484", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
             />
             <YAxis
               stroke="transparent"
-              tick={{ fill: "#5b6579", fontSize: 11 }}
+              tick={{ fill: "#848484", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               width={56}

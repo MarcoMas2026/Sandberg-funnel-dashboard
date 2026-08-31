@@ -1,6 +1,6 @@
 import { ClarityMetrics } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { DotsIcon } from "@/components/icons";
+import { DotsThree } from "@phosphor-icons/react";
 
 // Clarity's four built-in friction signals (Rage/Dead clicks, Excessive scrolling,
 // Quickbacks), each with % of sessions and a derived session count. Always renders —
@@ -18,7 +18,7 @@ export default function ClarityInsightsPanel({ clarity }: { clarity: ClarityMetr
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text)]">Insights</h2>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
       <div className="grid grid-cols-2 gap-3">

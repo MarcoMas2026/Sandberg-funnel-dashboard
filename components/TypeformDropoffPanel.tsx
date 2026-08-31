@@ -1,5 +1,5 @@
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { DotsIcon } from "@/components/icons";
+import { DotsThree } from "@phosphor-icons/react";
 import { formatNumber } from "@/lib/format";
 
 // Views -> Starts -> Completions is the real drop-off funnel we can build today.
@@ -27,7 +27,7 @@ export default function TypeformDropoffPanel({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text)]">Form drop-off</h2>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
 

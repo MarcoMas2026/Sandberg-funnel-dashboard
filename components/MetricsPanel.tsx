@@ -22,7 +22,7 @@ import {
   formatPercent,
   shortDay,
 } from "@/lib/format";
-import { CplIcon, CtrIcon, DotsIcon, LeadIcon, PieIcon, SpendIcon, TargetIcon } from "./icons";
+import { Funnel, CursorClick, DotsThree, UserPlus, ChartPie, ChartBar, Target } from "@phosphor-icons/react";
 import { GlowPanel } from "@/components/ui/glow-panel";
 import { LeadQualityBar } from "@/components/viz";
 import { Pinnable } from "@/components/Pinnable";
@@ -35,7 +35,7 @@ interface TagCounts {
 
 const axis = {
   stroke: "transparent",
-  tick: { fill: "#5b6579", fontSize: 10 },
+  tick: { fill: "#848484", fontSize: 10 },
   tickLine: false,
   axisLine: false,
 };
@@ -77,11 +77,11 @@ export default function MetricsPanel({
 
   return (
     <GlowPanel className="panel p-5">
-      <PanelHeader icon={<PieIcon className="h-4 w-4" />} title="Metrics" />
+      <PanelHeader icon={<ChartPie className="h-4 w-4" />} title="Metrics" />
 
       <div className="mt-2 divide-y divide-[var(--border)]">
         <MetricBlock
-          icon={<LeadIcon className="h-4 w-4" />}
+          icon={<UserPlus className="h-4 w-4" />}
           name="Leads per day"
           value={formatNumber(meta.leads)}
         >
@@ -89,8 +89,8 @@ export default function MetricsPanel({
             <BarChart data={data} margin={{ top: 6, right: 4, left: -28, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad-leads" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2f3b63" />
-                  <stop offset="100%" stopColor="#8b93a6" />
+                  <stop offset="0%" stopColor="#02bbbb" />
+                  <stop offset="100%" stopColor="#c1dfdf" />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray="2 4" vertical horizontal={false} />
@@ -103,7 +103,7 @@ export default function MetricsPanel({
         </MetricBlock>
 
         <MetricBlock
-          icon={<SpendIcon className="h-4 w-4" />}
+          icon={<ChartBar className="h-4 w-4" />}
           name="Spend per day"
           value={formatCurrency(meta.spend)}
         >
@@ -111,8 +111,8 @@ export default function MetricsPanel({
             <BarChart data={data} margin={{ top: 6, right: 4, left: -28, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad-spend" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4a5786" />
-                  <stop offset="100%" stopColor="#98a3c9" />
+                  <stop offset="0%" stopColor="#02bbbb" />
+                  <stop offset="100%" stopColor="#c1dfdf" />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray="2 4" vertical horizontal={false} />
@@ -125,7 +125,7 @@ export default function MetricsPanel({
         </MetricBlock>
 
         <MetricBlock
-          icon={<CplIcon className="h-4 w-4" />}
+          icon={<Funnel className="h-4 w-4" />}
           name="Cost per lead"
           value={formatCurrency(meta.cpl, 2)}
         >
@@ -133,8 +133,8 @@ export default function MetricsPanel({
             <AreaChart data={data} margin={{ top: 6, right: 4, left: -28, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad-cpl" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#1b2540" stopOpacity={0.45} />
-                  <stop offset="100%" stopColor="#1b2540" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#02bbbb" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#02bbbb" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="rgba(0,0,0,0.06)" strokeDasharray="2 4" vertical horizontal={false} />
@@ -144,7 +144,7 @@ export default function MetricsPanel({
               <Area
                 type="monotone"
                 dataKey="cplLine"
-                stroke="#1b2540"
+                stroke="#02bbbb"
                 strokeWidth={2}
                 fill="url(#grad-cpl)"
                 connectNulls
@@ -164,7 +164,7 @@ export default function MetricsPanel({
 
         <Pinnable type="campaign-outbound-ctr" campaignId={campaignId}>
           <MetricBlock
-            icon={<CtrIcon className="h-4 w-4" />}
+            icon={<CursorClick className="h-4 w-4" />}
             name="Unique Outbound CTR"
             value={formatPercent(meta.outbound_ctr, 2)}
           >
@@ -175,9 +175,9 @@ export default function MetricsPanel({
                 <YAxis dataKey="ctr" {...axis} width={36} unit="%" />
                 <ZAxis range={[10, 10]} />
                 <Tooltip {...tooltipStyle()} formatter={(v: number) => `${v}%`} />
-                <Scatter data={data} fill="#4a5786">
+                <Scatter data={data} fill="#02bbbb">
                   {data.map((_, i) => (
-                    <Cell key={i} fill="#6e7aab" />
+                    <Cell key={i} fill="#c1dfdf" />
                   ))}
                 </Scatter>
               </ScatterChart>
@@ -189,7 +189,7 @@ export default function MetricsPanel({
           <div className="py-4 first:pt-3">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2 text-[var(--text-muted)]">
-                <TargetIcon className="h-4 w-4" />
+                <Target className="h-4 w-4" />
                 <span className="text-sm text-[var(--text)]">Lead Qualification</span>
               </div>
               <span className="text-sm font-semibold text-[var(--text)]">
@@ -232,7 +232,7 @@ function PanelHeader({ icon, title }: { icon: React.ReactNode; title: string }) 
         <h2 className="text-sm font-semibold text-[var(--text)]">{title}</h2>
       </div>
       <button className="icon-btn" aria-label="Options" disabled>
-        <DotsIcon className="h-4 w-4" />
+        <DotsThree className="h-4 w-4" />
       </button>
     </div>
   );

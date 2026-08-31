@@ -20,7 +20,7 @@ import LeadSegmentationMatrix from "@/components/LeadSegmentationMatrix";
 import LeadsDailyPanel from "@/components/LeadsDailyPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import LayerMenu from "@/components/LayerMenu";
-import { ArrowLeftIcon, DotsIcon, FunnelIcon, InsightIcon } from "@/components/icons";
+import { ArrowLeft, DotsThree, Funnel, Lightbulb } from "@phosphor-icons/react";
 
 // Capitalizes a raw Meta breakdown value ("mobile_app" -> "Mobile app").
 function humanize(s: string): string {
@@ -54,7 +54,7 @@ function gridConclusion(layerNum: number, campaign: FunnelCampaign, leads: LeadR
     const total = rows.reduce((s, r) => s + r.impressions, 0);
     if (!rows.length || total <= 0) return null;
     const top = [...rows].sort((a, b) => b.impressions - a.impressions)[0];
-    return `${humanize(top.platform ?? "unknown")} drives ${formatPercent(top.impressions / total, 0)} of impressions (€${top.spend.toFixed(2)} spent there)`;
+    return `${humanize(top.platform ?? "unknown")} drives ${formatPercent(top.impressions / total, 0)} of impressions (${top.spend.toFixed(2)}€ spent there)`;
   }
   if (layerNum === 2) {
     const rows = meta.by_platform.filter((r) => r.impressions > 0);
@@ -102,7 +102,7 @@ function ConclusionBadge({ text }: { text: string }) {
   return (
     <div className="flex items-center gap-1.5 rounded-full bg-[var(--panel2)] px-3 py-1.5 text-center text-[11px] text-[var(--text)]">
       <span className="shrink-0 text-[var(--accent)]">
-        <InsightIcon className="h-3.5 w-3.5" />
+        <Lightbulb className="h-3.5 w-3.5" />
       </span>
       {text}
     </div>
@@ -174,13 +174,13 @@ export default function LayerPage({ params }: { params: { id: string; layerId: s
             aria-label={`Back to ${campaign.property}`}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--panel2)] text-[var(--text-muted)] transition-colors hover:bg-[var(--panel3)] hover:text-[var(--text)]"
           >
-            <ArrowLeftIcon className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <p className="text-xs text-[var(--text-muted)]">{campaign.property}</p>
             <div className="mt-0.5 flex items-center gap-2">
               <span className="text-[var(--accent)]">
-                <FunnelIcon className="h-4 w-4" />
+                <Funnel className="h-4 w-4" />
               </span>
               <h1 className="text-lg font-semibold text-[var(--text)]">{meta.name}</h1>
               <span className="text-xs uppercase tracking-wide text-[var(--text-faint)]">{meta.sub}</span>
@@ -287,7 +287,7 @@ function RightPanel({
           device={meta.by_device}
           metric="impressions"
           formatValue={formatNumber}
-          secondary={(r) => `€${r.spend.toFixed(2)}`}
+          secondary={(r) => `${r.spend.toFixed(2)}€`}
           fixedView="platform"
           note="Shown as period totals, a true day-by-day trend per platform needs a Meta Sync workflow change to fetch breakdowns with time_increment, not fetched today."
         />
@@ -297,7 +297,7 @@ function RightPanel({
           device={meta.by_device}
           metric="impressions"
           formatValue={formatNumber}
-          secondary={(r) => `€${r.spend.toFixed(2)}`}
+          secondary={(r) => `${r.spend.toFixed(2)}€`}
           fixedView="device"
           note="Shown as period totals, a true day-by-day trend per device needs the same Meta Sync workflow change, not fetched today."
         />
@@ -414,7 +414,7 @@ function StatPanel({ title, children }: { title: string; children: React.ReactNo
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text)]">{title}</h2>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
       <div className="space-y-3">{children}</div>

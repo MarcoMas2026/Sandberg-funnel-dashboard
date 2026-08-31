@@ -39,7 +39,7 @@ export default function StoriesPage() {
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} width={50} />
                 <Tooltip formatter={(v: number) => formatNumber(v)} />
-                <Line type="monotone" dataKey="views" stroke="#1b2540" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="views" stroke="#02bbbb" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -51,7 +51,7 @@ export default function StoriesPage() {
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} width={30} allowDecimals={false} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#4a5786" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="count" fill="#02bbbb" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

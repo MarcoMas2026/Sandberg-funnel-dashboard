@@ -53,7 +53,7 @@ export default function CompetitorsPage() {
                     <XAxis dataKey="label" tick={{ fontSize: 9 }} />
                     <YAxis hide domain={["dataMin", "dataMax"]} />
                     <Tooltip formatter={(v: number) => formatNumber(v)} />
-                    <Line type="monotone" dataKey="followers" stroke="#4a5786" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="followers" stroke="#02bbbb" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               )}

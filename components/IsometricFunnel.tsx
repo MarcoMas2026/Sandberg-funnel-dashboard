@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FunnelCampaign } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
-import { DotsIcon, FunnelIcon } from "./icons";
+import { DotsThree, Funnel } from "@phosphor-icons/react";
 import { GlowPanel } from "@/components/ui/glow-panel";
 
 // ───────────────────────── static layers: exact reference replication ─────────────────────────
@@ -233,12 +233,12 @@ export default function IsometricFunnel({
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-[var(--accent)]">
-            <FunnelIcon className="h-4 w-4" />
+            <Funnel className="h-4 w-4" />
           </span>
           <h2 className="text-sm font-semibold text-[var(--text)]">Isometric Funnel</h2>
         </div>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
 

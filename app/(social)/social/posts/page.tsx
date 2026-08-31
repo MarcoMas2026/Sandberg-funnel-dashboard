@@ -181,7 +181,7 @@ function HeatmapGrid({ cells }: { cells: HeatmapData["cells"] }) {
                   key={hour}
                   title={cell ? `${label} ${hour}:00 — avg reach ${Math.round(cell.avgReach)} (n=${cell.sampleSize})` : ""}
                   className="aspect-square rounded-sm"
-                  style={{ backgroundColor: `rgba(27,37,64,${0.08 + intensity * 0.85})` }}
+                  style={{ backgroundColor: `rgba(2,187,187,${0.08 + intensity * 0.85})` }}
                 />
               );
             })}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatCurrency, formatNumber } from "@/lib/format";
-import { CurveIcon } from "@/components/icons";
+import { ChartLineUp } from "@phosphor-icons/react";
 import { GlowPanel } from "@/components/ui/glow-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MultipleSelect, TTag } from "@/components/ui/multiple-select";
@@ -178,7 +178,7 @@ export default function CurvePage() {
             <div className="mb-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-[var(--accent)]">
-                  <CurveIcon className="h-4 w-4" />
+                  <ChartLineUp className="h-4 w-4" />
                 </span>
                 <AnimatePresence mode="wait">
                   <motion.h2
@@ -224,14 +224,14 @@ export default function CurvePage() {
                           dataKey="day"
                           tickFormatter={(d) => `Day ${d}`}
                           stroke="transparent"
-                          tick={{ fill: "#5b6579", fontSize: 11 }}
+                          tick={{ fill: "#848484", fontSize: 11 }}
                           tickLine={false}
                           axisLine={false}
                           interval="preserveStartEnd"
                         />
                         <YAxis
                           stroke="transparent"
-                          tick={{ fill: "#5b6579", fontSize: 11 }}
+                          tick={{ fill: "#848484", fontSize: 11 }}
                           tickLine={false}
                           axisLine={false}
                           width={56}

@@ -1,7 +1,7 @@
 import { LandingEngagement } from "@/lib/types";
 import { formatNumber } from "@/lib/format";
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { DotsIcon } from "@/components/icons";
+import { DotsThree } from "@phosphor-icons/react";
 
 // Mirrors Clarity's "Smart events" panel, but sourced from OUR OWN landing:funnel pipeline
 // rather than Clarity's API — custom event data isn't exposed by Clarity's Data Export API
@@ -14,7 +14,7 @@ export default function ClaritySmartEventsPanel({ engagement }: { engagement: La
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text)]">Smart Events</h2>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
       <div className="max-h-72 space-y-1 overflow-y-auto pr-1">

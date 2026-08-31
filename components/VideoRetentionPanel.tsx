@@ -1,5 +1,5 @@
 import { GlowPanel } from "@/components/ui/glow-panel";
-import { DotsIcon } from "@/components/icons";
+import { DotsThree } from "@phosphor-icons/react";
 
 // Retention/drop-off curve per video — the shape (not just the average) is the real
 // diagnostic (early drop = hook problem, mid bleed = pacing, late cliff = CTA/length).
@@ -12,7 +12,7 @@ export default function VideoRetentionPanel() {
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text)]">Video retention</h2>
         <button className="icon-btn" aria-label="Options" disabled>
-          <DotsIcon className="h-4 w-4" />
+          <DotsThree className="h-4 w-4" />
         </button>
       </div>
 

@@ -36,7 +36,7 @@ export function Sparkline({
   data,
   width = 120,
   height = 34,
-  stroke = "#4a5786",
+  stroke = "#02bbbb",
   fill = true,
   markers = false,
   peakLabel,
