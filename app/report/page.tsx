@@ -206,24 +206,6 @@ export default function MetaAdsReportPage() {
     return buildNarrative(payload.portfolio, payload.campaigns, monthLabel, liveInsights, crmWinSummary);
   }, [payload, monthLabel, liveInsights, crmWinSummary]);
 
-  // Biggest cost-per-lead movers for the "This Month vs Last Month" section —
-  // only campaigns that ran in both this month and the previous one have a
-  // delta at all (e.g. a month whose whole roster rotated in from a
-  // different set of properties has none, and the section says so).
-  const movers = useMemo(() => {
-    const withDelta = (payload?.campaigns ?? []).filter((c) => c.deltaCplPct !== null);
-    return {
-      best: withDelta
-        .filter((c) => c.deltaCplPct! < 0)
-        .sort((a, b) => a.deltaCplPct! - b.deltaCplPct!)
-        .slice(0, 3),
-      worst: withDelta
-        .filter((c) => c.deltaCplPct! > 0)
-        .sort((a, b) => b.deltaCplPct! - a.deltaCplPct!)
-        .slice(0, 3),
-    };
-  }, [payload]);
-
   // Every campaign with spend in the selected month — the line set for the
   // two daily-performance charts below. Sourced from payload.campaigns (same
   // set the breakdown table shows) rather than a separate query.
@@ -451,64 +433,6 @@ export default function MetaAdsReportPage() {
                 </div>
               </GlowPanel>
             )}
-
-            {/* month-over-month comparison — third box on the same centered page as the two above */}
-            {(portfolio.previousMonth.spend > 0 || portfolio.previousMonth.leads > 0) && (
-              <GlowPanel wrapperClassName="fade-up" className="panel p-5">
-                <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">This Month vs Last Month</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 print:grid-cols-3">
-                  <ComparisonStat
-                    label="Total Spend"
-                    current={portfolio.current.spend}
-                    previous={portfolio.previousMonth.spend}
-                    deltaPct={portfolio.deltaVsPreviousMonth.spendPct}
-                    format={(v) => formatCurrency(v)}
-                    goodWhenUp
-                  />
-                  <ComparisonStat
-                    label="Leads"
-                    current={portfolio.current.leads}
-                    previous={portfolio.previousMonth.leads}
-                    deltaPct={portfolio.deltaVsPreviousMonth.leadsPct}
-                    format={(v) => formatNumber(v)}
-                    goodWhenUp
-                  />
-                  <ComparisonStat
-                    label="Avg Cost / Lead"
-                    current={portfolio.current.cpl ?? 0}
-                    previous={portfolio.previousMonth.cpl ?? 0}
-                    deltaPct={portfolio.deltaVsPreviousMonth.cplPct}
-                    format={(v) => formatCurrency(v, 2)}
-                    goodWhenUp={false}
-                  />
-                </div>
-
-                {movers.best.length === 0 && movers.worst.length === 0 ? (
-                  <p className="mt-6 text-xs text-[var(--text-faint)]">
-                    No campaigns ran in both {monthLabel} and the previous month to compare cost-per-lead movement directly.
-                  </p>
-                ) : (
-                  <div className="mt-6 grid gap-6 md:grid-cols-2 print:grid-cols-2">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400">Biggest cost-per-lead improvers</p>
-                      {movers.best.length === 0 ? (
-                        <p className="mt-2 text-xs text-[var(--text-faint)]">None this month.</p>
-                      ) : (
-                        movers.best.map((c) => <MoverRow key={c.campaign_id} c={c} />)
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-red-400">Biggest cost-per-lead drops</p>
-                      {movers.worst.length === 0 ? (
-                        <p className="mt-2 text-xs text-[var(--text-faint)]">None this month.</p>
-                      ) : (
-                        movers.worst.map((c) => <MoverRow key={c.campaign_id} c={c} />)
-                      )}
-                    </div>
-                  </div>
-                )}
-              </GlowPanel>
-            )}
           </div>
 
           {/* full per-campaign detail — any month with snapshot detail. print-section-start
@@ -661,55 +585,6 @@ function OverviewCard({
         )}
       </div>
     </GlowPanel>
-  );
-}
-
-function ComparisonStat({
-  label,
-  current,
-  previous,
-  deltaPct,
-  format,
-  goodWhenUp,
-}: {
-  label: string;
-  current: number;
-  previous: number;
-  deltaPct: number | null;
-  format: (v: number) => string;
-  goodWhenUp: boolean;
-}) {
-  return (
-    <div className="rounded-xl bg-[var(--panel2)] p-4">
-      <p className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">{label}</p>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <div>
-          <p className="text-[9.5px] uppercase tracking-wide text-[var(--text-faint)]">This month</p>
-          <p className="text-xl font-bold text-[var(--text)]">{format(current)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[9.5px] uppercase tracking-wide text-[var(--text-faint)]">Last month</p>
-          <p className="text-sm text-[var(--text-muted)]">{format(previous)}</p>
-        </div>
-      </div>
-      {deltaPct !== null && (
-        <div className="mt-2">
-          <DeltaChip pct={deltaPct} goodWhenUp={goodWhenUp} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MoverRow({ c }: { c: CampaignComparisonRow }) {
-  return (
-    <div className="mt-2 flex items-center justify-between gap-3 border-t border-[var(--border)] pt-2 text-xs first:mt-1 first:border-t-0 first:pt-0">
-      <span className="truncate text-[var(--text-muted)]">{c.property}</span>
-      <span className="flex shrink-0 items-center gap-2">
-        <span className="font-mono text-[var(--text)]">{formatCurrency(c.cpl, 2)}</span>
-        <DeltaChip pct={c.deltaCplPct!} goodWhenUp={false} />
-      </span>
-    </div>
   );
 }
 
