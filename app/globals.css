@@ -487,11 +487,30 @@ body {
   .report-page {
     zoom: 0.64;
   }
-  /* One campaign per page: force a fresh page before every card rather than
-     letting it fall wherever it lands, which is what produced the "half a
-     page wasted, then a card split across two more" look. */
-  .campaign-print-card {
+  /* One campaign per page: force a fresh page before every card except the
+     first (the first one instead follows the "Campaign by Campaign" section
+     header onto its own fresh page via .print-section-start below, so the
+     header never sits alone with nothing after it). */
+  .campaign-print-card:not(.campaign-print-card-first) {
     break-before: page;
+  }
+  /* The campaign cards are already sized to nearly fill a full page each (see
+     .campaign-print-card below), so there's no room left on this page for the
+     first card too — centering the header instead of leaving it stranded at
+     the top makes that page read as a deliberate section divider rather than
+     an accident. */
+  .print-section-start {
+    break-before: page;
+    padding-top: 70mm;
+  }
+  /* A handful of sections (the delivery breakdown pair, the trailing
+     Typeform-answers/insights/methodology group) don't fill a page on their
+     own, which otherwise leaves them stranded near the top with the rest of
+     the page empty. Wrapping them in .print-frame centers that content
+     vertically within its own forced page instead. */
+  .print-frame {
+    break-before: page;
+    padding-top: 70mm;
   }
 }
 

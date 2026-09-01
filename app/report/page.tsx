@@ -206,6 +206,24 @@ export default function MetaAdsReportPage() {
     return buildNarrative(payload.portfolio, payload.campaigns, monthLabel, liveInsights, crmWinSummary);
   }, [payload, monthLabel, liveInsights, crmWinSummary]);
 
+  // Biggest cost-per-lead movers for the "This Month vs Last Month" section —
+  // only campaigns that ran in both this month and the previous one have a
+  // delta at all (e.g. a month whose whole roster rotated in from a
+  // different set of properties has none, and the section says so).
+  const movers = useMemo(() => {
+    const withDelta = (payload?.campaigns ?? []).filter((c) => c.deltaCplPct !== null);
+    return {
+      best: withDelta
+        .filter((c) => c.deltaCplPct! < 0)
+        .sort((a, b) => a.deltaCplPct! - b.deltaCplPct!)
+        .slice(0, 3),
+      worst: withDelta
+        .filter((c) => c.deltaCplPct! > 0)
+        .sort((a, b) => b.deltaCplPct! - a.deltaCplPct!)
+        .slice(0, 3),
+    };
+  }, [payload]);
+
   // Every campaign with spend in the selected month — the line set for the
   // two daily-performance charts below. Sourced from payload.campaigns (same
   // set the breakdown table shows) rather than a separate query.
@@ -307,14 +325,6 @@ export default function MetaAdsReportPage() {
         </GlowPanel>
       )}
 
-      {connected && !isCurrentLiveMonth && (
-        <GlowPanel className="panel p-4 text-xs text-[var(--text-faint)]">
-          {monthLabel} is a closed month: platform/device, Typeform funnel, landing-page, lead-answer and CRM detail below are read from that
-          month&apos;s own synced snapshot where available. Microsoft Clarity and the anomaly-detector findings have no historical store, so those
-          two stay live-month-only.
-        </GlowPanel>
-      )}
-
       {portfolio && (
         <>
           {/* portfolio overview */}
@@ -389,59 +399,124 @@ export default function MetaAdsReportPage() {
             </>
           )}
 
-          {/* per-campaign breakdown */}
-          <GlowPanel wrapperClassName="fade-up" className="panel p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[var(--text)]">Campaign Breakdown</h2>
-              <Pill label={monthLabel} active={false} />
-            </div>
-            {payload!.campaigns.length === 0 ? (
-              <p className="text-sm text-[var(--text-faint)]">No campaign data for {monthLabel}.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="text-left text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
-                      <th className="pb-2 pl-1">Campaign</th>
-                      <th className="pb-2 text-right">Spend</th>
-                      <th className="pb-2 text-right">Leads</th>
-                      <th className="pb-2 pr-1 text-right">Cost / Lead</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payload!.campaigns
-                      .slice()
-                      .sort((a, b) => b.spend - a.spend)
-                      .map((c) => (
-                        <tr key={c.campaign_id} className="border-t border-[var(--border)]">
-                          <td className="py-3 pl-1">
-                            <span className="font-medium text-[var(--text)]">{c.property}</span>
-                          </td>
-                          <MetricCell value={formatCurrency(c.spend)} pct={c.deltaSpendPct} goodWhenUp />
-                          <MetricCell value={formatNumber(c.leads)} pct={c.deltaLeadsPct} goodWhenUp />
-                          <MetricCell last value={formatCurrency(c.cpl, 2)} pct={c.deltaCplPct} goodWhenUp={false} />
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </GlowPanel>
-
-          {/* portfolio-wide delivery breakdown — any month with snapshot detail */}
-          {(portfolioByPlatform.length > 0 || portfolioByDevice.length > 0) && (
+          {/* per-campaign breakdown + delivery breakdown — grouped in one print-frame so the
+              pair is vertically centered on its own printed page instead of stranded near
+              the top with the rest of the page empty */}
+          <div className="print-frame space-y-7">
             <GlowPanel wrapperClassName="fade-up" className="panel p-5">
-              <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Platform &amp; Device Delivery</h2>
-              <div className="grid gap-6 md:grid-cols-2 print:grid-cols-2">
-                <BreakdownGroup title="By platform" rows={portfolioByPlatform} valueFormat={(r) => formatCurrency(r.spend)} />
-                <BreakdownGroup title="By device" rows={portfolioByDevice} valueFormat={(r) => formatCurrency(r.spend)} />
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-[var(--text)]">Campaign Breakdown</h2>
+                <Pill label={monthLabel} active={false} />
               </div>
+              {payload!.campaigns.length === 0 ? (
+                <p className="text-sm text-[var(--text-faint)]">No campaign data for {monthLabel}.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="text-left text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
+                        <th className="pb-2 pl-1">Campaign</th>
+                        <th className="pb-2 text-right">Spend</th>
+                        <th className="pb-2 text-right">Leads</th>
+                        <th className="pb-2 pr-1 text-right">Cost / Lead</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payload!.campaigns
+                        .slice()
+                        .sort((a, b) => b.spend - a.spend)
+                        .map((c) => (
+                          <tr key={c.campaign_id} className="border-t border-[var(--border)]">
+                            <td className="py-3 pl-1">
+                              <span className="font-medium text-[var(--text)]">{c.property}</span>
+                            </td>
+                            <MetricCell value={formatCurrency(c.spend)} pct={c.deltaSpendPct} goodWhenUp />
+                            <MetricCell value={formatNumber(c.leads)} pct={c.deltaLeadsPct} goodWhenUp />
+                            <MetricCell last value={formatCurrency(c.cpl, 2)} pct={c.deltaCplPct} goodWhenUp={false} />
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </GlowPanel>
+
+            {/* portfolio-wide delivery breakdown — any month with snapshot detail */}
+            {(portfolioByPlatform.length > 0 || portfolioByDevice.length > 0) && (
+              <GlowPanel wrapperClassName="fade-up" className="panel p-5">
+                <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Platform &amp; Device Delivery</h2>
+                <div className="grid gap-6 md:grid-cols-2 print:grid-cols-2">
+                  <BreakdownGroup title="By platform" rows={portfolioByPlatform} valueFormat={(r) => formatCurrency(r.spend)} />
+                  <BreakdownGroup title="By device" rows={portfolioByDevice} valueFormat={(r) => formatCurrency(r.spend)} />
+                </div>
+              </GlowPanel>
+            )}
+          </div>
+
+          {/* month-over-month comparison — its own page, between the delivery breakdown and
+              the per-campaign detail */}
+          {(portfolio.previousMonth.spend > 0 || portfolio.previousMonth.leads > 0) && (
+            <GlowPanel wrapperClassName="fade-up print-frame" className="panel p-5">
+              <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">This Month vs Last Month</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3 print:grid-cols-3">
+                <ComparisonStat
+                  label="Total Spend"
+                  current={portfolio.current.spend}
+                  previous={portfolio.previousMonth.spend}
+                  deltaPct={portfolio.deltaVsPreviousMonth.spendPct}
+                  format={(v) => formatCurrency(v)}
+                  goodWhenUp
+                />
+                <ComparisonStat
+                  label="Leads"
+                  current={portfolio.current.leads}
+                  previous={portfolio.previousMonth.leads}
+                  deltaPct={portfolio.deltaVsPreviousMonth.leadsPct}
+                  format={(v) => formatNumber(v)}
+                  goodWhenUp
+                />
+                <ComparisonStat
+                  label="Avg Cost / Lead"
+                  current={portfolio.current.cpl ?? 0}
+                  previous={portfolio.previousMonth.cpl ?? 0}
+                  deltaPct={portfolio.deltaVsPreviousMonth.cplPct}
+                  format={(v) => formatCurrency(v, 2)}
+                  goodWhenUp={false}
+                />
+              </div>
+
+              {movers.best.length === 0 && movers.worst.length === 0 ? (
+                <p className="mt-6 text-xs text-[var(--text-faint)]">
+                  No campaigns ran in both {monthLabel} and the previous month to compare cost-per-lead movement directly.
+                </p>
+              ) : (
+                <div className="mt-6 grid gap-6 md:grid-cols-2 print:grid-cols-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400">Biggest cost-per-lead improvers</p>
+                    {movers.best.length === 0 ? (
+                      <p className="mt-2 text-xs text-[var(--text-faint)]">None this month.</p>
+                    ) : (
+                      movers.best.map((c) => <MoverRow key={c.campaign_id} c={c} />)
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-red-400">Biggest cost-per-lead drops</p>
+                    {movers.worst.length === 0 ? (
+                      <p className="mt-2 text-xs text-[var(--text-faint)]">None this month.</p>
+                    ) : (
+                      movers.worst.map((c) => <MoverRow key={c.campaign_id} c={c} />)
+                    )}
+                  </div>
+                </div>
+              )}
             </GlowPanel>
           )}
 
-          {/* full per-campaign detail — any month with snapshot detail */}
+          {/* full per-campaign detail — any month with snapshot detail. print-section-start
+              forces this whole block onto a fresh page, so the header always introduces the
+              first card that follows rather than being stranded alone on the previous page. */}
           {payload!.campaigns.length > 0 && (
-            <div className="fade-up space-y-4">
+            <div className="fade-up print-section-start space-y-4">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--text)]">Campaign by Campaign</h2>
                 <p className="mt-1 text-xs text-[var(--text-faint)]">
@@ -451,12 +526,13 @@ export default function MetaAdsReportPage() {
               {payload!.campaigns
                 .slice()
                 .sort((a, b) => b.spend - a.spend)
-                .map((row) => (
+                .map((row, i) => (
                   <CampaignDetailCard
                     key={row.campaign_id}
                     row={row}
                     detail={campaignDetails[row.campaign_id]}
                     isCurrentLiveMonth={isCurrentLiveMonth}
+                    isFirst={i === 0}
                     sparkSpend={sparkFor(row.campaign_id, "spend")}
                     sparkLeads={sparkFor(row.campaign_id, "leads")}
                     crmCounts={crmCountsByCampaign[row.campaign_id] ?? {}}
@@ -466,76 +542,81 @@ export default function MetaAdsReportPage() {
             </div>
           )}
 
-          {/* portfolio-wide Typeform answer patterns — any month with snapshot detail */}
-          {portfolioAnswers.respondents > 0 && (
-            <GlowPanel wrapperClassName="fade-up" className="panel p-5">
-              <h2 className="mb-1 text-sm font-semibold text-[var(--text)]">What Buyers Are Telling Us</h2>
-              <p className="text-xs text-[var(--text-faint)]">
-                Aggregated across {portfolioAnswers.respondents} verified Typeform submissions this month, across {payload!.campaigns.length}{" "}
-                campaigns.
-              </p>
-              <div className="mt-4 grid gap-6 md:grid-cols-2 print:grid-cols-2">
-                <div>
-                  <AnswerGroup title="Investment budget" buckets={portfolioAnswers.budget} />
-                  <AnswerGroup title="Buying timeline" buckets={portfolioAnswers.timeline} />
+          {/* trailing sections grouped in one print-frame, same reasoning as the delivery-
+              breakdown pair above: none of these fill a page on their own, so centering the
+              group avoids them looking stranded near the top of an otherwise-empty page */}
+          <div className="print-frame space-y-7">
+            {/* portfolio-wide Typeform answer patterns — any month with snapshot detail */}
+            {portfolioAnswers.respondents > 0 && (
+              <GlowPanel wrapperClassName="fade-up" className="panel p-5">
+                <h2 className="mb-1 text-sm font-semibold text-[var(--text)]">What Buyers Are Telling Us</h2>
+                <p className="text-xs text-[var(--text-faint)]">
+                  Aggregated across {portfolioAnswers.respondents} verified Typeform submissions this month, across {payload!.campaigns.length}{" "}
+                  campaigns.
+                </p>
+                <div className="mt-4 grid gap-6 md:grid-cols-2 print:grid-cols-2">
+                  <div>
+                    <AnswerGroup title="Investment budget" buckets={portfolioAnswers.budget} />
+                    <AnswerGroup title="Buying timeline" buckets={portfolioAnswers.timeline} />
+                  </div>
+                  <div>
+                    <AnswerGroup title="Search stage" buckets={portfolioAnswers.stage} />
+                    <AnswerGroup title="Preferred language" buckets={portfolioAnswers.language} />
+                  </div>
                 </div>
-                <div>
-                  <AnswerGroup title="Search stage" buckets={portfolioAnswers.stage} />
-                  <AnswerGroup title="Preferred language" buckets={portfolioAnswers.language} />
+              </GlowPanel>
+            )}
+
+            {/* insights & anomalies — live month only */}
+            {isCurrentLiveMonth && liveInsights && liveInsights.length > 0 && (
+              <GlowPanel wrapperClassName="fade-up" className="panel p-5">
+                <h2 className="mb-1 text-sm font-semibold text-[var(--text)]">What the Detectors Found</h2>
+                <p className="text-xs text-[var(--text-faint)]">
+                  Rule-based findings computed live from Meta, Typeform and landing-page data: anomalies, fatigue, pacing and opportunities. No
+                  LLM; every number here is deterministic and re-computable from the data above.
+                </p>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 print:grid-cols-2">
+                  {liveInsights.map((ins) => (
+                    <InsightRow key={ins.id} insight={ins} />
+                  ))}
                 </div>
-              </div>
-            </GlowPanel>
-          )}
+              </GlowPanel>
+            )}
 
-          {/* insights & anomalies — live month only */}
-          {isCurrentLiveMonth && liveInsights && liveInsights.length > 0 && (
+            {/* methodology */}
             <GlowPanel wrapperClassName="fade-up" className="panel p-5">
-              <h2 className="mb-1 text-sm font-semibold text-[var(--text)]">What the Detectors Found</h2>
-              <p className="text-xs text-[var(--text-faint)]">
-                Rule-based findings computed live from Meta, Typeform and landing-page data: anomalies, fatigue, pacing and opportunities. No
-                LLM; every number here is deterministic and re-computable from the data above.
-              </p>
-              <div className="mt-4 grid gap-3 md:grid-cols-2 print:grid-cols-2">
-                {liveInsights.map((ins) => (
-                  <InsightRow key={ins.id} insight={ins} />
-                ))}
-              </div>
+              <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Methodology</h2>
+              <dl className="space-y-4">
+                <MethodologyItem term="Scope">
+                  All Meta ad campaigns for Sandberg Estates properties and communities with spend during {monthLabel}. Organic social (the Social
+                  module) is a separate, non-paid pipeline and is intentionally excluded.
+                </MethodologyItem>
+                <MethodologyItem term="Spend, leads & CPL">
+                  Meta totals are the platform&apos;s own campaign-lifetime aggregate, never a sum of daily rows (the daily breakdown under-reports
+                  by roughly 5%). &quot;Leads&quot; are verified Typeform completions, not Meta&apos;s lead pixel. Cost per lead is Meta spend ÷
+                  Typeform submissions.
+                </MethodologyItem>
+                <MethodologyItem term="Platform, device, funnel & lead-answer detail">
+                  Captured continuously while a campaign is active, and recovered from its latest known snapshot once it rotates out of the active
+                  roster. Available in full only for the current, still-live month above; a past month you pick from the dropdown shows the lighter
+                  spend/leads/CPL comparison only.
+                </MethodologyItem>
+                <MethodologyItem term="Microsoft Clarity">
+                  Session-replay friction metrics (rage clicks, dead clicks, quick-backs) have no historical store. Only ever available, live, for
+                  currently-active campaigns.
+                </MethodologyItem>
+                <MethodologyItem term="CRM outcomes">
+                  Pulled from the Sandberg CRM and joined back to campaigns by Typeform response id: all-time counts, not scoped to a single
+                  calendar month. Most post-qualification milestones are wired but blocked by an attribution gap on the CRM&apos;s side; treat a
+                  zero as a data gap, not a verdict.
+                </MethodologyItem>
+                <MethodologyItem term="Insights">
+                  Rule-based detectors (z-score anomalies, trailing-average pacing, threshold-based friction) computed live from today&apos;s data:
+                  no model, no LLM, fully re-derivable. They only run on currently-active campaigns.
+                </MethodologyItem>
+              </dl>
             </GlowPanel>
-          )}
-
-          {/* methodology */}
-          <GlowPanel wrapperClassName="fade-up" className="panel p-5">
-            <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Methodology</h2>
-            <dl className="space-y-4">
-              <MethodologyItem term="Scope">
-                All Meta ad campaigns for Sandberg Estates properties and communities with spend during {monthLabel}. Organic social (the Social
-                module) is a separate, non-paid pipeline and is intentionally excluded.
-              </MethodologyItem>
-              <MethodologyItem term="Spend, leads & CPL">
-                Meta totals are the platform&apos;s own campaign-lifetime aggregate, never a sum of daily rows (the daily breakdown under-reports
-                by roughly 5%). &quot;Leads&quot; are verified Typeform completions, not Meta&apos;s lead pixel. Cost per lead is Meta spend ÷
-                Typeform submissions.
-              </MethodologyItem>
-              <MethodologyItem term="Platform, device, funnel & lead-answer detail">
-                Captured continuously while a campaign is active, and recovered from its latest known snapshot once it rotates out of the active
-                roster. Available in full only for the current, still-live month above; a past month you pick from the dropdown shows the lighter
-                spend/leads/CPL comparison only.
-              </MethodologyItem>
-              <MethodologyItem term="Microsoft Clarity">
-                Session-replay friction metrics (rage clicks, dead clicks, quick-backs) have no historical store. Only ever available, live, for
-                currently-active campaigns.
-              </MethodologyItem>
-              <MethodologyItem term="CRM outcomes">
-                Pulled from the Sandberg CRM and joined back to campaigns by Typeform response id: all-time counts, not scoped to a single
-                calendar month. Most post-qualification milestones are wired but blocked by an attribution gap on the CRM&apos;s side; treat a
-                zero as a data gap, not a verdict.
-              </MethodologyItem>
-              <MethodologyItem term="Insights">
-                Rule-based detectors (z-score anomalies, trailing-average pacing, threshold-based friction) computed live from today&apos;s data:
-                no model, no LLM, fully re-derivable. They only run on currently-active campaigns.
-              </MethodologyItem>
-            </dl>
-          </GlowPanel>
+          </div>
         </>
       )}
     </div>
@@ -579,6 +660,55 @@ function OverviewCard({
         )}
       </div>
     </GlowPanel>
+  );
+}
+
+function ComparisonStat({
+  label,
+  current,
+  previous,
+  deltaPct,
+  format,
+  goodWhenUp,
+}: {
+  label: string;
+  current: number;
+  previous: number;
+  deltaPct: number | null;
+  format: (v: number) => string;
+  goodWhenUp: boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-[var(--panel2)] p-4">
+      <p className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">{label}</p>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[9.5px] uppercase tracking-wide text-[var(--text-faint)]">This month</p>
+          <p className="text-xl font-bold text-[var(--text)]">{format(current)}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[9.5px] uppercase tracking-wide text-[var(--text-faint)]">Last month</p>
+          <p className="text-sm text-[var(--text-muted)]">{format(previous)}</p>
+        </div>
+      </div>
+      {deltaPct !== null && (
+        <div className="mt-2">
+          <DeltaChip pct={deltaPct} goodWhenUp={goodWhenUp} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MoverRow({ c }: { c: CampaignComparisonRow }) {
+  return (
+    <div className="mt-2 flex items-center justify-between gap-3 border-t border-[var(--border)] pt-2 text-xs first:mt-1 first:border-t-0 first:pt-0">
+      <span className="truncate text-[var(--text-muted)]">{c.property}</span>
+      <span className="flex shrink-0 items-center gap-2">
+        <span className="font-mono text-[var(--text)]">{formatCurrency(c.cpl, 2)}</span>
+        <DeltaChip pct={c.deltaCplPct!} goodWhenUp={false} />
+      </span>
+    </div>
   );
 }
 
@@ -958,6 +1088,7 @@ function CampaignDetailCard({
   row,
   detail,
   isCurrentLiveMonth,
+  isFirst,
   sparkSpend,
   sparkLeads,
   crmCounts,
@@ -966,6 +1097,7 @@ function CampaignDetailCard({
   row: CampaignComparisonRow;
   detail: ReportCampaignDetail | undefined;
   isCurrentLiveMonth: boolean;
+  isFirst: boolean;
   sparkSpend: number[];
   sparkLeads: number[];
   crmCounts: Record<string, number>;
@@ -981,7 +1113,7 @@ function CampaignDetailCard({
   // "was this campaign active during that month."
   const isLive = isCurrentLiveMonth ? (detail ? detail.source === "live" : row.status === "ACTIVE") : row.status === "ACTIVE";
   return (
-    <GlowPanel wrapperClassName="fade-up" className="panel campaign-print-card p-5">
+    <GlowPanel wrapperClassName="fade-up" className={`panel campaign-print-card p-5${isFirst ? " campaign-print-card-first" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-[var(--text)]">{row.property}</h3>
