@@ -427,10 +427,29 @@ body {
 
 /* print / PDF export — used by the "Download PDF" button on the Meta Ads
    Monthly Report (app/report/page.tsx), which just calls window.print().
-   .print-hide marks chrome that shouldn't appear in the exported PDF
-   (sidebar, nav, the interactive month picker, the download button itself);
-   everything else prints as-is. */
+   Goal is a PDF that looks like the on-screen report, not a stripped-down
+   plain-text version — same panel backgrounds/borders/accent colors, same
+   card boxes, same multi-column layout. Three things browsers do by default
+   that fight that goal, each countered below:
+   1. Chrome drops background-color/box-shadow unless color-adjust:exact
+      forces it to keep them (the #1 reason a printed page looks washed out).
+   2. Chrome renders print layout at the PAGE's printable width, which after
+      default margins is well under Tailwind's `md`/`sm` breakpoints — every
+      responsive grid on the page would silently collapse to one column.
+      Countered per-grid with an explicit `print:grid-cols-N` in the JSX
+      (Tailwind's built-in print variant) rather than fighting that here.
+   3. .print-hide marks chrome that shouldn't appear in the exported PDF at
+      all (sidebar, nav, the interactive month picker, the download button
+      itself, the "Pick active Public View" dock). */
 @media print {
+  html,
+  body,
+  .panel,
+  .panel * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
   .print-hide {
     display: none !important;
   }
@@ -443,14 +462,21 @@ body {
   }
   .vantage-canvas {
     padding: 0 !important;
-    background: #fff !important;
+    background: var(--vantage-canvas) !important;
     min-height: 0 !important;
-  }
-  body {
-    background: #fff !important;
   }
   .panel {
     box-shadow: none !important;
     break-inside: avoid;
   }
+  .fade-up {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 12mm;
 }

@@ -266,7 +266,7 @@ export default function MetaAdsReportPage() {
     return (
       <div className="space-y-7">
         <Skeleton className="h-9 w-72" />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 print:grid-cols-3">
           {Array.from({ length: 3 }, (_, i) => <CardSkeleton key={i} />)}
         </div>
         <Skeleton className="h-64 w-full" />
@@ -318,7 +318,7 @@ export default function MetaAdsReportPage() {
       {portfolio && (
         <>
           {/* portfolio overview */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 print:grid-cols-3">
             <OverviewCard
               label="Total Spend"
               accent="#02bbbb"
@@ -432,7 +432,7 @@ export default function MetaAdsReportPage() {
           {(portfolioByPlatform.length > 0 || portfolioByDevice.length > 0) && (
             <GlowPanel wrapperClassName="fade-up" className="panel p-5">
               <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">Platform &amp; Device Delivery</h2>
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-6 md:grid-cols-2 print:grid-cols-2">
                 <BreakdownGroup title="By platform" rows={portfolioByPlatform} valueFormat={(r) => formatCurrency(r.spend)} />
                 <BreakdownGroup title="By device" rows={portfolioByDevice} valueFormat={(r) => formatCurrency(r.spend)} />
               </div>
@@ -474,7 +474,7 @@ export default function MetaAdsReportPage() {
                 Aggregated across {portfolioAnswers.respondents} verified Typeform submissions this month, across {payload!.campaigns.length}{" "}
                 campaigns.
               </p>
-              <div className="mt-4 grid gap-6 md:grid-cols-2">
+              <div className="mt-4 grid gap-6 md:grid-cols-2 print:grid-cols-2">
                 <div>
                   <AnswerGroup title="Investment budget" buckets={portfolioAnswers.budget} />
                   <AnswerGroup title="Buying timeline" buckets={portfolioAnswers.timeline} />
@@ -495,7 +495,7 @@ export default function MetaAdsReportPage() {
                 Rule-based findings computed live from Meta, Typeform and landing-page data: anomalies, fatigue, pacing and opportunities. No
                 LLM; every number here is deterministic and re-computable from the data above.
               </p>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="mt-4 grid gap-3 md:grid-cols-2 print:grid-cols-2">
                 {liveInsights.map((ins) => (
                   <InsightRow key={ins.id} insight={ins} />
                 ))}
@@ -996,7 +996,7 @@ function CampaignDetailCard({
         )}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5 print:grid-cols-5">
         <Kpi label="Spend" value={formatCurrency(row.spend)} />
         <Kpi label="Leads" value={formatNumber(row.leads)} />
         <Kpi label="Cost / lead" value={formatCurrency(row.cpl, 2)} />
@@ -1012,7 +1012,7 @@ function CampaignDetailCard({
 
       {detail && (
         <>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 print:grid-cols-2">
             <div className="rounded-xl bg-[var(--panel2)] p-3">
               <p className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Daily spend</p>
               <div className="mt-1">
@@ -1027,7 +1027,7 @@ function CampaignDetailCard({
             </div>
           </div>
 
-          <div className="mt-5 grid gap-6 sm:grid-cols-2">
+          <div className="mt-5 grid gap-6 sm:grid-cols-2 print:grid-cols-2">
             <BreakdownGroup title="By platform" rows={detail.byPlatform} valueFormat={(r) => formatCurrency(r.spend)} />
             <BreakdownGroup title="By device" rows={detail.byDevice} valueFormat={(r) => formatCurrency(r.spend)} />
           </div>
@@ -1064,7 +1064,7 @@ function CampaignDetailCard({
               <p className="mt-5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">
                 Lead answer patterns ({detail.answers.respondents} respondents)
               </p>
-              <div className="mt-1 grid gap-6 sm:grid-cols-2">
+              <div className="mt-1 grid gap-6 sm:grid-cols-2 print:grid-cols-2">
                 <div>
                   <AnswerGroup title="Budget" buckets={detail.answers.budget} />
                   <AnswerGroup title="Buying timeline" buckets={detail.answers.timeline} />
