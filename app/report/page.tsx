@@ -451,75 +451,76 @@ export default function MetaAdsReportPage() {
                 </div>
               </GlowPanel>
             )}
-          </div>
 
-          {/* month-over-month comparison — its own page, between the delivery breakdown and
-              the per-campaign detail */}
-          {(portfolio.previousMonth.spend > 0 || portfolio.previousMonth.leads > 0) && (
-            <GlowPanel wrapperClassName="fade-up print-frame" className="panel p-5">
-              <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">This Month vs Last Month</h2>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3 print:grid-cols-3">
-                <ComparisonStat
-                  label="Total Spend"
-                  current={portfolio.current.spend}
-                  previous={portfolio.previousMonth.spend}
-                  deltaPct={portfolio.deltaVsPreviousMonth.spendPct}
-                  format={(v) => formatCurrency(v)}
-                  goodWhenUp
-                />
-                <ComparisonStat
-                  label="Leads"
-                  current={portfolio.current.leads}
-                  previous={portfolio.previousMonth.leads}
-                  deltaPct={portfolio.deltaVsPreviousMonth.leadsPct}
-                  format={(v) => formatNumber(v)}
-                  goodWhenUp
-                />
-                <ComparisonStat
-                  label="Avg Cost / Lead"
-                  current={portfolio.current.cpl ?? 0}
-                  previous={portfolio.previousMonth.cpl ?? 0}
-                  deltaPct={portfolio.deltaVsPreviousMonth.cplPct}
-                  format={(v) => formatCurrency(v, 2)}
-                  goodWhenUp={false}
-                />
-              </div>
-
-              {movers.best.length === 0 && movers.worst.length === 0 ? (
-                <p className="mt-6 text-xs text-[var(--text-faint)]">
-                  No campaigns ran in both {monthLabel} and the previous month to compare cost-per-lead movement directly.
-                </p>
-              ) : (
-                <div className="mt-6 grid gap-6 md:grid-cols-2 print:grid-cols-2">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400">Biggest cost-per-lead improvers</p>
-                    {movers.best.length === 0 ? (
-                      <p className="mt-2 text-xs text-[var(--text-faint)]">None this month.</p>
-                    ) : (
-                      movers.best.map((c) => <MoverRow key={c.campaign_id} c={c} />)
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-red-400">Biggest cost-per-lead drops</p>
-                    {movers.worst.length === 0 ? (
-                      <p className="mt-2 text-xs text-[var(--text-faint)]">None this month.</p>
-                    ) : (
-                      movers.worst.map((c) => <MoverRow key={c.campaign_id} c={c} />)
-                    )}
-                  </div>
+            {/* month-over-month comparison — third box on the same centered page as the two above */}
+            {(portfolio.previousMonth.spend > 0 || portfolio.previousMonth.leads > 0) && (
+              <GlowPanel wrapperClassName="fade-up" className="panel p-5">
+                <h2 className="mb-4 text-sm font-semibold text-[var(--text)]">This Month vs Last Month</h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 print:grid-cols-3">
+                  <ComparisonStat
+                    label="Total Spend"
+                    current={portfolio.current.spend}
+                    previous={portfolio.previousMonth.spend}
+                    deltaPct={portfolio.deltaVsPreviousMonth.spendPct}
+                    format={(v) => formatCurrency(v)}
+                    goodWhenUp
+                  />
+                  <ComparisonStat
+                    label="Leads"
+                    current={portfolio.current.leads}
+                    previous={portfolio.previousMonth.leads}
+                    deltaPct={portfolio.deltaVsPreviousMonth.leadsPct}
+                    format={(v) => formatNumber(v)}
+                    goodWhenUp
+                  />
+                  <ComparisonStat
+                    label="Avg Cost / Lead"
+                    current={portfolio.current.cpl ?? 0}
+                    previous={portfolio.previousMonth.cpl ?? 0}
+                    deltaPct={portfolio.deltaVsPreviousMonth.cplPct}
+                    format={(v) => formatCurrency(v, 2)}
+                    goodWhenUp={false}
+                  />
                 </div>
-              )}
-            </GlowPanel>
-          )}
+
+                {movers.best.length === 0 && movers.worst.length === 0 ? (
+                  <p className="mt-6 text-xs text-[var(--text-faint)]">
+                    No campaigns ran in both {monthLabel} and the previous month to compare cost-per-lead movement directly.
+                  </p>
+                ) : (
+                  <div className="mt-6 grid gap-6 md:grid-cols-2 print:grid-cols-2">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400">Biggest cost-per-lead improvers</p>
+                      {movers.best.length === 0 ? (
+                        <p className="mt-2 text-xs text-[var(--text-faint)]">None this month.</p>
+                      ) : (
+                        movers.best.map((c) => <MoverRow key={c.campaign_id} c={c} />)
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-red-400">Biggest cost-per-lead drops</p>
+                      {movers.worst.length === 0 ? (
+                        <p className="mt-2 text-xs text-[var(--text-faint)]">None this month.</p>
+                      ) : (
+                        movers.worst.map((c) => <MoverRow key={c.campaign_id} c={c} />)
+                      )}
+                    </div>
+                  </div>
+                )}
+              </GlowPanel>
+            )}
+          </div>
 
           {/* full per-campaign detail — any month with snapshot detail. print-section-start
               forces this whole block onto a fresh page, so the header always introduces the
-              first card that follows rather than being stranded alone on the previous page. */}
+              first card that follows on that same page (the subtitle is print:hidden — the
+              first card is already sized to nearly fill a full page, so the header has to
+              stay as compact as possible for the two to actually share one page). */}
           {payload!.campaigns.length > 0 && (
             <div className="fade-up print-section-start space-y-4">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--text)]">Campaign by Campaign</h2>
-                <p className="mt-1 text-xs text-[var(--text-faint)]">
+                <p className="mt-1 text-xs text-[var(--text-faint)] print:hidden">
                   Full platform, device, funnel, Typeform-answer and lead-quality detail for every campaign with spend this month.
                 </p>
               </div>
