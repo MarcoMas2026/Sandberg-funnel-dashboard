@@ -426,11 +426,14 @@ body {
 }
 
 /* print / PDF export — used by the "Download PDF" button on the Meta Ads
-   Monthly Report (app/report/page.tsx), which just calls window.print().
-   Goal is a PDF that looks like the on-screen report, not a stripped-down
-   plain-text version — same panel backgrounds/borders/accent colors, same
-   card boxes, same multi-column layout. Three things browsers do by default
-   that fight that goal, each countered below:
+   Monthly Report (app/report/page.tsx, root wrapped in .report-page), which
+   just calls window.print(). Goal is a PDF that looks like the on-screen
+   report, not a stripped-down plain-text version — same panel backgrounds/
+   borders/accent colors, same card boxes, same multi-column layout, packed
+   tightly enough that a campaign card is one page instead of one and a
+   half. Screen styles are completely untouched — every rule here only ever
+   applies under @media print. Four things browsers do by default that
+   fight the "looks like the screen" goal, each countered below:
    1. Chrome drops background-color/box-shadow unless color-adjust:exact
       forces it to keep them (the #1 reason a printed page looks washed out).
    2. Chrome renders print layout at the PAGE's printable width, which after
@@ -440,7 +443,14 @@ body {
       (Tailwind's built-in print variant) rather than fighting that here.
    3. .print-hide marks chrome that shouldn't appear in the exported PDF at
       all (sidebar, nav, the interactive month picker, the download button
-      itself, the "Pick active Public View" dock). */
+      itself, the "Pick active Public View" dock).
+   4. The on-screen sizing (fonts, padding, chart heights) is comfortable
+      for a monitor but too large for print — a single campaign card was
+      spilling across ~1.5 A4 pages. `zoom` (not `transform: scale`, which
+      only affects paint) scales the whole .report-page subtree — fonts,
+      padding, gaps, SVG chart pixel sizes — as a genuine layout-level
+      change, so pagination is computed against the already-shrunk sizes
+      rather than the original ones. */
 @media print {
   html,
   body,
@@ -461,7 +471,7 @@ body {
     padding: 0 !important;
   }
   .vantage-canvas {
-    padding: 0 !important;
+    padding: 10px !important;
     background: var(--vantage-canvas) !important;
     min-height: 0 !important;
   }
@@ -473,6 +483,15 @@ body {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+  .report-page {
+    zoom: 0.64;
+  }
+  /* One campaign per page: force a fresh page before every card rather than
+     letting it fall wherever it lands, which is what produced the "half a
+     page wasted, then a card split across two more" look. */
+  .campaign-print-card {
+    break-before: page;
   }
 }
 

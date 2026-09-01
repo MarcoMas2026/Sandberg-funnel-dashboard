@@ -278,7 +278,7 @@ export default function MetaAdsReportPage() {
   const connected = payload?.connected ?? false;
 
   return (
-    <div className="space-y-7">
+    <div className="report-page space-y-7">
       <div className="fade-up relative z-30 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[1.75rem] font-bold tracking-tight text-[var(--text)] sm:text-4xl">Meta Ads Monthly Report</h1>
@@ -981,7 +981,7 @@ function CampaignDetailCard({
   // "was this campaign active during that month."
   const isLive = isCurrentLiveMonth ? (detail ? detail.source === "live" : row.status === "ACTIVE") : row.status === "ACTIVE";
   return (
-    <GlowPanel wrapperClassName="fade-up" className="panel p-5">
+    <GlowPanel wrapperClassName="fade-up" className="panel campaign-print-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-[var(--text)]">{row.property}</h3>
