@@ -9,7 +9,7 @@ import { AnimatedMobileNav } from "./ui/animated-mobile-nav";
 // replaces the sidebar's built-in hamburger/fullscreen overlay on small
 // screens. Same section list as the desktop Sidebar (lib/nav.ts) so every
 // item stays aligned with the app's actual routes.
-export default function MobileTopNav() {
+export default function MobileTopNav({ className }: { className?: string }) {
   const pathname = usePathname();
   const { data } = useDashboard();
   const firstCampaignId = data?.campaigns?.[0]?.campaign_id;
@@ -26,5 +26,9 @@ export default function MobileTopNav() {
     };
   });
 
-  return <AnimatedMobileNav items={items} />;
+  return (
+    <div className={className}>
+      <AnimatedMobileNav items={items} />
+    </div>
+  );
 }

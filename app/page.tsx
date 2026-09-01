@@ -128,13 +128,22 @@ export default function MissionControl() {
   // Real vs-previous-month deltas for the three hero KPI chips (spend, leads,
   // avg CPL) — replaces what used to be hardcoded placeholder percentages.
   // `null` (no previous-month data, e.g. before HISTORY_START) means the
-  // chip is omitted rather than showing a fabricated number.
+  // chip is omitted rather than showing a fabricated number. Same response
+  // also carries which campaigns actually spent in the selected month, used
+  // below to split the Inactive Campaigns grid into this-month vs all-time.
   const [kpiDeltas, setKpiDeltas] = useState<{ spendPct: number | null; leadsPct: number | null; cplPct: number | null } | null>(null);
+  const [monthCampaignIds, setMonthCampaignIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     fetch(`/api/history/report?year=${selMonth.year}&month=${selMonth.month + 1}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((json) => setKpiDeltas(json.portfolio?.deltaVsPreviousMonth ?? null))
-      .catch(() => setKpiDeltas(null));
+      .then((json) => {
+        setKpiDeltas(json.portfolio?.deltaVsPreviousMonth ?? null);
+        setMonthCampaignIds(new Set((json.campaigns ?? []).map((c: { campaign_id: string }) => c.campaign_id)));
+      })
+      .catch(() => {
+        setKpiDeltas(null);
+        setMonthCampaignIds(new Set());
+      });
   }, [selMonth]);
 
   // Sync current live daily rows into Supabase whenever fresh funnel data
@@ -162,6 +171,19 @@ export default function MissionControl() {
   const inactiveCampaigns = useMemo(
     () => buildInactiveCampaigns(data?.campaigns ?? [], leaderboardHistory),
     [data, leaderboardHistory]
+  );
+
+  // Split the (still all-time-totaled) inactive list by whether the campaign
+  // actually spent in the selected month — this-month-inactive first, then
+  // everything else, so a paused-but-still-relevant campaign doesn't get
+  // buried among ones that haven't run in months.
+  const thisMonthInactive = useMemo(
+    () => inactiveCampaigns.filter((c) => monthCampaignIds.has(c.campaign_id)),
+    [inactiveCampaigns, monthCampaignIds]
+  );
+  const overallInactive = useMemo(
+    () => inactiveCampaigns.filter((c) => !monthCampaignIds.has(c.campaign_id)),
+    [inactiveCampaigns, monthCampaignIds]
   );
 
   // Leaderboard: active campaigns' live totals + Supabase-verified historical
@@ -266,11 +288,23 @@ export default function MissionControl() {
         {inactiveCampaigns.length === 0 ? (
           <p className="text-sm text-[var(--vantage-text-muted)]">No inactive campaigns</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-            {inactiveCampaigns.map((row) => (
-              <InactiveCampaignCard key={row.campaign_id} row={row} />
-            ))}
-          </div>
+          <>
+            {thisMonthInactive.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+                {thisMonthInactive.map((row) => (
+                  <InactiveCampaignCard key={row.campaign_id} row={row} />
+                ))}
+              </div>
+            )}
+            {thisMonthInactive.length > 0 && overallInactive.length > 0 && <div className="my-5 h-px bg-[#2d4444]" />}
+            {overallInactive.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+                {overallInactive.map((row) => (
+                  <InactiveCampaignCard key={row.campaign_id} row={row} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 

@@ -14,7 +14,7 @@ import SettingsPanel from "./SettingsPanel";
 // Sidebar is always expanded (see CLAUDE.md / user request) — no
 // hover-to-open collapse. `open` is fixed true and `animate` is off so the
 // shared aceternity-style shell never tries to shrink to the 60px rail.
-export default function Sidebar() {
+export default function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   const { data } = useDashboard();
   const activeCampaigns = (data?.campaigns ?? []).filter((c) => c.status === "ACTIVE" && c.campaign_type === "property");
@@ -23,7 +23,7 @@ export default function Sidebar() {
   const itemByHref = (href: string) => NAV_ITEMS.find((i) => i.href === href)!;
 
   return (
-    <div className="hidden shrink-0 md:sticky md:top-0 md:block md:h-screen">
+    <div className={`hidden shrink-0 md:sticky md:top-0 md:block md:h-screen${className ? ` ${className}` : ""}`}>
       <SidebarShell open={true} setOpen={() => {}} animate={false}>
         <DesktopSidebar className="vantage-shell justify-between gap-10 rounded-none md:h-full">
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto pl-2">

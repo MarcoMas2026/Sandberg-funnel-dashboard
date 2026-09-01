@@ -424,3 +424,33 @@ body {
   border-color: #b08d3f;
   background-color: rgba(176, 141, 63, 0.06);
 }
+
+/* print / PDF export — used by the "Download PDF" button on the Meta Ads
+   Monthly Report (app/report/page.tsx), which just calls window.print().
+   .print-hide marks chrome that shouldn't appear in the exported PDF
+   (sidebar, nav, the interactive month picker, the download button itself);
+   everything else prints as-is. */
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+  .shell-grid {
+    display: block !important;
+    gap: 0 !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .vantage-canvas {
+    padding: 0 !important;
+    background: #fff !important;
+    min-height: 0 !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  .panel {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+}

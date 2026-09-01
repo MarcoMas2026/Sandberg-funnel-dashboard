@@ -30,9 +30,9 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <DashboardProvider>
       <PublicViewProvider>
-        <MobileTopNav />
+        <MobileTopNav className="print-hide" />
         <div className="shell-grid flex min-h-screen gap-3 pb-3 pr-3">
-          <Sidebar />
+          <Sidebar className="print-hide" />
           <div className="min-w-0 flex-1">
             <main className="py-1 pt-20 md:pt-3">
               {isMissionControl ? (
@@ -45,9 +45,11 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
             </main>
           </div>
         </div>
-        <CommandPalette />
-        <GestureNav />
-        <PublicViewDock />
+        <div className="print-hide">
+          <CommandPalette />
+          <GestureNav />
+          <PublicViewDock />
+        </div>
       </PublicViewProvider>
     </DashboardProvider>
   );

@@ -952,10 +952,12 @@ export interface PlatformDeviceSnapshotRow {
   outbound_ctr: number;
 }
 
-// Latest known snapshot for a campaign (any month) — Meta's breakdown figures
-// are lifetime-to-date, not month-scoped, so the most recently synced row is
-// the freshest total, same convention as getLatestMonthWithData.
-export async function getPlatformDeviceSnapshot(campaignId: string): Promise<PlatformDeviceSnapshotRow[]> {
+// Snapshot for a campaign — either the *latest known* row (no `ym` given,
+// Meta's breakdown figures are lifetime-to-date so the most recently synced
+// row is the freshest total, same convention as getLatestMonthWithData) or
+// the specific (year, month) row when `ym` is given, so a closed past month
+// can show its own real detail instead of a later month's numbers.
+export async function getPlatformDeviceSnapshot(campaignId: string, ym?: { year: number; month: number }): Promise<PlatformDeviceSnapshotRow[]> {
   const supabase = getClient();
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -965,9 +967,9 @@ export async function getPlatformDeviceSnapshot(campaignId: string): Promise<Pla
     .order("year", { ascending: false })
     .order("month", { ascending: false });
   if (error || !data || data.length === 0) return [];
-  const latestYm = `${data[0].year}-${data[0].month}`;
+  const targetYm = ym ? `${ym.year}-${ym.month}` : `${data[0].year}-${data[0].month}`;
   return data
-    .filter((r) => `${r.year}-${r.month}` === latestYm)
+    .filter((r) => `${r.year}-${r.month}` === targetYm)
     .map((r) => ({
       dimension: r.dimension,
       key: r.key,
@@ -1017,7 +1019,7 @@ export interface TypeformFieldSnapshotRow {
   dropoff_rate: number;
 }
 
-export async function getTypeformFieldSnapshot(campaignId: string): Promise<TypeformFieldSnapshotRow[]> {
+export async function getTypeformFieldSnapshot(campaignId: string, ym?: { year: number; month: number }): Promise<TypeformFieldSnapshotRow[]> {
   const supabase = getClient();
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -1027,9 +1029,9 @@ export async function getTypeformFieldSnapshot(campaignId: string): Promise<Type
     .order("year", { ascending: false })
     .order("month", { ascending: false });
   if (error || !data || data.length === 0) return [];
-  const latestYm = `${data[0].year}-${data[0].month}`;
+  const targetYm = ym ? `${ym.year}-${ym.month}` : `${data[0].year}-${data[0].month}`;
   return data
-    .filter((r) => `${r.year}-${r.month}` === latestYm)
+    .filter((r) => `${r.year}-${r.month}` === targetYm)
     .sort((a, b) => a.field_index - b.field_index)
     .map((r) => ({ label: r.label, views: Number(r.views ?? 0), dropoffs: Number(r.dropoffs ?? 0), dropoff_rate: Number(r.dropoff_rate ?? 0) }));
 }
@@ -1153,17 +1155,16 @@ export interface LandingEngagementSnapshotRow {
   events: FunnelCampaign["landing_engagement"]["events"];
 }
 
-export async function getLandingEngagementSnapshot(campaignId: string): Promise<LandingEngagementSnapshotRow | null> {
+export async function getLandingEngagementSnapshot(campaignId: string, ym?: { year: number; month: number }): Promise<LandingEngagementSnapshotRow | null> {
   const supabase = getClient();
   if (!supabase) return null;
-  const { data, error } = await supabase
+  let query = supabase
     .from("funnel_landing_engagement_snapshots")
     .select("year, month, page_views, cta_clicks, cta_click_rate, steps, events")
-    .eq("campaign_id", campaignId)
-    .order("year", { ascending: false })
-    .order("month", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .eq("campaign_id", campaignId);
+  if (ym) query = query.eq("year", ym.year).eq("month", ym.month);
+  else query = query.order("year", { ascending: false }).order("month", { ascending: false });
+  const { data, error } = await query.limit(1).maybeSingle();
   if (error || !data) return null;
   return {
     page_views: Number(data.page_views ?? 0),
