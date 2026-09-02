@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { FunnelCampaign, LeadRecord, MetaBreakdownRow } from "@/lib/types";
+import { todayISOMadrid } from "@/lib/format";
 
 // Server-only client — SUPABASE_SERVICE_ROLE_KEY must never reach the browser
 // bundle (same rule as lib/kv.ts's KV_REST_API_TOKEN and lib/social/db.ts).
@@ -174,22 +175,37 @@ export interface MonthlyTotals {
 // Sums across ALL campaigns (any status) for a given calendar month. Prefers
 // funnel_monthly_totals (Meta's own monthly aggregate — accurate, backfillable
 // per db/migrations/004) when a row exists for this year/month; falls back to
-// summing funnel_daily_history for months that haven't been backfilled yet
-// (e.g. the current, still-in-progress month).
+// summing funnel_daily_history for months that haven't been backfilled yet.
+//
+// The current, still-in-progress month is ALWAYS summed from
+// funnel_daily_history instead, even though the opportunistic sync
+// (app/api/history/sync/route.ts) keeps a funnel_monthly_totals row for it
+// too. That row is written straight from c.meta.spend / c.typeform.completions
+// — Meta's lifetime (date_preset(maximum)) aggregate and Typeform's all-time
+// completions, per CLAUDE.md — NOT scoped to the calendar month, so for any
+// campaign that has run longer than the current month it silently inflates
+// the KPI cards with all-time totals. funnel_daily_history rows are written
+// per-date from meta.daily[], so summing those over [monthStart, monthEnd] is
+// the only source that's actually month-scoped while the month is still open.
 export async function getMonthlyTotals(year: number, month: number, monthStart: string, monthEnd: string): Promise<MonthlyTotals> {
   const supabase = getClient();
   if (!supabase) return { connected: false, spend: 0, leads: 0 };
 
-  const { data: monthlyRows, error: monthlyError } = await supabase
-    .from("funnel_monthly_totals")
-    .select("spend, leads")
-    .eq("year", year)
-    .eq("month", month);
-  if (monthlyError) return { connected: false, spend: 0, leads: 0 };
-  if (monthlyRows && monthlyRows.length > 0) {
-    const spend = monthlyRows.reduce((s, r) => s + Number(r.spend ?? 0), 0);
-    const leads = monthlyRows.reduce((s, r) => s + Number(r.leads ?? 0), 0);
-    return { connected: true, spend, leads };
+  const [nowYear, nowMonth] = todayISOMadrid().split("-").map(Number);
+  const isCurrentMonth = year === nowYear && month === nowMonth;
+
+  if (!isCurrentMonth) {
+    const { data: monthlyRows, error: monthlyError } = await supabase
+      .from("funnel_monthly_totals")
+      .select("spend, leads")
+      .eq("year", year)
+      .eq("month", month);
+    if (monthlyError) return { connected: false, spend: 0, leads: 0 };
+    if (monthlyRows && monthlyRows.length > 0) {
+      const spend = monthlyRows.reduce((s, r) => s + Number(r.spend ?? 0), 0);
+      const leads = monthlyRows.reduce((s, r) => s + Number(r.leads ?? 0), 0);
+      return { connected: true, spend, leads };
+    }
   }
 
   const { data, error } = await supabase
@@ -224,7 +240,11 @@ export interface MonthlyCampaignRow {
 // Per-campaign totals for a given month — powers Mission Control's "Paid
 // Campaigns" list for a selected month, including campaigns no longer live
 // in lib/config.ts. Same monthly-aggregate-first, daily-sum-fallback
-// preference as getMonthlyTotals.
+// preference as getMonthlyTotals, and the same current-month exception: see
+// getMonthlyTotals's doc comment — funnel_monthly_totals holds Meta/Typoform
+// lifetime aggregates while the current month is still open, not
+// month-scoped figures, so it's skipped in favor of funnel_daily_history
+// until the month closes.
 export async function getMonthlyCampaignRows(
   year: number,
   month: number,
@@ -234,28 +254,33 @@ export async function getMonthlyCampaignRows(
   const supabase = getClient();
   if (!supabase) return { connected: false, rows: [] };
 
-  const { data: monthlyRows, error: monthlyError } = await supabase
-    .from("funnel_monthly_totals")
-    .select("*")
-    .eq("year", year)
-    .eq("month", month);
-  if (monthlyError) return { connected: false, rows: [] };
-  if (monthlyRows && monthlyRows.length > 0) {
-    return {
-      connected: true,
-      rows: monthlyRows.map((r) => ({
-        campaign_id: r.campaign_id,
-        campaign_name: r.campaign_name,
-        property: r.property,
-        ref: r.ref,
-        campaign_type: r.campaign_type,
-        status: r.status,
-        spend: Number(r.spend ?? 0),
-        leads: r.leads === null || r.leads === undefined ? null : Number(r.leads),
-        cpl: r.cpl === null || r.cpl === undefined ? null : Number(r.cpl),
-        leads_source: r.leads_source,
-      })),
-    };
+  const [nowYear, nowMonth] = todayISOMadrid().split("-").map(Number);
+  const isCurrentMonth = year === nowYear && month === nowMonth;
+
+  if (!isCurrentMonth) {
+    const { data: monthlyRows, error: monthlyError } = await supabase
+      .from("funnel_monthly_totals")
+      .select("*")
+      .eq("year", year)
+      .eq("month", month);
+    if (monthlyError) return { connected: false, rows: [] };
+    if (monthlyRows && monthlyRows.length > 0) {
+      return {
+        connected: true,
+        rows: monthlyRows.map((r) => ({
+          campaign_id: r.campaign_id,
+          campaign_name: r.campaign_name,
+          property: r.property,
+          ref: r.ref,
+          campaign_type: r.campaign_type,
+          status: r.status,
+          spend: Number(r.spend ?? 0),
+          leads: r.leads === null || r.leads === undefined ? null : Number(r.leads),
+          cpl: r.cpl === null || r.cpl === undefined ? null : Number(r.cpl),
+          leads_source: r.leads_source,
+        })),
+      };
+    }
   }
 
   const { data: dailyRows, error: dailyError } = await supabase

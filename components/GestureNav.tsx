@@ -96,7 +96,7 @@ export default function GestureNav() {
         const age = now - pts[i].t;
         if (age > TRAIL_LIFETIME_MS) continue;
         const alpha = 1 - age / TRAIL_LIFETIME_MS;
-        ctx.strokeStyle = `rgba(245, 179, 61, ${alpha})`;
+        ctx.strokeStyle = `rgba(0, 187, 187, ${alpha})`;
         ctx.lineWidth = 3 + alpha * 2;
         ctx.beginPath();
         ctx.moveTo(pts[i - 1].x, pts[i - 1].y);
