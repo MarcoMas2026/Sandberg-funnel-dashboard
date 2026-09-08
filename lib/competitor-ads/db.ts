@@ -391,7 +391,12 @@ export async function getCompetitorAdDetail(competitorKey: string): Promise<Comp
       ad_delivery_start_time: latest.ad_delivery_start_time,
       ad_delivery_stop_time: latest.ad_delivery_stop_time,
       first_seen_date: first.snapshot_date,
-      days_running: daysSince(first.snapshot_date),
+      // Meta's own ad_delivery_start_time is the ad's real start date and
+      // predates our tracking (which only began 2026-09-08) — prefer it over
+      // first_seen_date whenever present, since first_seen_date alone would
+      // understate every ad's true age (and inflate the benchmark's implied
+      // daily reach) until weeks of our own snapshot history accumulate.
+      days_running: latest.ad_delivery_start_time ? daysSince(latest.ad_delivery_start_time) : daysSince(first.snapshot_date),
       variants,
       eu_total_reach: latest.eu_total_reach ?? null,
       age_gender_breakdown: latest.age_gender_breakdown ?? null,
