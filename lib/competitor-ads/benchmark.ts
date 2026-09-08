@@ -128,18 +128,43 @@ function confidenceFor(tolerance: number, sampleSize: number): EstimateConfidenc
   return "low";
 }
 
+// Cumulative reach does NOT grow linearly with days running — after the first
+// few days a campaign mostly re-shows the same audience (frequency), so
+// "total reach ÷ days" badly understates the campaign's actual daily reach
+// the longer it runs. Fitted 2026-09-08 via log-log regression on 46 of our
+// own campaigns (effective_days = lifetime reach ÷ real average daily reach,
+// vs. days_running): effective_days ≈ 1.0967 · N^0.7901, R²=0.90. Dividing by
+// this instead of N directly is what "daily reach" means below.
+//
+// Validated blind against 2 held-out Sandberg Estates ads (excluded from the
+// fit) matched to our own real campaign data: naive division was 16-18%
+// accurate on spend/impressions/clicks; this curve improved that to 26-47%.
+// Known remaining gap (not corrected here — would need calibration data
+// independent of any single test ad to avoid circularity): eu_total_reach
+// undercounts vs. our own campaigns' true total reach by roughly 2x in both
+// validation cases (7,001 internal vs 3,770 EU-disclosed; 7,958 vs 3,828) —
+// consistent with eu_total_reach excluding non-EU countries our targeting
+// also reaches. Every estimate is therefore still a probable UNDERESTIMATE,
+// not a calibrated one — see the `note` field.
+const SATURATION_A = 1.0967;
+const SATURATION_B = 0.7901;
+function effectiveReachDays(daysRunning: number): number {
+  return SATURATION_A * Math.pow(daysRunning, SATURATION_B);
+}
+
 // `euTotalReach` is the ad's real cumulative reach (Meta's own number,
 // EU-transparency only); `daysRunning` normalizes it to a daily figure before
-// interpolating, since our own benchmark days are daily too. Total estimates
-// are then scaled back up by daysRunning. Returns confidence "none" (no
-// numbers shown) when the reach falls outside anything we've actually run,
-// rather than extrapolating past what our own data supports.
+// interpolating, since our own benchmark days are daily too, via the
+// saturation curve above (not naive division). Total estimates are then
+// scaled back up by daysRunning. Returns confidence "none" (no numbers
+// shown) when the reach falls outside anything we've actually run, rather
+// than extrapolating past what our own data supports.
 export async function estimateAdMetrics(euTotalReach: number | null, daysRunning: number): Promise<AdMetricEstimate> {
   if (!euTotalReach || euTotalReach <= 0) {
     return NEUTRAL_ESTIMATE(0, daysRunning, "No real reach figure available for this ad (likely doesn't reach an EU country) — nothing to benchmark against.");
   }
   const effectiveDays = Math.max(1, daysRunning);
-  const dailyReach = euTotalReach / effectiveDays;
+  const dailyReach = euTotalReach / effectiveReachDays(effectiveDays);
 
   const days = await loadBenchmarkDays();
   if (days.length < MIN_SAMPLE) {
@@ -182,6 +207,8 @@ export async function estimateAdMetrics(euTotalReach: number | null, daysRunning
     estimated_clicks: Math.round(totalClicks),
     estimated_leads: Number.isFinite(totalLeads) ? Math.round(totalLeads) : null,
     estimated_cpm: totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : null,
-    note: `Benchmarked against ${sample.length} of your own campaign-days within ${Math.round(tolerance * 100)}% of this ad's daily reach.`,
+    note: `Benchmarked against ${sample.length} of your own campaign-days within ${Math.round(
+      tolerance * 100
+    )}% of this ad's daily reach. Likely an underestimate — validation showed eu_total_reach runs ~2x below true total reach, uncorrected here to avoid overfitting to test data.`,
   };
 }
