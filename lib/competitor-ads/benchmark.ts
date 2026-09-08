@@ -138,18 +138,34 @@ function confidenceFor(tolerance: number, sampleSize: number): EstimateConfidenc
 //
 // Validated blind against 2 held-out Sandberg Estates ads (excluded from the
 // fit) matched to our own real campaign data: naive division was 16-18%
-// accurate on spend/impressions/clicks; this curve improved that to 26-47%.
-// Known remaining gap (not corrected here — would need calibration data
-// independent of any single test ad to avoid circularity): eu_total_reach
-// undercounts vs. our own campaigns' true total reach by roughly 2x in both
-// validation cases (7,001 internal vs 3,770 EU-disclosed; 7,958 vs 3,828) —
-// consistent with eu_total_reach excluding non-EU countries our targeting
-// also reaches. Every estimate is therefore still a probable UNDERESTIMATE,
-// not a calibrated one — see the `note` field.
+// accurate on spend/impressions/clicks; this curve alone improved that to
+// 26-47%.
 const SATURATION_A = 1.0967;
 const SATURATION_B = 0.7901;
 function effectiveReachDays(daysRunning: number): number {
   return SATURATION_A * Math.pow(daysRunning, SATURATION_B);
+}
+
+// eu_total_reach (Meta's DSA disclosure) undercounts vs. our own campaigns'
+// true total reach, because it excludes non-EU countries our targeting also
+// reaches — and the gap WIDENS with days_running (EU's smaller population
+// saturates faster relative to our wider targeted geography). Fitted
+// 2026-09-08 via log-log regression on 3 campaigns matched to real Ads
+// Library ads BY EXACT DATE-WINDOW (days_running matched to the day),
+// deliberately excluding the 2 held-out validation ads to avoid calibrating
+// on the same cases being tested: ratio(N) = internal_reach / eu_total_reach
+// at N=9 → 1.90x, N=20 → 2.84x, N=22 → 3.15x. Only 3 points — wide
+// uncertainty, revisit as more matched pairs accumulate.
+//
+// Applying this on top of the saturation curve above, re-validated blind on
+// the same 2 held-out ads: accuracy rose from 26-47% to 66.6-90.0% (Sa Vinya)
+// and 28-36% to 85.0-114.4% (Olinto) on spend/impressions/clicks. Still not
+// exact — 3-point calibration, EU-scale ratio is inherently noisy — but a
+// large, real improvement over leaving the gap uncorrected.
+const EU_SCALE_P = 0.5768;
+const EU_SCALE_Q = 0.5413;
+function euReachScaleFactor(daysRunning: number): number {
+  return EU_SCALE_P * Math.pow(daysRunning, EU_SCALE_Q);
 }
 
 // `euTotalReach` is the ad's real cumulative reach (Meta's own number,
@@ -164,7 +180,8 @@ export async function estimateAdMetrics(euTotalReach: number | null, daysRunning
     return NEUTRAL_ESTIMATE(0, daysRunning, "No real reach figure available for this ad (likely doesn't reach an EU country) — nothing to benchmark against.");
   }
   const effectiveDays = Math.max(1, daysRunning);
-  const dailyReach = euTotalReach / effectiveReachDays(effectiveDays);
+  const correctedReach = euTotalReach * euReachScaleFactor(effectiveDays);
+  const dailyReach = correctedReach / effectiveReachDays(effectiveDays);
 
   const days = await loadBenchmarkDays();
   if (days.length < MIN_SAMPLE) {
@@ -209,6 +226,6 @@ export async function estimateAdMetrics(euTotalReach: number | null, daysRunning
     estimated_cpm: totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : null,
     note: `Benchmarked against ${sample.length} of your own campaign-days within ${Math.round(
       tolerance * 100
-    )}% of this ad's daily reach. Likely an underestimate — validation showed eu_total_reach runs ~2x below true total reach, uncorrected here to avoid overfitting to test data.`,
+    )}% of this ad's daily reach, after correcting for reach saturation and the EU-vs-total reach gap. Validated to 67-114% accuracy on held-out tests — still an approximation, not exact.`,
   };
 }
