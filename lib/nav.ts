@@ -14,6 +14,7 @@ import {
   ChartLine,
   Users,
   Scales,
+  Binoculars,
 } from "@phosphor-icons/react";
 
 export type NavItem = {
@@ -43,6 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/report", label: "Meta Ads Report", icon: FileText },
   { href: "/patterns", label: "Patterns", icon: ShareNetwork },
   { href: "/social", label: "Social", icon: InstagramLogo },
+  { href: "/competitor-ads", label: "Competitor Ads", icon: Binoculars },
   // Parked — building this out later (see CLAUDE.md OKR section). Route and
   // page stay in the codebase; only the nav entry is hidden.
   { href: "/okrs", label: "OKRs", icon: Target, hidden: true },
@@ -67,6 +69,7 @@ const ALL_NAV_GROUPS: NavGroup[] = [
   { kind: "group", label: "CRM", icon: Users, hrefs: ["/leads", "/outcomes", "/whatsapp"] },
   { kind: "item", href: "/insights" },
   { kind: "item", href: "/social" },
+  { kind: "item", href: "/competitor-ads" },
   { kind: "item", href: "/okrs" },
 ];
 

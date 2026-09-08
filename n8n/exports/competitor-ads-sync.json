@@ -1,0 +1,281 @@
+{
+  "name": "Funnel Dashboard - Ads Library Sync",
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "Schedule Trigger (daily)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 24, "triggerAtHour": 6 }] }
+      }
+    },
+    {
+      "id": "getConfig",
+      "name": "Get Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "parameters": {
+        "url": "https://sandberg-funnel-dashboard.vercel.app/api/config",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "timeout": 20000 }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "gnuvIzBvRB6JZSml", "name": "Funnel API Token" }
+      }
+    },
+    {
+      "id": "buildRequests",
+      "name": "Build Competitor List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "jsCode": "const competitors = $input.first().json.competitors || [];\nreturn competitors.map((c) => ({ json: c }));"
+      }
+    },
+    {
+      "id": "loop",
+      "name": "Loop Over Competitors",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [660, 0],
+      "parameters": { "batchSize": 1, "options": {} }
+    },
+    {
+      "id": "isPageType",
+      "name": "Is Page Type?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [880, -80],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.match_type }}",
+              "rightValue": "page",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "fetchAdsPage",
+      "name": "Fetch Ads (Page)",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [1100, -160],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "graphApiVersion": "=v20.0",
+        "node": "ads_archive",
+        "edge": "",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              { "name": "search_page_ids", "value": "={{ JSON.stringify([$json.page_id]) }}" },
+              { "name": "ad_active_status", "value": "ACTIVE" },
+              { "name": "ad_reached_countries", "value": "[\"ES\",\"US\",\"GB\",\"DE\",\"FR\",\"CH\",\"AE\",\"IT\",\"NL\"]" },
+              {
+                "name": "fields",
+                "value": "ad_archive_id,ad_creative_bodies,ad_creative_link_titles,ad_delivery_start_time,ad_delivery_stop_time,ad_snapshot_url,page_id,page_name,publisher_platforms,languages"
+              },
+              { "name": "limit", "value": "100" }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "facebookGraphApi": { "id": "Ez7DK2o3GrH6Misr", "name": "Meta Ads Library Token" }
+      }
+    },
+    {
+      "id": "fetchAdsKeyword",
+      "name": "Fetch Ads (Keyword)",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [1100, 0],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "graphApiVersion": "=v20.0",
+        "node": "ads_archive",
+        "edge": "",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              { "name": "search_terms", "value": "={{ $json.search_term }}" },
+              { "name": "ad_active_status", "value": "ACTIVE" },
+              { "name": "ad_reached_countries", "value": "[\"ES\",\"US\",\"GB\",\"DE\",\"FR\",\"CH\",\"AE\",\"IT\",\"NL\"]" },
+              {
+                "name": "fields",
+                "value": "ad_archive_id,ad_creative_bodies,ad_creative_link_titles,ad_delivery_start_time,ad_delivery_stop_time,ad_snapshot_url,page_id,page_name,publisher_platforms,languages"
+              },
+              { "name": "limit", "value": "100" }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "facebookGraphApi": { "id": "Ez7DK2o3GrH6Misr", "name": "Meta Ads Library Token" }
+      }
+    },
+    {
+      "id": "tagRows",
+      "name": "Tag & Prepare Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, -80],
+      "parameters": {
+        "jsCode": "const competitor = $('Loop Over Competitors').item.json;\nconst resp = $input.first().json || {};\nconst ads = Array.isArray(resp.data) ? resp.data : [];\nconst today = new Date().toISOString().slice(0, 10);\n\nconst byId = new Map();\nfor (const a of ads) {\n  const adId = String(a.id || a.ad_archive_id || '');\n  if (!adId) continue;\n  byId.set(adId, {\n    ad_archive_id: adId,\n    snapshot_date: today,\n    competitor_key: competitor.key,\n    competitor_label: competitor.label,\n    match_type: competitor.match_type,\n    tier: competitor.tier,\n    page_id: a.page_id ?? null,\n    page_name: a.page_name ?? null,\n    ad_creative_body: (a.ad_creative_bodies && a.ad_creative_bodies[0]) ?? null,\n    ad_creative_link_title: (a.ad_creative_link_titles && a.ad_creative_link_titles[0]) ?? null,\n    ad_snapshot_url: a.ad_snapshot_url ?? null,\n    publisher_platforms: a.publisher_platforms ?? [],\n    languages: a.languages ?? [],\n    ad_delivery_start_time: a.ad_delivery_start_time ?? null,\n    ad_delivery_stop_time: a.ad_delivery_stop_time ?? null,\n  });\n}\nreturn [{ json: { rows: [...byId.values()] } }];"
+      }
+    },
+    {
+      "id": "hasRows",
+      "name": "Has Rows?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1540, -80],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.rows.length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "upsertRows",
+      "name": "Upsert Snapshot Rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1760, -160],
+      "parameters": {
+        "method": "POST",
+        "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/competitor_ad_snapshots?on_conflict=ad_archive_id,snapshot_date",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Prefer", "value": "resolution=merge-duplicates" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.rows }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpCustomAuth": { "id": "7jrMyNoYAYNtPqTK", "name": "Supabase Competitor Ads (service_role)" }
+      }
+    },
+    {
+      "id": "finalizeCode",
+      "name": "Build KV Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 200],
+      "parameters": {
+        "jsCode": "const rows = $input.first().json;\nconst list = Array.isArray(rows) ? rows : [];\nconst ads = list.map((r) => ({\n  ad_archive_id: r.ad_archive_id,\n  competitor_key: r.competitor_key,\n  competitor_label: r.competitor_label,\n  match_type: r.match_type,\n  tier: r.tier,\n  page_id: r.page_id,\n  page_name: r.page_name,\n  ad_creative_body: r.ad_creative_body,\n  ad_creative_link_title: r.ad_creative_link_title,\n  ad_snapshot_url: r.ad_snapshot_url,\n  publisher_platforms: r.publisher_platforms || [],\n  languages: r.languages || [],\n  ad_delivery_start_time: r.ad_delivery_start_time,\n  ad_delivery_stop_time: r.ad_delivery_stop_time,\n}));\nreturn [{ json: { last_updated: new Date().toISOString(), ads, rows_count: ads.length } }];"
+      }
+    },
+    {
+      "id": "fetchTodaySnapshot",
+      "name": "Fetch Today's Snapshot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 200],
+      "parameters": {
+        "url": "=https://qqgayzvuvskindfworak.supabase.co/rest/v1/competitor_ad_snapshots?snapshot_date=eq.{{ $now.format('yyyy-MM-dd') }}&select=ad_archive_id,competitor_key,competitor_label,match_type,tier,page_id,page_name,ad_creative_body,ad_creative_link_title,ad_snapshot_url,publisher_platforms,languages,ad_delivery_start_time,ad_delivery_stop_time",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpCustomAuth": { "id": "7jrMyNoYAYNtPqTK", "name": "Supabase Competitor Ads (service_role)" }
+      }
+    },
+    {
+      "id": "writeKv",
+      "name": "Write competitor_ads:live to KV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://maximum-anteater-96315.upstash.io/set/competitor_ads:live",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "={{ JSON.stringify({ last_updated: $json.last_updated, ads: $json.ads }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "FtPesyt3E1pd9ItX", "name": "Upstash KV Auth" }
+      }
+    },
+    {
+      "id": "recordSyncOk",
+      "name": "Record Sync Attempt (OK)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 200],
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://qqgayzvuvskindfworak.supabase.co/rest/v1/competitor_ads_sync_state?id=eq.competitor_ads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { last_success_at: $json.last_updated, last_attempt_at: $json.last_updated, last_status: 'ok', last_error: null, rows_last_pull: $json.rows_count } }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpCustomAuth": { "id": "7jrMyNoYAYNtPqTK", "name": "Supabase Competitor Ads (service_role)" }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (daily)": { "main": [[{ "node": "Get Config", "type": "main", "index": 0 }]] },
+    "Get Config": { "main": [[{ "node": "Build Competitor List", "type": "main", "index": 0 }]] },
+    "Build Competitor List": { "main": [[{ "node": "Loop Over Competitors", "type": "main", "index": 0 }]] },
+    "Loop Over Competitors": {
+      "main": [
+        [{ "node": "Fetch Today's Snapshot", "type": "main", "index": 0 }],
+        [{ "node": "Is Page Type?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Page Type?": {
+      "main": [
+        [{ "node": "Fetch Ads (Page)", "type": "main", "index": 0 }],
+        [{ "node": "Fetch Ads (Keyword)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Ads (Page)": { "main": [[{ "node": "Tag & Prepare Rows", "type": "main", "index": 0 }]] },
+    "Fetch Ads (Keyword)": { "main": [[{ "node": "Tag & Prepare Rows", "type": "main", "index": 0 }]] },
+    "Tag & Prepare Rows": { "main": [[{ "node": "Has Rows?", "type": "main", "index": 0 }]] },
+    "Has Rows?": {
+      "main": [
+        [{ "node": "Upsert Snapshot Rows", "type": "main", "index": 0 }],
+        [{ "node": "Loop Over Competitors", "type": "main", "index": 0 }]
+      ]
+    },
+    "Upsert Snapshot Rows": { "main": [[{ "node": "Loop Over Competitors", "type": "main", "index": 0 }]] },
+    "Fetch Today's Snapshot": { "main": [[{ "node": "Build KV Payload", "type": "main", "index": 0 }]] },
+    "Build KV Payload": { "main": [[{ "node": "Write competitor_ads:live to KV", "type": "main", "index": 0 }]] },
+    "Write competitor_ads:live to KV": { "main": [[{ "node": "Record Sync Attempt (OK)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CAMPAIGN_MAP } from "@/lib/config";
+import { CAMPAIGN_MAP, COMPETITOR_MAP } from "@/lib/config";
 import { requireCrmToken } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
@@ -12,5 +12,5 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const denied = requireCrmToken(request);
   if (denied) return denied;
-  return NextResponse.json({ campaigns: CAMPAIGN_MAP });
+  return NextResponse.json({ campaigns: CAMPAIGN_MAP, competitors: COMPETITOR_MAP });
 }

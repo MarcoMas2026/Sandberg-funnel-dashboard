@@ -197,6 +197,46 @@ export interface CampaignMapEntry {
   landing_slug?: string;
 }
 
+// "page" = a named competitor Facebook Page, tracked via search_page_ids.
+// "keyword" = a brand-name search across all advertisers, tracked via search_terms
+// (used for global luxury brands with no single Mallorca-local Page).
+export type CompetitorMatchType = "page" | "keyword";
+
+export interface CompetitorMapEntry {
+  key: string; // slug, unique — used as the DB/KV grouping key
+  label: string; // display name
+  match_type: CompetitorMatchType;
+  tier: "local" | "global"; // Mallorca-local competitor vs. global luxury brand
+  page_url?: string; // match_type "page" — for reference/display only
+  page_id?: string; // match_type "page" — resolved via Graph API lookup, used in the n8n pull
+  search_term?: string; // match_type "keyword"
+}
+
+// One ad as returned by a single Ads Library Sync pull — the shape written to
+// KV competitor_ads:live (today's flattened snapshot) and mirrored into each
+// day's Supabase competitor_ad_snapshots row.
+export interface CompetitorAdSnapshot {
+  ad_archive_id: string;
+  competitor_key: string;
+  competitor_label: string;
+  match_type: CompetitorMatchType;
+  tier: "local" | "global";
+  page_id: string | null;
+  page_name: string | null;
+  ad_creative_body: string | null;
+  ad_creative_link_title: string | null;
+  ad_snapshot_url: string | null;
+  publisher_platforms: string[];
+  languages: string[];
+  ad_delivery_start_time: string | null; // YYYY-MM-DD
+  ad_delivery_stop_time: string | null; // YYYY-MM-DD
+}
+
+export interface CompetitorAdsLive {
+  last_updated: string | null; // ISO
+  ads: CompetitorAdSnapshot[];
+}
+
 // ── OKRs (Google Sheet-backed, see lib/sheets.ts) ───────────────────────────
 
 // Opaque sheet coordinates for a single writable cell, carried on KeyResult so

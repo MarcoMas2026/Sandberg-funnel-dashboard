@@ -1,4 +1,4 @@
-import { ClarityMetrics, FunnelData, LandingEngagement, LandingEngagementRaw, LeadRecord, LeadTag, PublicViewConfig, PublicViewIndexEntry, PublicViewWidgetType } from "./types";
+import { ClarityMetrics, CompetitorAdsLive, FunnelData, LandingEngagement, LandingEngagementRaw, LeadRecord, LeadTag, PublicViewConfig, PublicViewIndexEntry, PublicViewWidgetType } from "./types";
 import { CAMPAIGN_MAP, LANDING_SECTION_ORDER } from "./config";
 import { createWidget } from "./public-view-widgets";
 import { THANK_YOU_AGENT_NAMES } from "./thank-you-agents";
@@ -9,6 +9,7 @@ const LEAD_TAGS_KEY = "leads:tags";
 const LANDING_FUNNEL_KEY = "landing:funnel";
 const CLARITY_METRICS_KEY = "clarity:metrics";
 const PUBLIC_VIEW_INDEX_KEY = "publicview:index";
+const COMPETITOR_ADS_LIVE_KEY = "competitor_ads:live";
 const publicViewConfigKey = (slug: string) => `publicview:config:${slug}`;
 
 function kvHeaders() {
@@ -411,6 +412,32 @@ export async function resolvePublicView(slug: string): Promise<{
     frozenAt: config.frozenAt,
     data,
   };
+}
+
+// ── Competitor Ad Intelligence (Meta Ads Library) ────────────────────────────
+// competitor_ads:live is written daily by the standalone n8n workflow "Funnel
+// Dashboard - Ads Library Sync" (full replace, today's flattened pull across
+// every lib/config.ts COMPETITOR_MAP entry) — the fast "what's live right
+// now" read. Historical/trend data lives in Supabase (lib/competitor-ads/db.ts),
+// intentionally decoupled from this key, same split as funnel_daily_history
+// vs. funnel:merged.
+export async function getCompetitorAdsLive(): Promise<CompetitorAdsLive> {
+  const res = await fetch(`${process.env.KV_REST_API_URL}/get/${COMPETITOR_ADS_LIVE_KEY}`, {
+    headers: kvHeaders(),
+    cache: "no-store",
+  });
+  const { result } = await res.json();
+  if (!result) return { last_updated: null, ads: [] };
+  return JSON.parse(result) as CompetitorAdsLive;
+}
+
+export async function setCompetitorAdsLive(data: CompetitorAdsLive): Promise<void> {
+  await fetch(`${process.env.KV_REST_API_URL}/set/${COMPETITOR_ADS_LIVE_KEY}`, {
+    method: "POST",
+    headers: { ...kvHeaders(), "Content-Type": "text/plain" },
+    body: JSON.stringify(data),
+    cache: "no-store",
+  });
 }
 
 export async function unfreezePublicView(slug: string): Promise<PublicViewConfig> {

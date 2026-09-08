@@ -13,6 +13,13 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "/Users/marketingteam/Desktop/digital-twin-organism", "run", "dev"],
       "port": 5174
+    },
+    {
+      "name": "crm-daniel",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/marketingteam/Desktop/CRM-DANIEL", "run", "dev"],
+      "port": 3001,
+      "autoPort": true
     }
   ]
 }
