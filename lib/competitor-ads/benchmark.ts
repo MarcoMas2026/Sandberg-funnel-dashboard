@@ -148,24 +148,28 @@ function effectiveReachDays(daysRunning: number): number {
 
 // eu_total_reach (Meta's DSA disclosure) undercounts vs. our own campaigns'
 // true total reach, because it excludes non-EU countries our targeting also
-// reaches — and the gap WIDENS with days_running (EU's smaller population
-// saturates faster relative to our wider targeted geography). Fitted
-// 2026-09-08 via log-log regression on 3 campaigns matched to real Ads
-// Library ads BY EXACT DATE-WINDOW (days_running matched to the day),
-// deliberately excluding the 2 held-out validation ads to avoid calibrating
-// on the same cases being tested: ratio(N) = internal_reach / eu_total_reach
-// at N=9 → 1.90x, N=20 → 2.84x, N=22 → 3.15x. Only 3 points — wide
-// uncertainty, revisit as more matched pairs accumulate.
+// reaches. First calibrated 2026-09-08 from 3 campaigns matched to real Ads
+// Library ads by exact date-window (days_running matched to the day) —
+// that fit a clean-looking power-law growing with days_running (R²=0.90),
+// but that was a small-sample illusion: adding 4 more independently-matched
+// campaigns (7 total, N=9..22) dropped R² to 0.07. The ratio does NOT
+// reliably grow with days_running — it ranges 1.84x-4.08x roughly
+// independent of duration (e.g. 11-day Villa Sa Caleta at 4.01x vs. 17-day
+// CAN VILA at 4.08x vs. 13-day Catalina Duplex at 1.84x). Using the median
+// of those 7 ratios as a constant multiplier instead of a fitted curve —
+// there's no defensible N-dependence to fit. The unexplained ~2x spread
+// itself is real, irreducible uncertainty in this correction (likely driven
+// by per-campaign targeting/audience composition, not duration), not
+// something a single scalar can fully capture.
 //
-// Applying this on top of the saturation curve above, re-validated blind on
-// the same 2 held-out ads: accuracy rose from 26-47% to 66.6-90.0% (Sa Vinya)
-// and 28-36% to 85.0-114.4% (Olinto) on spend/impressions/clicks. Still not
-// exact — 3-point calibration, EU-scale ratio is inherently noisy — but a
-// large, real improvement over leaving the gap uncorrected.
-const EU_SCALE_P = 0.5768;
-const EU_SCALE_Q = 0.5413;
-function euReachScaleFactor(daysRunning: number): number {
-  return EU_SCALE_P * Math.pow(daysRunning, EU_SCALE_Q);
+// Re-validated blind on the same 2 held-out ads (Sa Vinya, Olinto — never
+// used for calibration): spend improved to 75.8%/91.0% of real, impressions
+// to 108.0%/112.6%, but clicks now overshoots to 139.5%/171.2% — worse than
+// the (overfit) curve's 90.0%/114.4% on clicks specifically. Kept anyway:
+// this constant is honestly derived from 7 real points, not fit to noise.
+const EU_SCALE_RATIO = 2.838; // median of 7 independently-matched campaigns
+function euReachScaleFactor(_daysRunning: number): number {
+  return EU_SCALE_RATIO;
 }
 
 // `euTotalReach` is the ad's real cumulative reach (Meta's own number,
@@ -226,6 +230,6 @@ export async function estimateAdMetrics(euTotalReach: number | null, daysRunning
     estimated_cpm: totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : null,
     note: `Benchmarked against ${sample.length} of your own campaign-days within ${Math.round(
       tolerance * 100
-    )}% of this ad's daily reach, after correcting for reach saturation and the EU-vs-total reach gap. Validated to 67-114% accuracy on held-out tests — still an approximation, not exact.`,
+    )}% of this ad's daily reach, after correcting for reach saturation and the EU-vs-total reach gap (that correction alone carries a ~2x uncertainty band — spend/impressions validated closer to real numbers than clicks on held-out tests). Directional, not exact.`,
   };
 }
