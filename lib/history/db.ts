@@ -49,6 +49,7 @@ interface HistoryRow {
   clicks: number;
   link_clicks: number;
   ctr: number;
+  reach: number;
 }
 
 // Flattens every campaign's meta.daily[] rows into one upsert batch. Idempotent
@@ -74,6 +75,7 @@ export function rowsFromCampaigns(campaigns: FunnelCampaign[]): HistoryRow[] {
         clicks: d.clicks,
         link_clicks: d.link_clicks,
         ctr: d.ctr,
+        reach: d.reach,
       });
     }
   }
@@ -411,6 +413,7 @@ export interface DailyRow {
   clicks: number;
   link_clicks: number;
   ctr: number;
+  reach: number;
 }
 
 export async function getCampaignDailyRows(campaignId: string, monthStart: string, monthEnd: string): Promise<DailyRow[]> {
@@ -418,7 +421,7 @@ export async function getCampaignDailyRows(campaignId: string, monthStart: strin
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("funnel_daily_history")
-    .select("date, spend, leads, cpl, impressions, clicks, link_clicks, ctr")
+    .select("date, spend, leads, cpl, impressions, clicks, link_clicks, ctr, reach")
     .eq("campaign_id", campaignId)
     .gte("date", monthStart)
     .lte("date", monthEnd)
@@ -433,6 +436,7 @@ export async function getCampaignDailyRows(campaignId: string, monthStart: strin
     clicks: Number(r.clicks ?? 0),
     link_clicks: Number(r.link_clicks ?? 0),
     ctr: Number(r.ctr ?? 0),
+    reach: Number(r.reach ?? 0),
   }));
 }
 
@@ -730,7 +734,7 @@ export async function getCampaignSeries(
   if (campaignIds.length === 0) return { connected: true, series: {} };
   const { data, error } = await supabase
     .from("funnel_daily_history")
-    .select("campaign_id, date, spend, leads, cpl, impressions, clicks, link_clicks, ctr")
+    .select("campaign_id, date, spend, leads, cpl, impressions, clicks, link_clicks, ctr, reach")
     .in("campaign_id", campaignIds)
     .order("date", { ascending: true });
   if (error) return { connected: false, series: {} };
@@ -745,6 +749,7 @@ export async function getCampaignSeries(
       clicks: Number(r.clicks ?? 0),
       link_clicks: Number(r.link_clicks ?? 0),
       ctr: Number(r.ctr ?? 0),
+      reach: Number(r.reach ?? 0),
     };
     (series[r.campaign_id] ??= []).push(row);
   }

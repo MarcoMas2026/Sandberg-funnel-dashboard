@@ -10,6 +10,7 @@ export interface MetaDailyRow {
   ctr: number; // 0..1
   outbound_ctr: number; // 0..1
   cpl: number; // cost per lead that day
+  reach: number; // unique people reached that day (added 2026-09-08, for the Competitor Ads benchmark model)
 }
 
 // One row of a single-dimension Meta Insights breakdown call (its own
@@ -49,6 +50,7 @@ export interface MetaCampaign {
   ctr: number; // 0..1
   cpl: number; // cost per lead (spend / leads)
   outbound_ctr: number; // 0..1
+  reach: number; // lifetime unique people reached (date_preset(maximum) aggregate, same source as spend/impressions above)
   daily: MetaDailyRow[];
   by_platform: MetaBreakdownRow[];
   by_device: MetaBreakdownRow[];
@@ -235,6 +237,46 @@ export interface CompetitorAdSnapshot {
 export interface CompetitorAdsLive {
   last_updated: string | null; // ISO
   ads: CompetitorAdSnapshot[];
+}
+
+// One age/gender bucket for one country, as Meta's DSA transparency
+// (age_country_gender_reach_breakdown) discloses it — real data, EU-reached
+// ads only.
+export interface CompetitorAdAgeGenderRow {
+  country: string;
+  age_gender_breakdowns: { age_range: string; male?: number; female?: number; unknown?: number }[];
+}
+
+export interface CompetitorAdTargetLocation {
+  name: string;
+  type: string; // "CITY" | "countries" | ..., whatever Meta returns
+  excluded: boolean;
+}
+
+// Full per-ad detail for the /competitor-ads/[key] page: every creative
+// variant (see db/migrations/010_competitor_ad_detail.sql) plus Meta's real
+// EU transparency fields where disclosed. Never mix `estimated` (our own
+// benchmark-derived guess, see lib/competitor-ads/benchmark.ts) into the same
+// visual weight as these — everything below is Meta's own real data or null.
+export interface CompetitorAdDetail {
+  ad_archive_id: string;
+  competitor_key: string;
+  competitor_label: string;
+  tier: "local" | "global";
+  page_name: string | null;
+  ad_snapshot_url: string | null;
+  publisher_platforms: string[];
+  languages: string[];
+  ad_delivery_start_time: string | null;
+  ad_delivery_stop_time: string | null;
+  first_seen_date: string;
+  days_running: number;
+  variants: { body: string | null; title: string | null; description: string | null }[];
+  eu_total_reach: number | null;
+  age_gender_breakdown: CompetitorAdAgeGenderRow[] | null;
+  target_ages: string[] | null;
+  target_gender: string | null;
+  target_locations: CompetitorAdTargetLocation[] | null;
 }
 
 // ── OKRs (Google Sheet-backed, see lib/sheets.ts) ───────────────────────────

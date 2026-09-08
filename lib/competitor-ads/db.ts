@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { COMPETITOR_MAP } from "../config";
+import type { CompetitorAdAgeGenderRow, CompetitorAdDetail, CompetitorAdTargetLocation } from "../types";
 
 // Server-only client — SUPABASE_SERVICE_ROLE_KEY must never reach the browser
 // bundle (same rule as lib/kv.ts, lib/social/db.ts, lib/crm/db.ts). Reuses the
@@ -41,6 +42,14 @@ interface SnapshotRow {
   languages: string[] | null;
   ad_delivery_start_time: string | null;
   ad_delivery_stop_time: string | null;
+  ad_creative_bodies?: string[] | null;
+  ad_creative_link_titles?: string[] | null;
+  ad_creative_link_descriptions?: string[] | null;
+  eu_total_reach?: number | null;
+  age_gender_breakdown?: CompetitorAdAgeGenderRow[] | null;
+  target_ages?: string[] | null;
+  target_gender?: string | null;
+  target_locations?: CompetitorAdTargetLocation[] | null;
 }
 
 export interface CompetitorSummaryRow {
@@ -151,6 +160,48 @@ async function getSyncState(supabase: SupabaseClient): Promise<CompetitorAdsSync
 
 const LABEL_BY_KEY = new Map(COMPETITOR_MAP.map((c) => [c.key, c]));
 
+type WindowRow = Pick<
+  SnapshotRow,
+  | "ad_archive_id"
+  | "snapshot_date"
+  | "competitor_key"
+  | "competitor_label"
+  | "tier"
+  | "ad_creative_body"
+  | "ad_creative_link_title"
+  | "ad_snapshot_url"
+  | "publisher_platforms"
+  | "languages"
+  | "ad_delivery_start_time"
+>;
+
+// PostgREST caps a single response at 1000 rows by default — at current
+// volumes (thousands of active ads/day across 22 competitors) a 30-day
+// window easily exceeds that, so this must page through with .range()
+// rather than a single .select().
+const PAGE_SIZE = 1000;
+async function fetchAllRows(
+  supabase: SupabaseClient,
+  sinceStr: string,
+  columns: string
+): Promise<{ rows: WindowRow[]; error?: string }> {
+  const rows: WindowRow[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("competitor_ad_snapshots")
+      .select(columns)
+      .gte("snapshot_date", sinceStr)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return { rows, error: error.message };
+    const page = (data ?? []) as unknown as WindowRow[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return { rows };
+}
+
 // Everything the /competitor-ads page needs beyond the KV "live" read: the
 // by-competitor summary table, a recent-ad feed, and an activity trend for
 // sparklines — all derived from the day-by-day snapshot table, no mutable
@@ -163,27 +214,25 @@ export async function getCompetitorAdsHistory(days: number): Promise<CompetitorA
   since.setDate(since.getDate() - days);
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const [latestDateRes, windowRes, syncState] = await Promise.all([
+  const WINDOW_COLUMNS =
+    "ad_archive_id, snapshot_date, competitor_key, competitor_label, tier, ad_creative_body, ad_creative_link_title, ad_snapshot_url, publisher_platforms, languages, ad_delivery_start_time";
+
+  const [latestDateRes, windowResult, syncState] = await Promise.all([
     supabase
       .from("competitor_ad_snapshots")
       .select("snapshot_date")
       .order("snapshot_date", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from("competitor_ad_snapshots")
-      .select(
-        "ad_archive_id, snapshot_date, competitor_key, competitor_label, tier, ad_creative_body, ad_creative_link_title, ad_snapshot_url, publisher_platforms, languages, ad_delivery_start_time"
-      )
-      .gte("snapshot_date", sinceStr),
+    fetchAllRows(supabase, sinceStr, WINDOW_COLUMNS),
     getSyncState(supabase),
   ]);
 
-  if (windowRes.error) {
-    return { connected: true, ...EMPTY_HISTORY, syncState, error: windowRes.error.message };
+  if (windowResult.error) {
+    return { connected: true, ...EMPTY_HISTORY, syncState, error: windowResult.error };
   }
 
-  const rows = windowRes.data ?? [];
+  const rows = windowResult.rows;
   const latestDate = latestDateRes.data?.snapshot_date ?? null;
 
   // First-seen date per ad (across the whole window fetched) drives both the
@@ -265,4 +314,94 @@ function daysSince(dateStr: string): number {
   const then = new Date(dateStr + "T00:00:00Z").getTime();
   const now = Date.now();
   return Math.max(0, Math.floor((now - then) / (1000 * 60 * 60 * 24)));
+}
+
+const DETAIL_COLUMNS =
+  "ad_archive_id, snapshot_date, competitor_key, competitor_label, tier, page_name, ad_snapshot_url, publisher_platforms, languages, ad_delivery_start_time, ad_delivery_stop_time, ad_creative_bodies, ad_creative_link_titles, ad_creative_link_descriptions, eu_total_reach, age_gender_breakdown, target_ages, target_gender, target_locations";
+
+export interface CompetitorAdDetailResult {
+  connected: boolean;
+  competitor_label: string | null;
+  ads: CompetitorAdDetail[];
+  error?: string;
+}
+
+// Every currently-active ad for one competitor, full creative variants +
+// real EU reach/targeting where Meta discloses it. Scoped to a single
+// competitor (unlike getCompetitorAdsHistory's 30-day/all-competitors sweep),
+// so even The Agency's ~1,400 ads stay a small, fast query.
+export async function getCompetitorAdDetail(competitorKey: string): Promise<CompetitorAdDetailResult> {
+  const supabase = getClient();
+  if (!supabase) return { connected: false, competitor_label: null, ads: [], error: "Supabase not configured" };
+
+  const rows: SnapshotRow[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("competitor_ad_snapshots")
+      .select(DETAIL_COLUMNS)
+      .eq("competitor_key", competitorKey)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return { connected: true, competitor_label: null, ads: [], error: error.message };
+    const page = (data ?? []) as unknown as SnapshotRow[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  if (rows.length === 0) {
+    const config = LABEL_BY_KEY.get(competitorKey);
+    return { connected: true, competitor_label: config?.label ?? null, ads: [] };
+  }
+
+  const byAd = new Map<string, SnapshotRow[]>();
+  for (const r of rows) {
+    if (!byAd.has(r.ad_archive_id)) byAd.set(r.ad_archive_id, []);
+    byAd.get(r.ad_archive_id)!.push(r);
+  }
+
+  const latestOverall = rows.reduce((max, r) => (r.snapshot_date > max ? r.snapshot_date : max), rows[0].snapshot_date);
+
+  const ads: CompetitorAdDetail[] = [];
+  for (const [adId, snapshots] of byAd.entries()) {
+    snapshots.sort((a, b) => (a.snapshot_date < b.snapshot_date ? -1 : 1));
+    const latest = snapshots[snapshots.length - 1];
+    if (latest.snapshot_date !== latestOverall) continue; // only currently-active ads
+    const first = snapshots[0];
+
+    const bodies = latest.ad_creative_bodies ?? (latest.ad_creative_body ? [latest.ad_creative_body] : []);
+    const titles = latest.ad_creative_link_titles ?? (latest.ad_creative_link_title ? [latest.ad_creative_link_title] : []);
+    const descriptions = latest.ad_creative_link_descriptions ?? [];
+    const variantCount = Math.max(bodies.length, titles.length, descriptions.length, 1);
+    const variants = Array.from({ length: variantCount }, (_, i) => ({
+      body: bodies[i] ?? null,
+      title: titles[i] ?? null,
+      description: descriptions[i] ?? null,
+    }));
+
+    ads.push({
+      ad_archive_id: adId,
+      competitor_key: latest.competitor_key,
+      competitor_label: latest.competitor_label,
+      tier: latest.tier as "local" | "global",
+      page_name: latest.page_name,
+      ad_snapshot_url: latest.ad_snapshot_url,
+      publisher_platforms: latest.publisher_platforms ?? [],
+      languages: latest.languages ?? [],
+      ad_delivery_start_time: latest.ad_delivery_start_time,
+      ad_delivery_stop_time: latest.ad_delivery_stop_time,
+      first_seen_date: first.snapshot_date,
+      days_running: daysSince(first.snapshot_date),
+      variants,
+      eu_total_reach: latest.eu_total_reach ?? null,
+      age_gender_breakdown: latest.age_gender_breakdown ?? null,
+      target_ages: latest.target_ages ?? null,
+      target_gender: latest.target_gender ?? null,
+      target_locations: latest.target_locations ?? null,
+    });
+  }
+
+  ads.sort((a, b) => (b.eu_total_reach ?? -1) - (a.eu_total_reach ?? -1) || b.days_running - a.days_running);
+
+  return { connected: true, competitor_label: ads[0]?.competitor_label ?? LABEL_BY_KEY.get(competitorKey)?.label ?? null, ads };
 }

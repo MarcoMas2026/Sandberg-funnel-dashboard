@@ -52,6 +52,7 @@ export async function buildHistoricalCampaign(campaignId: string, year: number, 
     ctr: d.ctr,
     outbound_ctr: NA,
     cpl: d.cpl,
+    reach: d.reach,
   }));
 
   const campaign: FunnelCampaign = {
@@ -78,6 +79,7 @@ export async function buildHistoricalCampaign(campaignId: string, year: number, 
       ctr,
       cpl,
       outbound_ctr,
+      reach: NA, // this month's summed-daily reach would double-count overlapping unique users; only the live lifetime aggregate (meta.reach from Meta Sync) is meaningful
       daily,
       by_platform: [],
       by_device: [],
