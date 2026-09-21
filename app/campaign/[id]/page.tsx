@@ -9,7 +9,7 @@ import MetricsPanel from "@/components/MetricsPanel";
 import SummaryPanel from "@/components/SummaryPanel";
 import IsometricFunnel from "@/components/IsometricFunnel";
 import LandingEngagementPanel from "@/components/LandingEngagementPanel";
-import { FunnelCampaign, LeadRecord } from "@/lib/types";
+import { FunnelCampaign, LeadRecord, VariantKey } from "@/lib/types";
 import { GlowPanel } from "@/components/ui/glow-panel";
 import { CardSkeleton, Skeleton } from "@/components/ui/skeleton";
 
@@ -143,7 +143,7 @@ function monthLabelFor(monthParam: string): string {
 // disableDrilldown — the drill-down pages need data with no historical store
 // at all: per-ad breakdowns, Clarity, video).
 function CampaignDetail({
-  campaign,
+  campaign: fullCampaign,
   tagCounts,
   lastUpdated,
   isHistorical,
@@ -155,6 +155,33 @@ function CampaignDetail({
   isHistorical?: boolean;
   monthLabel?: string;
 }) {
+  const variants = fullCampaign.variants ?? [];
+  const [selected, setSelected] = useState<"ALL" | VariantKey>("ALL");
+  const active = variants.find((v) => v.key === selected);
+  // Variant view = the same campaign with that language's ad set + form swapped in, so every
+  // panel below renders unchanged. Landing engagement stays campaign-level: the landing
+  // tracker keys pages by their last URL segment ("eng"/"deu"), shared across properties.
+  const campaign: FunnelCampaign = active
+    ? { ...fullCampaign, meta: active.meta, typeform: active.typeform, derived: active.derived }
+    : fullCampaign;
+  const switcher =
+    variants.length > 1 ? (
+      <div role="tablist" aria-label="Language version" className="inline-flex rounded-lg border border-[var(--border-strong)] p-0.5">
+            {(["ALL", ...variants.map((v) => v.key)] as const).map((k) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={selected === k}
+                onClick={() => setSelected(k)}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                  selected === k ? "bg-[var(--text)] text-[var(--bg)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                {k === "ALL" ? "All" : k}
+              </button>
+            ))}
+          </div>
+    ) : undefined;
   return (
     <div className="space-y-5 pt-2">
       {isHistorical && (
@@ -166,7 +193,7 @@ function CampaignDetail({
           </p>
         </GlowPanel>
       )}
-      <CampaignInfoBar campaign={campaign} lastUpdated={lastUpdated} />
+      <CampaignInfoBar campaign={campaign} lastUpdated={lastUpdated} action={switcher} />
 
       {/* Mobile: Metrics, then Funnel, then Summary/Landing (order-* below).
           Desktop (lg+): unchanged 2-column layout — left stack, right funnel

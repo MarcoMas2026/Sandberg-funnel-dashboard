@@ -131,6 +131,19 @@ export interface ClarityMetrics {
   script_error_pct: number; // 0..100
 }
 
+// Language variant of one campaign (two ad sets / two forms under the same Meta campaign,
+// e.g. the ENG and DEU cuts of the same video). Built by the orchestrator's Merge & Finalize:
+// `meta` is that variant's ad set(s), `typeform` is that variant's form. Absent on campaigns
+// with a single audience — the dashboard then renders exactly as before.
+export type VariantKey = "ENG" | "DEU";
+
+export interface FunnelVariant {
+  key: VariantKey;
+  meta: MetaCampaign; // ad-set totals + daily for this variant; leads/cpl = Typeform submissions
+  typeform: TypeformForm;
+  derived: FunnelCampaign["derived"];
+}
+
 export interface FunnelCampaign {
   campaign_id: string;
   campaign_name: string;
@@ -140,6 +153,7 @@ export interface FunnelCampaign {
   status: "ACTIVE" | "PAUSED" | "ARCHIVED";
   meta: MetaCampaign;
   typeform: TypeformForm;
+  variants?: FunnelVariant[];
   // Section-level landing page drop-off, joined in at read-time (not part of the n8n
   // Merge & Finalize step) from KV key `landing:funnel`. Always present — zero-filled
   // when no events have been collected yet, so the UI can render a stable, always-visible
@@ -177,6 +191,7 @@ export interface LeadRecord {
   first_name: string;
   last_name: string;
   language: string;
+  variant?: VariantKey; // which language form/ad set the lead came through (when the campaign is split)
   budget: string;
   stage: string;
   buying_timeline: string;

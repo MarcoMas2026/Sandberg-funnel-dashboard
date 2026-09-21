@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { FunnelCampaign } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import { GlowPanel } from "@/components/ui/glow-panel";
@@ -6,9 +7,11 @@ import CampaignSelector from "./CampaignSelector";
 export default function CampaignInfoBar({
   campaign,
   lastUpdated,
+  action,
 }: {
   campaign: FunnelCampaign;
   lastUpdated: string | null;
+  action?: ReactNode; // right-aligned control (e.g. the ENG/DEU switch)
 }) {
   const { meta } = campaign;
   // "Current date" = the day the dashboard data was last refreshed (falls back to today).
@@ -31,6 +34,12 @@ export default function CampaignInfoBar({
         <span className="text-[var(--text-muted)]">
           Current date: <span className="text-[var(--text)]">{formatDate(currentDate)}</span>
         </span>
+        {action && (
+          <>
+            <span className="h-5 w-px bg-[var(--border-strong)]" />
+            {action}
+          </>
+        )}
       </div>
     </GlowPanel>
   );
