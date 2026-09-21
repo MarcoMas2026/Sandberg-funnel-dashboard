@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { reassignTestRows } from "@/lib/test-attribution";
 import {
   getPortfolioComparison,
   getPortfolioMonthlySeries,
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
       getCampaignComparisonRows(year, month),
     ]);
 
-    return NextResponse.json({ connected: true, portfolio, trend, campaigns: campaigns.rows });
+    return NextResponse.json({ connected: true, portfolio, trend, campaigns: reassignTestRows(campaigns.rows) });
   } catch (error) {
     return NextResponse.json({ connected: false, error: "Failed to build report" }, { status: 500 });
   }

@@ -8,6 +8,7 @@ import { agentSlug, type LiveAgent, type LiveLane, type LiveMonthSummary, type L
 const MIN_K = 0.1;
 const MAX_K = 3;
 const DOT = 24;
+const MOBILE_W = 640;
 
 type View = { x: number; y: number; k: number };
 
@@ -91,6 +92,8 @@ export default function LiveGrid({
   const boardRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; cx: number; cy: number } | null>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
   const [dragging, setDragging] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -108,6 +111,9 @@ export default function LiveGrid({
   const [playing, setPlaying] = useState<{ src: string; title: string } | null>(null);
   const pos = (id: string) => nodeById.get(id)!;
 
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+
   const fit = useCallback(() => {
     const board = boardRef.current;
     const content = contentRef.current;
@@ -121,9 +127,20 @@ export default function LiveGrid({
     setView({ k, x: (bw - cw * k) / 2, y: Math.max(0, (bh - ch * k) / 2) });
   }, []);
 
+  // Phones: fitting every property into ~375px makes everything unreadably small, so open on the
+  // first property at a readable size (top-left, below the summary bar and agent avatar) and let the user pan.
+  const startView = useCallback(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    const first = layoutRef.current.nodes[0];
+    const k = Math.min(1, Math.max(0.6, (board.clientWidth - 24) / (first?.w ?? HERO_MIN_W)));
+    setView({ k, x: 12 - PAD * k, y: 128 - (PAD + TOP_SPACE) * k });
+  }, []);
+
   useLayoutEffect(() => {
-    fit();
-  }, [fit, properties]);
+    if ((boardRef.current?.clientWidth ?? 1024) < MOBILE_W) startView();
+    else fit();
+  }, [fit, startView, properties]);
 
   const zoomAt = useCallback((cx: number, cy: number, factor: number) => {
     setView((v) => {
@@ -158,6 +175,15 @@ export default function LiveGrid({
     return () => window.removeEventListener("keydown", onKey);
   }, [playing]);
 
+  const endPointer = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    pinch.current = null;
+    const rest = [...pointers.current.values()];
+    // one finger left after a pinch: carry on panning with it
+    drag.current = rest.length === 1 ? rest[0] : null;
+    if (rest.length === 0) setDragging(false);
+  };
+
   const zoomCenter = (factor: number) => {
     const b = boardRef.current;
     if (b) zoomAt(b.clientWidth / 2, b.clientHeight / 2, factor);
@@ -175,11 +201,35 @@ export default function LiveGrid({
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         if ((e.target as HTMLElement).closest("[data-nodrag]")) return;
-        drag.current = { x: e.clientX, y: e.clientY };
-        setDragging(true);
+        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
         e.currentTarget.setPointerCapture(e.pointerId);
+        if (pointers.current.size === 2) {
+          // second finger: switch from panning to pinch-zooming
+          drag.current = null;
+          const [p1, p2] = [...pointers.current.values()];
+          pinch.current = { dist: Math.hypot(p1.x - p2.x, p1.y - p2.y), cx: (p1.x + p2.x) / 2, cy: (p1.y + p2.y) / 2 };
+        } else {
+          drag.current = { x: e.clientX, y: e.clientY };
+          setDragging(true);
+        }
       }}
       onPointerMove={(e) => {
+        if (!pointers.current.has(e.pointerId)) return;
+        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const pz = pinch.current;
+        if (pz && pointers.current.size === 2) {
+          const [p1, p2] = [...pointers.current.values()];
+          const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+          const cx = (p1.x + p2.x) / 2;
+          const cy = (p1.y + p2.y) / 2;
+          const r = e.currentTarget.getBoundingClientRect();
+          if (pz.dist > 0 && dist > 0) zoomAt(cx - r.left, cy - r.top, dist / pz.dist);
+          const dx = cx - pz.cx;
+          const dy = cy - pz.cy;
+          setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+          pinch.current = { dist, cx, cy };
+          return;
+        }
         const d = drag.current;
         if (!d) return;
         const dx = e.clientX - d.x;
@@ -187,13 +237,11 @@ export default function LiveGrid({
         drag.current = { x: e.clientX, y: e.clientY };
         setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
       }}
-      onPointerUp={() => {
-        drag.current = null;
-        setDragging(false);
-      }}
+      onPointerUp={endPointer}
+      onPointerCancel={endPointer}
       className={`relative w-full touch-none select-none overflow-hidden ${
         dragging ? "cursor-grabbing" : "cursor-grab"
-      } ${fullPage ? "h-screen" : "h-[calc(100vh-1.5rem)] rounded-2xl border border-[rgba(0,0,0,0.14)]"}`}
+      } ${fullPage ? "h-[100dvh]" : "h-[calc(100vh-1.5rem)] rounded-2xl border border-[rgba(0,0,0,0.14)]"}`}
       style={{
         backgroundColor: "#f0f0f0",
         backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.13) 1px, transparent 1.5px)",
@@ -268,8 +316,8 @@ export default function LiveGrid({
         </div>
       )}
 
-      <div className="absolute bottom-4 right-4 flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white p-1.5 shadow-sm">
+      <div className="absolute bottom-2 right-2 flex max-w-[calc(100vw-16px)] flex-col items-end gap-2 sm:bottom-4 sm:right-4 sm:flex-row sm:items-center" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="flex max-w-full touch-pan-x items-center gap-1.5 overflow-x-auto rounded-lg border border-neutral-300 bg-white p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {roster.map((a) => {
             const count = counts.get(a.slug) ?? 0;
             const active = selectedAgent === a.slug;
@@ -304,18 +352,20 @@ export default function LiveGrid({
       </div>
       </div>
       {summary && (
+        <div className="pointer-events-none absolute inset-x-2 top-2 z-20 flex justify-center sm:top-4">
         <div
-          className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-stretch divide-x divide-neutral-200 rounded-lg border border-neutral-300 bg-white shadow-sm"
+          className="pointer-events-auto flex max-w-full items-stretch divide-x divide-neutral-200 rounded-lg border border-neutral-300 bg-white shadow-sm"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <SummaryCell label={`${summary.monthLabel} · Leads`} value={formatNumber(summary.leads)} delta={summary.deltas.leadsPct} goodWhen="up" />
+          <SummaryCell label={<><span className="sm:hidden">{summary.monthLabel.slice(0, 3)}</span><span className="hidden sm:inline">{summary.monthLabel}</span> · Leads</>} value={formatNumber(summary.leads)} delta={summary.deltas.leadsPct} goodWhen="up" />
           <SummaryCell label="Spend" value={formatCurrency(summary.spend)} delta={summary.deltas.spendPct} goodWhen="neutral" />
           <SummaryCell label="CPL" value={summary.cpl !== null ? formatCurrency(summary.cpl, 2) : "—"} delta={summary.deltas.cplPct} goodWhen="down" />
-          <SummaryCell label="Live campaigns" value={String(allProperties.length)} delta={null} goodWhen="neutral" />
+          <SummaryCell label="Live campaigns" value={String(allProperties.length)} delta={null} goodWhen="neutral" hideOnMobile />
+        </div>
         </div>
       )}
 
-      <div className="pointer-events-none absolute bottom-4 left-4 text-[11px] text-neutral-500">
+      <div className="pointer-events-none absolute bottom-4 left-4 hidden text-[11px] sm:block text-neutral-500">
         ⌘/Ctrl + scroll to zoom · drag or scroll to pan
       </div>
     </div>
@@ -433,7 +483,13 @@ function NodeBody({ node, onPlay }: { node: NodeDef; onPlay: (v: { src: string; 
       return (
         <div className={`${CARD} flex flex-col justify-center p-4`}>
           <div className="text-[10px] uppercase tracking-wider text-neutral-500">Enters Typeform</div>
-          <div className="text-2xl font-semibold tabular-nums text-neutral-900">{formatNumber(lane!.typeformStarts)}</div>
+          <div
+            className="text-2xl font-semibold tabular-nums text-neutral-900"
+            title={lane!.estimatedStarts ? "Estimated: this ad set shares its form with another, and abandoned form starts can't be traced to an ad set" : undefined}
+          >
+            {lane!.estimatedStarts ? "~" : ""}
+            {formatNumber(lane!.typeformStarts)}
+          </div>
         </div>
       );
     case "leads":
@@ -451,21 +507,27 @@ function SummaryCell({
   value,
   delta,
   goodWhen,
+  hideOnMobile,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string;
   delta: number | null;
   goodWhen: "up" | "down" | "neutral";
+  hideOnMobile?: boolean;
 }) {
   const up = delta !== null && delta > 0;
   const good = goodWhen === "neutral" ? null : goodWhen === "up" ? up : !up;
   const color = delta === null || delta === 0 || good === null ? "text-neutral-500" : good ? "text-emerald-600" : "text-rose-600";
   return (
-    <div className="min-w-[110px] px-4 py-2 text-center">
-      <div className="text-[9px] uppercase tracking-wider text-neutral-500">{label}</div>
-      <div className="text-lg font-semibold leading-tight tabular-nums text-neutral-900">{value}</div>
+    <div className={`min-w-0 px-2.5 py-2 text-center sm:min-w-[110px] sm:px-4 ${hideOnMobile ? "hidden sm:block" : ""}`}>
+      <div className="whitespace-nowrap text-[9px] uppercase tracking-wider text-neutral-500">{label}</div>
+      <div className="text-base font-semibold leading-tight tabular-nums text-neutral-900 sm:text-lg">{value}</div>
       <div className={`h-3.5 text-[10px] tabular-nums ${color}`}>
-        {delta !== null && delta !== 0 ? `${up ? "▲" : "▼"} ${Math.abs(delta).toFixed(0)}% vs last month` : ""}
+        {delta !== null && delta !== 0 ? (
+          <>
+            {up ? "▲" : "▼"} {Math.abs(delta).toFixed(0)}%<span className="hidden sm:inline"> vs last month</span>
+          </>
+        ) : null}
       </div>
     </div>
   );

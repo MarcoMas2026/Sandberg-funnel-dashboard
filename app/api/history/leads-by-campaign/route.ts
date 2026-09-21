@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { reassignTestRows } from "@/lib/test-attribution";
 import { getCampaignLeadTotals, isHistoryConfigured } from "@/lib/history/db";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   }
   try {
     const result = await getCampaignLeadTotals(start, end);
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, rows: reassignTestRows(result.rows) });
   } catch {
     return NextResponse.json({ connected: false, rows: [] }, { status: 500 });
   }
