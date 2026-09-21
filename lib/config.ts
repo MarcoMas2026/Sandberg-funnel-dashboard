@@ -75,6 +75,19 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     ref: "32826",
     campaign_type: "property",
   },
+  // One-off test: 1 campaign / 1 ad set / 4 ads, each ad a different property (Ses Salines,
+  // Olinto, Can Aura, Sa Calma). Shown as a single "property" whose leads are the sum of the
+  // property forms below (attribution verified via utm_campaign on each form's responses).
+  {
+    meta_campaign_id: "120252025940010071",
+    meta_campaign_name: "SP  (3 -5M) - September",
+    typeform_form_id: "UhWs6cyE",
+    typeform_form_name: "Finca Sa Calma 32396",
+    extra_typeform_form_ids: ["ci9zkKD2", "bqRPUJsO"], // Can Aura 32136, Penthouse Olinto 32825
+    property: "3-5M Multi-Property Test",
+    ref: "3-5M",
+    campaign_type: "property",
+  },
 ];
 
 // Tracked list for the Competitor Ad Intelligence module (Meta Ads Library API).

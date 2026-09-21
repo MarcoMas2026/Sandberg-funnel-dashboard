@@ -212,6 +212,10 @@ export interface CampaignMapEntry {
   // derives from window.location.pathname. Only needed when it differs from `ref`
   // (e.g. community campaigns whose ref is a display label like "Community").
   landing_slug?: string;
+  // Additional Typeform forms whose submissions all count toward this one campaign — for a
+  // one-off multi-property test campaign (several ads, each pointing at a different
+  // property's form). Summed into the campaign's leads; `typeform_form_id` stays the primary.
+  extra_typeform_form_ids?: string[];
 }
 
 // "page" = a named competitor Facebook Page, tracked via search_page_ids.
