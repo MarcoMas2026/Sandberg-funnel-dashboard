@@ -129,22 +129,51 @@ export default function MissionControl() {
   // avg CPL) — replaces what used to be hardcoded placeholder percentages.
   // `null` (no previous-month data, e.g. before HISTORY_START) means the
   // chip is omitted rather than showing a fabricated number. Same response
-  // also carries which campaigns actually spent in the selected month, used
-  // below to split the Inactive Campaigns grid into this-month vs all-time.
+  // also carries which campaigns actually spent in the selected month (used
+  // to split the Inactive Campaigns grid into this-month vs all-time) and
+  // each active campaign's own month-scoped spend/leads/cpl (used below on
+  // the live campaign cards, so "leads" always means leads generated within
+  // the selected month, not the campaign's lifetime total).
   const [kpiDeltas, setKpiDeltas] = useState<{ spendPct: number | null; leadsPct: number | null; cplPct: number | null } | null>(null);
   const [monthCampaignIds, setMonthCampaignIds] = useState<Set<string>>(new Set());
+  const [monthCampaignTotals, setMonthCampaignTotals] = useState<Map<string, { spend: number; leads: number; cpl: number }>>(new Map());
   useEffect(() => {
     fetch(`/api/history/report?year=${selMonth.year}&month=${selMonth.month + 1}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((json) => {
         setKpiDeltas(json.portfolio?.deltaVsPreviousMonth ?? null);
-        setMonthCampaignIds(new Set((json.campaigns ?? []).map((c: { campaign_id: string }) => c.campaign_id)));
+        const rows: { campaign_id: string; spend: number; leads: number | null; cpl: number | null }[] = json.campaigns ?? [];
+        setMonthCampaignIds(new Set(rows.map((c) => c.campaign_id)));
+        setMonthCampaignTotals(
+          new Map(rows.map((c) => [c.campaign_id, { spend: c.spend, leads: c.leads ?? 0, cpl: c.cpl ?? 0 }]))
+        );
       })
       .catch(() => {
         setKpiDeltas(null);
         setMonthCampaignIds(new Set());
+        setMonthCampaignTotals(new Map());
       });
   }, [selMonth]);
+
+  // Per-campaign fallback for the same month scoping, computed client-side
+  // from meta.daily when Supabase history isn't connected/reachable yet —
+  // same source and date-range filter as `liveTotals` above, just keyed by
+  // campaign instead of summed across the whole portfolio.
+  const liveCampaignMonthTotals = useMemo(() => {
+    const map = new Map<string, { spend: number; leads: number }>();
+    for (const c of data?.campaigns ?? []) {
+      let spend = 0;
+      let leads = 0;
+      for (const d of c.meta.daily) {
+        if (d.date >= monthStart && d.date <= monthEnd) {
+          spend += d.spend;
+          leads += d.leads;
+        }
+      }
+      map.set(c.campaign_id, { spend, leads });
+    }
+    return map;
+  }, [data, monthStart, monthEnd]);
 
   // Sync current live daily rows into Supabase whenever fresh funnel data
   // lands, then re-read so the just-synced data shows up immediately instead
@@ -274,9 +303,23 @@ export default function MissionControl() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {active.map((c) => (
-              <VantageCampaignCard key={c.campaign_id} campaign={c} lastUpdated={data?.last_updated ?? null} />
-            ))}
+            {active.map((c) => {
+              const stored = monthCampaignTotals.get(c.campaign_id);
+              const fallback = liveCampaignMonthTotals.get(c.campaign_id);
+              const monthSpend = stored?.spend ?? fallback?.spend ?? 0;
+              const monthLeads = stored?.leads ?? fallback?.leads ?? 0;
+              const monthCpl = monthLeads > 0 ? (stored?.cpl && stored.cpl > 0 ? stored.cpl : monthSpend / monthLeads) : 0;
+              return (
+                <VantageCampaignCard
+                  key={c.campaign_id}
+                  campaign={c}
+                  lastUpdated={data?.last_updated ?? null}
+                  monthSpend={monthSpend}
+                  monthLeads={monthLeads}
+                  monthCpl={monthCpl}
+                />
+              );
+            })}
           </div>
         )}
       </div>
