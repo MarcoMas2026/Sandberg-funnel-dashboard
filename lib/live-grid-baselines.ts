@@ -14,6 +14,8 @@ export interface LiveBaseline {
   impressions: number;
   clicks: number; // all clicks (CTR = clicks / impressions, same as the pipeline)
   linkClicks: number;
+  videoPlays: number; // Meta video_play_actions (what the funnel's "Watches Video" stage uses)
+  engagement: number; // post_engagement
   leads: number; // submissions from this property's form during the test (form totals at 2026-09-21)
   form?: { starts: number; completions: number };
 }
@@ -22,8 +24,8 @@ const SINCE = "2026-09-16T16:47:45+0200";
 
 export const LIVE_BASELINES: Record<string, LiveBaseline> = {
   // Finca Sa Calma — its new campaign isn't linked to form UhWs6cyE yet (26 completed, 63 visits).
-  "32396": { since: SINCE, spend: 443.86, impressions: 17248, clicks: 1257, linkClicks: 856, leads: 26, form: { starts: 63, completions: 26 } },
-  "32136": { since: SINCE, spend: 94.95, impressions: 4755, clicks: 354, linkClicks: 232, leads: 3 }, // Can Aura
-  "32825": { since: SINCE, spend: 55.05, impressions: 1972, clicks: 142, linkClicks: 110, leads: 3 }, // Penthouse Olinto
-  "32859": { since: SINCE, spend: 34.04, impressions: 1387, clicks: 88, linkClicks: 61, leads: 0 }, // Ses Salines
+  "32396": { since: SINCE, spend: 444.12, impressions: 17264, clicks: 1261, linkClicks: 859, videoPlays: 16175, engagement: 6438, leads: 26, form: { starts: 63, completions: 26 } },
+  "32136": { since: SINCE, spend: 94.96, impressions: 4756, clicks: 354, linkClicks: 232, videoPlays: 4351, engagement: 1802, leads: 3 }, // Can Aura
+  "32825": { since: SINCE, spend: 55.05, impressions: 1972, clicks: 142, linkClicks: 110, videoPlays: 1840, engagement: 867, leads: 3 }, // Penthouse Olinto
+  "32859": { since: SINCE, spend: 34.04, impressions: 1387, clicks: 88, linkClicks: 61, videoPlays: 1304, engagement: 532, leads: 0 }, // Ses Salines
 };

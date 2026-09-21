@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { mergeBaselineIntoSeries } from "@/lib/test-attribution";
 import { getCampaignSeries, isHistoryConfigured } from "@/lib/history/db";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
   const campaignIds = ids.split(",").map((s) => s.trim()).filter(Boolean);
   try {
     const result = await getCampaignSeries(campaignIds);
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, series: mergeBaselineIntoSeries(result.series) });
   } catch (error) {
     return NextResponse.json({ connected: false, series: {}, error: "Failed to read history" }, { status: 500 });
   }

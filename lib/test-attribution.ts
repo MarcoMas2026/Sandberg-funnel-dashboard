@@ -1,5 +1,7 @@
-import type { FunnelCampaign } from "@/lib/types";
+import type { FunnelCampaign, MetaDailyRow } from "@/lib/types";
 import { LIVE_BASELINES } from "@/lib/live-grid-baselines";
+import { LIVE_BASELINE_DAILY } from "@/lib/live-grid-baselines-daily";
+import type { DailyRow } from "@/lib/history/db";
 
 // The "SP (3-5M) - September" test ran 4 ads (one per property) in ONE ad set, so history and the
 // pipeline booked all of it under a single campaign. Each ad now has its own dedicated campaign.
@@ -74,7 +76,9 @@ export function applyBaselineToCampaign(c: FunnelCampaign): FunnelCampaign {
   const impressions = m.impressions + base.impressions;
   const clicksAll = m.impressions * m.ctr + base.clicks;
   const unlinked = c.typeform.views === 0 && c.typeform.starts === 0 && c.typeform.completions === 0 && base.form;
-  const typeform = unlinked ? { ...c.typeform, starts: base.form!.starts, views: base.form!.starts, completions: base.form!.completions } : c.typeform;
+  const typeform = unlinked
+    ? { ...c.typeform, starts: base.form!.starts, views: base.form!.starts, completions: base.form!.completions, completion_rate: base.form!.starts > 0 ? base.form!.completions / base.form!.starts : 0 }
+    : c.typeform;
   const spend = m.spend + base.spend;
   const startMs = [m.start_date, base.since].filter((d): d is string => Boolean(d)).map((d) => new Date(d).getTime());
   return {
@@ -84,11 +88,62 @@ export function applyBaselineToCampaign(c: FunnelCampaign): FunnelCampaign {
       spend,
       impressions,
       link_clicks: m.link_clicks + base.linkClicks,
+      video_plays: m.video_plays + base.videoPlays,
+      engagement: m.engagement + base.engagement,
       ctr: impressions > 0 ? clicksAll / impressions : 0,
       cpl: typeform.completions > 0 ? spend / typeform.completions : 0,
       leads: typeform.completions,
       start_date: startMs.length ? new Date(Math.min(...startMs)).toISOString() : m.start_date,
+      daily: mergeBaselineIntoMetaDaily(m.daily, c.ref),
     },
     typeform,
+    // Pipeline-computed ratios must follow the adjusted totals.
+    derived: {
+      click_to_form_start_rate: m.link_clicks + base.linkClicks > 0 ? typeform.starts / (m.link_clicks + base.linkClicks) : 0,
+      form_completion_rate: typeform.starts > 0 ? typeform.completions / typeform.starts : c.derived.form_completion_rate,
+      cost_per_qualified_lead: typeform.completions > 0 ? spend / typeform.completions : 0,
+    },
   };
+}
+
+// Adds the test's per-day results to a property's own daily rows: spend/impressions/clicks/reach add
+// (the new campaign's traffic is separate from the test's), leads take the larger of the two per day
+// (a form's daily count already includes test-era submissions, same rule as the lifetime totals).
+function mergeDay<T extends { date: string; spend: number; impressions: number; clicks: number; link_clicks: number; reach: number; leads: number; ctr: number; cpl: number }>(
+  rows: T[],
+  ref: string,
+  blank: (date: string) => T
+): T[] {
+  const byDate = new Map(rows.map((r) => [r.date, { ...r }]));
+  for (const b of LIVE_BASELINE_DAILY[ref] ?? []) {
+    const r = byDate.get(b.date) ?? blank(b.date);
+    r.spend += b.spend;
+    r.impressions += b.impressions;
+    r.clicks += b.clicks;
+    r.link_clicks += b.linkClicks;
+    r.reach += b.reach;
+    r.leads = Math.max(r.leads, b.leads);
+    r.ctr = r.impressions > 0 ? r.clicks / r.impressions : 0;
+    r.cpl = r.leads > 0 ? r.spend / r.leads : 0;
+    byDate.set(b.date, r);
+  }
+  return [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+export function mergeBaselineIntoMetaDaily(rows: MetaDailyRow[], ref: string): MetaDailyRow[] {
+  return mergeDay(rows, ref, (date) => ({
+    date, spend: 0, impressions: 0, clicks: 0, link_clicks: 0, leads: 0, video_plays: 0, engagement: 0, ctr: 0, outbound_ctr: 0, cpl: 0, reach: 0,
+  }));
+}
+
+// Curve's daily series, keyed by campaign ID: only the four test properties are touched.
+export function mergeBaselineIntoSeries(series: Record<string, DailyRow[]>): Record<string, DailyRow[]> {
+  const out = { ...series };
+  for (const t of TARGETS) {
+    if (!(t.campaign_id in out)) continue;
+    out[t.campaign_id] = mergeDay(out[t.campaign_id], t.ref, (date) => ({
+      date, spend: 0, leads: 0, cpl: 0, impressions: 0, clicks: 0, link_clicks: 0, ctr: 0, reach: 0,
+    }));
+  }
+  return out;
 }

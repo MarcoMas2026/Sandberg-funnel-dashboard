@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCampaignsCatalog, getLeaderboardTotals, isHistoryConfigured } from "@/lib/history/db";
 import { getFunnelData } from "@/lib/kv";
+import { applyBaselineToCampaign, reassignTestRows, TEST_CAMPAIGN_ID } from "@/lib/test-attribution";
 
 export const dynamic = "force-dynamic";
 
@@ -28,14 +29,14 @@ export async function GET() {
     }));
     try {
       const live = await getFunnelData();
-      const liveById = new Map(live.campaigns.map((c) => [c.campaign_id, c]));
+      const liveById = new Map(live.campaigns.map((c) => [c.campaign_id, applyBaselineToCampaign(c)]));
       // Historical total spend for anything NOT in the live feed — per
       // CLAUDE.md, Meta totals must come from the monthly aggregate, never
       // summed daily rows; getLeaderboardTotals already prefers
       // funnel_monthly_totals and only falls back to summing daily rows for
       // months that aggregate hasn't backfilled yet, so it's safe here.
       const { rows: historical } = await getLeaderboardTotals();
-      const historicalSpend = new Map(historical.map((r) => [r.campaign_id, r.spend]));
+      const historicalSpend = new Map(reassignTestRows(historical).map((r) => [r.campaign_id, r.spend]));
       campaigns = result.campaigns.map((c) => {
         const live_c = liveById.get(c.campaign_id);
         return {
@@ -48,7 +49,8 @@ export async function GET() {
       // Live feed/history unreachable — fall back to the raw catalog with no
       // spend annotation rather than failing the whole endpoint.
     }
-    return NextResponse.json({ ...result, campaigns });
+    // The finished 3-5M test is folded into its four properties, so it is not a campaign of its own.
+    return NextResponse.json({ ...result, campaigns: campaigns.filter((c) => c.campaign_id !== TEST_CAMPAIGN_ID) });
   } catch (error) {
     return NextResponse.json({ connected: false, campaigns: [], error: "Failed to read history" }, { status: 500 });
   }
