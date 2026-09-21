@@ -3,7 +3,7 @@ import { getPortfolioComparison } from "@/lib/history/db";
 import { todayISOMadrid } from "@/lib/format";
 import { AGENT_ROSTER } from "@/lib/agents";
 import { applyBaselineToCampaign } from "@/lib/test-attribution";
-import { getAdsetLanes } from "@/lib/live-adsets";
+import { countLiveAds, getAdsetLanes } from "@/lib/live-adsets";
 import { getLiveAssets } from "@/lib/live-grid-assets";
 
 export interface LiveAgent {
@@ -49,12 +49,12 @@ export interface LiveProperty {
 
 // Server-side reduction of funnel:merged to only what the Live Grid displays,
 // so the shareable /live page never ships the full portfolio payload.
-export async function getLiveProperties(): Promise<{ properties: LiveProperty[]; lastUpdated: string | null }> {
+export async function getLiveProperties(): Promise<{ properties: LiveProperty[]; lastUpdated: string | null; liveAds: number | null }> {
   try {
     const [data, liveAssets] = await Promise.all([getFunnelData(), getLiveAssets()]);
     // Adds the finished 3-5M test's per-ad share to its four properties (display only).
     const live = data.campaigns.filter((c) => c.status === "ACTIVE" && c.campaign_type === "property").map(applyBaselineToCampaign);
-    const adsetLanes = await getAdsetLanes(live);
+    const [adsetLanes, liveAds] = await Promise.all([getAdsetLanes(live), countLiveAds(new Set(live.map((c) => c.campaign_id)))]);
     const properties = live
       .map((c): LiveProperty => {
         const assets = liveAssets[c.ref];
@@ -98,9 +98,9 @@ export async function getLiveProperties(): Promise<{ properties: LiveProperty[];
           lanes,
         };
       });
-    return { properties, lastUpdated: data.last_updated };
+    return { properties, lastUpdated: data.last_updated, liveAds };
   } catch {
-    return { properties: [], lastUpdated: null };
+    return { properties: [], lastUpdated: null, liveAds: null };
   }
 }
 

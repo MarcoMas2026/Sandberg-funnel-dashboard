@@ -4,6 +4,6 @@ import { getLiveMonthSummary, getLiveProperties, LIVE_AGENTS } from "@/lib/live-
 export const dynamic = "force-dynamic";
 
 export default async function WorkspacePage() {
-  const [{ properties }, summary] = await Promise.all([getLiveProperties(), getLiveMonthSummary()]);
-  return <LiveGrid properties={properties} agents={LIVE_AGENTS} summary={summary} />;
+  const [{ properties, liveAds }, summary] = await Promise.all([getLiveProperties(), getLiveMonthSummary()]);
+  return <LiveGrid properties={properties} agents={LIVE_AGENTS} summary={summary} liveAds={liveAds} />;
 }

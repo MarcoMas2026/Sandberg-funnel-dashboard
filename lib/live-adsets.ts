@@ -1,4 +1,5 @@
 import type { FunnelCampaign } from "@/lib/types";
+import { todayISOMadrid } from "@/lib/format";
 
 // Ad-set level lanes for the Live Grid. The pipeline's merged data only splits a campaign
 // by language (ENG/DEU) and folds every other ad set (e.g. a "LOCAL" targeting ad set that
@@ -19,6 +20,8 @@ interface KvAdset {
   clicks: number;
   link_clicks: number;
   ctr: number;
+  ads?: { id: string; name: string }[];
+  daily?: { date: string; spend: number }[];
 }
 
 export interface AdsetLane {
@@ -140,5 +143,30 @@ export async function getAdsetLanes(campaigns: FunnelCampaign[]): Promise<Record
     return out;
   } catch {
     return {};
+  }
+}
+
+// Ads currently spending: every ad inside an ACTIVE ad set of the given campaigns, where that ad
+// set spent today or yesterday (Madrid time — yesterday covers the first hours of a new day, before
+// today's spend shows up). A brand-new ad set that hasn't started delivering yet isn't counted.
+// Meta Sync doesn't record ad-level status, so an ad paused inside an otherwise-active ad set would
+// still be counted; today every ad set holds a single ad, so this is exact in practice.
+export async function countLiveAds(campaignIds: Set<string>): Promise<number | null> {
+  if (!process.env.KV_REST_API_URL) return null;
+  try {
+    const byCampaign = await getMetaAdsetsByCampaign();
+    const today = todayISOMadrid();
+    const yesterday = new Date(Date.parse(`${today}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    let n = 0;
+    for (const id of campaignIds) {
+      for (const a of byCampaign[id] ?? []) {
+        if (a.status !== "ACTIVE") continue;
+        const spending = (a.daily ?? []).some((d) => (d.date === today || d.date === yesterday) && d.spend > 0);
+        if (spending) n += a.ads?.length ?? 1;
+      }
+    }
+    return n;
+  } catch {
+    return null;
   }
 }

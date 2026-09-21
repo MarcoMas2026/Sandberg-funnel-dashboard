@@ -82,11 +82,13 @@ export default function LiveGrid({
   properties: allProperties,
   agents: roster,
   summary,
+  liveAds,
   fullPage = false,
 }: {
   properties: LiveProperty[];
   agents: LiveAgent[];
   summary: LiveMonthSummary | null;
+  liveAds: number | null; // ads currently spending
   fullPage?: boolean;
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -361,6 +363,7 @@ export default function LiveGrid({
           <SummaryCell label="Spend" value={formatCurrency(summary.spend)} delta={summary.deltas.spendPct} goodWhen="neutral" />
           <SummaryCell label="CPL" value={summary.cpl !== null ? formatCurrency(summary.cpl, 2) : "—"} delta={summary.deltas.cplPct} goodWhen="down" />
           <SummaryCell label="Live campaigns" value={String(allProperties.length)} delta={null} goodWhen="neutral" hideOnMobile />
+          {liveAds !== null && <SummaryCell label="Live ads" value={String(liveAds)} delta={null} goodWhen="neutral" hideOnMobile />}
         </div>
         </div>
       )}
