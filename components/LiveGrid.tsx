@@ -241,7 +241,7 @@ export default function LiveGrid({
       onPointerCancel={endPointer}
       className={`relative w-full touch-none select-none overflow-hidden ${
         dragging ? "cursor-grabbing" : "cursor-grab"
-      } ${fullPage ? "h-[100dvh]" : "h-[calc(100vh-1.5rem)] rounded-2xl border border-[rgba(0,0,0,0.14)]"}`}
+      } ${fullPage ? "h-[100dvh]" : "h-[calc(100dvh-6.5rem)] rounded-2xl border border-[rgba(0,0,0,0.14)] md:h-[calc(100dvh-1.5rem)]"}`}
       style={{
         backgroundColor: "#f0f0f0",
         backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.13) 1px, transparent 1.5px)",
@@ -316,7 +316,7 @@ export default function LiveGrid({
         </div>
       )}
 
-      <div className="absolute bottom-2 right-2 flex max-w-[calc(100vw-16px)] flex-col items-end gap-2 sm:bottom-4 sm:right-4 sm:flex-row sm:items-center" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="absolute bottom-2 right-2 flex max-w-[calc(100%-1rem)] flex-col items-end gap-2 sm:bottom-4 sm:right-4 sm:flex-row sm:items-center" onPointerDown={(e) => e.stopPropagation()}>
         <div className="flex max-w-full touch-pan-x items-center gap-1.5 overflow-x-auto rounded-lg border border-neutral-300 bg-white p-1.5 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {roster.map((a) => {
             const count = counts.get(a.slug) ?? 0;

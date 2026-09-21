@@ -5,7 +5,6 @@ import Sidebar from "@/components/Sidebar";
 import MobileTopNav from "@/components/MobileTopNav";
 import CommandPalette from "@/components/CommandPalette";
 import GestureNav from "@/components/GestureNav";
-import PublicViewDock from "@/components/PublicViewDock";
 import { DashboardProvider } from "@/lib/dashboard-context";
 import { PublicViewProvider } from "@/lib/public-view-context";
 
@@ -38,8 +37,11 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
           <Sidebar className="print-hide" />
           <div className="min-w-0 flex-1">
             <main className="py-1 pt-20 md:pt-3">
-              {isMissionControl || isLiveGrid ? (
+              {isMissionControl ? (
                 children
+              ) : isLiveGrid ? (
+                // No sidebar on phones, so give the board a left gutter to match the right one.
+                <div className="pl-3 md:pl-0">{children}</div>
               ) : (
                 <div className="vantage-canvas min-h-[calc(100vh-1.5rem)] p-4 sm:p-6">
                   <div className="mx-auto max-w-[1440px]">{children}</div>
@@ -51,7 +53,6 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
         <div className="print-hide">
           <CommandPalette />
           <GestureNav />
-          <PublicViewDock />
         </div>
       </PublicViewProvider>
     </DashboardProvider>
