@@ -17,11 +17,14 @@ import { PublicViewProvider } from "@/lib/public-view-context";
 // screen. /view/[slug] fetches only its own scoped data server-side instead.
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublicView = pathname?.startsWith("/view/") ?? false;
+  // /live is the shareable full-page Live Grid — same chrome-less treatment.
+  const isPublicView = (pathname?.startsWith("/view/") || pathname === "/live") ?? false;
   // Mission Control's canvas is meant to fill the space next to the
   // sidebar edge-to-edge (see CLAUDE.md's Vantage redesign) — every other
   // page keeps the centered, width-capped reading layout.
   const isMissionControl = pathname === "/";
+  // Live Grid brings its own thin border instead of the cyan vantage canvas.
+  const isLiveGrid = pathname === "/workspace";
 
   if (isPublicView) {
     return <>{children}</>;
@@ -35,7 +38,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
           <Sidebar className="print-hide" />
           <div className="min-w-0 flex-1">
             <main className="py-1 pt-20 md:pt-3">
-              {isMissionControl ? (
+              {isMissionControl || isLiveGrid ? (
                 children
               ) : (
                 <div className="vantage-canvas min-h-[calc(100vh-1.5rem)] p-4 sm:p-6">

@@ -5,7 +5,7 @@
 // excluded. Not derived from lib/properties.ts's brochure scrape — that only
 // lists agents currently tied to a synced brochure, so it under-counts agents
 // with zero active listings. Re-check against the About Us page if agents
-// join/leave the team.
+// join/leave the team. (Sara Michelle Fenwick removed — left Sandberg.)
 export const AGENT_ROSTER: string[] = [
   "Angus Campbell",
   "Anne-Sophie Kayrak",
@@ -18,6 +18,5 @@ export const AGENT_ROSTER: string[] = [
   "Nathan Dilks",
   "Rebuar Georg Wentz",
   "Sabine Kersten",
-  "Sara Michelle Fenwick",
   "Tim Schemann",
 ];

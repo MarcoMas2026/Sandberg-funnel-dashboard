@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, type ComponentType } from "react";
 import { usePathname } from "next/navigation";
-import { GearSix, CaretDown, House, ArrowsClockwise } from "@phosphor-icons/react";
+import { GearSix, CaretDown, House, ArrowsClockwise, ArrowSquareOut, Layout } from "@phosphor-icons/react";
 import { useDashboard } from "@/lib/dashboard-context";
 import { Sidebar as SidebarShell, DesktopSidebar } from "./ui/sidebar";
 import { NAV_ITEMS, NAV_GROUPS } from "@/lib/nav";
@@ -72,6 +72,8 @@ export default function Sidebar({ className }: { className?: string }) {
                   </div>
                 );
               })}
+
+              <LiveGridRow active={pathname.startsWith("/workspace")} />
             </div>
           </div>
 
@@ -111,6 +113,49 @@ function NavRow({
       {Icon ? <Icon className="h-4 w-4 shrink-0" /> : <span className="w-4 shrink-0" />}
       <span className="whitespace-pre">{label}</span>
     </Link>
+  );
+}
+
+// Live Grid: clicking offers a choice — open inside the dashboard, or as a
+// chrome-less full page in a new tab (the shareable version).
+function LiveGridRow({ active }: { active: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`mr-3 flex w-[calc(100%-0.75rem)] items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left text-[13px] text-[var(--vantage-text)] ${
+          active ? "vantage-nav-active font-semibold" : ""
+        }`}
+      >
+        <Layout className="h-4 w-4 shrink-0" />
+        <span className="whitespace-pre">Live Grid</span>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-full left-2 z-50 mb-1 w-52 rounded-lg border border-[rgba(33,52,54,0.12)] bg-white p-1 shadow-lg">
+            <Link
+              href="/workspace"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-[var(--vantage-text)] hover:bg-[rgba(33,52,54,0.06)]"
+            >
+              <Layout className="h-4 w-4" /> Open in dashboard
+            </Link>
+            <a
+              href="/live"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-[var(--vantage-text)] hover:bg-[rgba(33,52,54,0.06)]"
+            >
+              <ArrowSquareOut className="h-4 w-4" /> Open full page
+            </a>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

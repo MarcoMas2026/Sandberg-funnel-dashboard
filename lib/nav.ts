@@ -15,6 +15,7 @@ import {
   Users,
   Scales,
   Binoculars,
+  Sparkle,
 } from "@phosphor-icons/react";
 
 export type NavItem = {
@@ -45,6 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/patterns", label: "Patterns", icon: ShareNetwork },
   { href: "/social", label: "Social", icon: InstagramLogo },
   { href: "/competitor-ads", label: "Competitor Ads", icon: Binoculars },
+  { href: "/workspace", label: "Live Grid", icon: Sparkle },
   // Parked — building this out later (see CLAUDE.md OKR section). Route and
   // page stay in the codebase; only the nav entry is hidden.
   { href: "/okrs", label: "OKRs", icon: Target, hidden: true },
@@ -70,6 +72,7 @@ const ALL_NAV_GROUPS: NavGroup[] = [
   { kind: "item", href: "/insights" },
   { kind: "item", href: "/social" },
   { kind: "item", href: "/competitor-ads" },
+  { kind: "item", href: "/workspace" },
   { kind: "item", href: "/okrs" },
 ];
 
