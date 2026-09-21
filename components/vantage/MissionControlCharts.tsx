@@ -16,10 +16,10 @@ const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 
 function ChartPanelHeader({ icon, title, right }: { icon: React.ReactNode; title: string; right?: React.ReactNode }) {
   return (
-    <div className="mb-5 flex items-center justify-between gap-2.5">
-      <div className="flex items-center gap-2.5">
-        <span className="vantage-icon-box h-11 w-11">{icon}</span>
-        <h3 className="text-lg font-semibold text-[var(--vantage-text)]">{title}</h3>
+    <div className="mb-4 flex items-center justify-between gap-2.5 sm:mb-5">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="vantage-icon-box h-9 w-9 shrink-0 sm:h-11 sm:w-11">{icon}</span>
+        <h3 className="text-base font-semibold leading-tight text-[var(--vantage-text)] sm:text-lg">{title}</h3>
       </div>
       {right}
     </div>
@@ -65,14 +65,15 @@ export function DailyLeadsTrendChart() {
   }, []);
 
   return (
-    <div className="vantage-card flex h-full flex-col p-6">
+    <div className="vantage-card flex h-full flex-col p-4 sm:p-6">
       <ChartPanelHeader icon={<CalendarBlank className="h-5 w-5" />} title="Daily leads trend" />
       {rows === null ? (
         <div className="h-80 animate-pulse rounded-xl bg-[var(--vantage-icon-box)]/40" />
       ) : rows.length === 0 ? (
         <p className="py-16 text-center text-sm text-[var(--vantage-text-muted)]">No historical data yet</p>
       ) : (
-        <ResponsiveContainer width="100%" height={360}>
+        <div className="h-60 w-full sm:h-[360px]">
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={rows} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
             <defs>
               <linearGradient id="dailyLeadsFill" x1="0" y1="0" x2="0" y2="1">
@@ -98,6 +99,7 @@ export function DailyLeadsTrendChart() {
             <Area type="monotone" dataKey="leads" stroke={TREND_COLOR} strokeWidth={2.5} fill="url(#dailyLeadsFill)" dot={false} activeDot={{ r: 4 }} />
           </AreaChart>
         </ResponsiveContainer>
+        </div>
       )}
     </div>
   );
@@ -173,15 +175,15 @@ export function LeadCountByCampaignDonut() {
   );
 
   return (
-    <div className="vantage-card flex h-full flex-col p-6">
+    <div className="vantage-card flex h-full flex-col p-4 sm:p-6">
       <ChartPanelHeader icon={<ChartDonut className="h-5 w-5" />} title="Lead count by campaign" right={toggle} />
       {rows === null ? (
         <div className="h-64 animate-pulse rounded-xl bg-[var(--vantage-icon-box)]/40" />
       ) : total === 0 ? (
         <p className="py-16 text-center text-sm text-[var(--vantage-text-muted)]">No leads in this window</p>
       ) : (
-        <div className="flex flex-1 items-center gap-8">
-          <div className="flex max-h-[280px] flex-1 flex-col gap-2 overflow-y-auto pr-1">
+        <div className="flex flex-1 flex-col items-center gap-6 sm:flex-row sm:gap-8">
+          <div className="order-2 grid w-full grid-cols-2 gap-x-4 gap-y-2 sm:order-1 sm:flex sm:max-h-[280px] sm:w-auto sm:flex-1 sm:flex-col sm:overflow-y-auto sm:pr-1">
             {data.map((d) => (
               <div key={d.name} className="flex items-center gap-2 text-sm text-[var(--vantage-text)]">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.color }} />
@@ -189,10 +191,10 @@ export function LeadCountByCampaignDonut() {
               </div>
             ))}
           </div>
-          <div className="relative shrink-0">
-            <ResponsiveContainer width={260} height={260}>
+          <div className="relative order-1 h-[230px] w-[230px] shrink-0 sm:order-2 sm:h-[260px] sm:w-[260px]">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={data} dataKey="value" innerRadius={78} outerRadius={122} startAngle={90} endAngle={-270} stroke="none">
+                <Pie data={data} dataKey="value" innerRadius="60%" outerRadius="94%" startAngle={90} endAngle={-270} stroke="none">
                   {data.map((d) => (
                     <Cell key={d.name} fill={d.color} />
                   ))}

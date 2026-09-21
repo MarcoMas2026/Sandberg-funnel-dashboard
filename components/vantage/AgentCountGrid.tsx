@@ -12,18 +12,18 @@ export function AgentCountGrid({ rows }: { rows: { agent: string; count: number 
   const max = rows[0].count || 1;
 
   return (
-    <div className="vantage-card p-6">
-      <div className="mb-5 flex items-center justify-between">
+    <div className="vantage-card p-4 sm:p-6">
+      <div className="mb-5 flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-[var(--vantage-text)]">Agent Count</h2>
         <span className="vantage-icon-box px-3 py-1 text-xs font-medium">Active campaigns</span>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
         {rows.map((row, i) => (
-          <div key={row.agent} className="rounded-xl bg-[var(--vantage-canvas)] p-4">
-            <div className="flex items-center gap-3">
+          <div key={row.agent} className="rounded-xl bg-[var(--vantage-canvas)] p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <span className="vantage-icon-box h-10 w-10 shrink-0 text-xs font-semibold">{initials(row.agent)}</span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-[var(--vantage-text)]">{row.agent}</p>
+                <p className="text-sm font-semibold leading-tight text-[var(--vantage-text)] sm:truncate">{row.agent}</p>
                 <p className="text-xs text-[var(--vantage-text-muted)]">Rank #{i + 1}</p>
               </div>
             </div>

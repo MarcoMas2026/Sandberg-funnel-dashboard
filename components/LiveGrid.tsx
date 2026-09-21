@@ -241,7 +241,7 @@ export default function LiveGrid({
       onPointerCancel={endPointer}
       className={`relative w-full touch-none select-none overflow-hidden ${
         dragging ? "cursor-grabbing" : "cursor-grab"
-      } ${fullPage ? "h-[100dvh]" : "h-[calc(100dvh-6.5rem)] rounded-2xl border border-[rgba(0,0,0,0.14)] md:h-[calc(100dvh-1.5rem)]"}`}
+      } ${fullPage ? "h-[100dvh]" : "h-[calc(100dvh-8.5rem)] rounded-2xl border border-[rgba(0,0,0,0.14)] md:h-[calc(100dvh-1.5rem)]"}`}
       style={{
         backgroundColor: "#f0f0f0",
         backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.13) 1px, transparent 1.5px)",

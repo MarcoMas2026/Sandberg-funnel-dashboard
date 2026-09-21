@@ -253,7 +253,7 @@ export default function MissionControl() {
   }
 
   return (
-    <div className="vantage-canvas min-h-[calc(100vh-1.5rem)] p-6 sm:p-8">
+    <div className="vantage-canvas min-h-[calc(100vh-1.5rem)] p-4 pb-20 sm:p-8 sm:pb-20 md:pb-8">
       <div className="space-y-6">
         <MissionControlHeader
           lastUpdated={data?.last_updated ?? null}
@@ -264,7 +264,7 @@ export default function MissionControl() {
           onSearch={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
         />
 
-        <div className="grid grid-cols-2 gap-5 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
           <KpiCard
             label={`Total Spend · ${monthLabel}`}
             icon={<ChartBar className="h-5 w-5" />}
@@ -353,7 +353,7 @@ export default function MissionControl() {
 
       {/* leaderboard */}
       {leaderboard.length > 0 && (
-        <div className="vantage-card fade-up p-6" style={{ animationDelay: "0.35s" }}>
+        <div className="vantage-card fade-up p-4 sm:p-6" style={{ animationDelay: "0.35s" }}>
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-[var(--vantage-text)]">Portfolio Leaderboard</h2>
             <span className="vantage-icon-box px-3 py-1 text-xs font-medium">All time</span>
@@ -364,10 +364,13 @@ export default function MissionControl() {
                 <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--vantage-text-muted)]">
                   <th className="pb-3 pl-1">#</th>
                   <th className="pb-3">Campaign</th>
-                  <th className="pb-3 text-right">Spend</th>
-                  <th className="pb-3 text-right">Leads</th>
-                  <th className="pb-3 text-right">Trend</th>
-                  <th className="pb-3 pr-1 text-right">Cost / Lead</th>
+                  <th className="whitespace-nowrap pb-3 pl-2 text-right">Spend</th>
+                  <th className="whitespace-nowrap pb-3 pl-2 text-right">Leads</th>
+                  <th className="hidden pb-3 text-right sm:table-cell">Trend</th>
+                  <th className="whitespace-nowrap pb-3 pr-1 text-right">
+                    <span className="sm:hidden">CPL</span>
+                    <span className="hidden sm:inline">Cost / Lead</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -376,10 +379,10 @@ export default function MissionControl() {
                     <td className="py-3 pl-1 text-xs text-[var(--vantage-text-muted)]">{i + 1}</td>
                     <td className="py-3">
                       <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full" style={{ background: TYPE_COLOR[row.type] }} />
-                        <span className="font-medium text-[var(--vantage-text)]">{row.property}</span>
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: TYPE_COLOR[row.type] }} />
+                        <span className="min-w-0 font-medium text-[var(--vantage-text)]">{row.property}</span>
                         {row.isActive && (
-                          <span className="rounded-full bg-[var(--vantage-icon-box)] px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[var(--vantage-text)]">
+                          <span className="shrink-0 rounded-full bg-[var(--vantage-icon-box)] px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[var(--vantage-text)]">
                             Live
                           </span>
                         )}
@@ -387,7 +390,7 @@ export default function MissionControl() {
                     </td>
                     <td className="py-3 text-right text-[var(--vantage-text)]">{formatCurrency(row.spend)}</td>
                     <td className="py-3 text-right font-semibold text-[var(--vantage-text)]">{formatNumber(row.leads)}</td>
-                    <td className="py-3 text-right">
+                    <td className="hidden py-3 text-right sm:table-cell">
                       <div className="flex justify-end">
                         <Sparkline data={row.trend} stroke="#2d4444" width={80} height={26} fill={false} />
                       </div>

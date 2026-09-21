@@ -36,9 +36,9 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
         <div className="shell-grid flex min-h-screen gap-3 pb-3 pr-3">
           <Sidebar className="print-hide" />
           <div className="min-w-0 flex-1">
-            <main className="py-1 pt-20 md:pt-3">
+            <main className="py-1 pt-28 md:pt-3">
               {isMissionControl ? (
-                children
+                <div className="pl-3 md:pl-0">{children}</div>
               ) : isLiveGrid ? (
                 // No sidebar on phones, so give the board a left gutter to match the right one.
                 <div className="pl-3 md:pl-0">{children}</div>

@@ -28,6 +28,7 @@ const containerVariants = {
     y: 0,
     opacity: 1,
     width: "auto",
+    height: "auto",
     transition: {
       y: { type: "spring" as const, damping: 18, stiffness: 250 },
       opacity: { duration: 0.3 },
@@ -42,6 +43,7 @@ const containerVariants = {
     y: 0,
     opacity: 1,
     width: "3rem",
+    height: "3rem",
     transition: {
       type: "spring" as const,
       damping: 20,
@@ -96,8 +98,8 @@ export function AnimatedMobileNav({ items }: { items: AnimatedNavItem[] }) {
         whileTap={!isExpanded ? { scale: 0.95 } : {}}
         onClick={handleNavClick}
         className={cn(
-          "relative flex h-12 max-w-[92vw] items-center justify-center overflow-hidden rounded-full border shadow-lg backdrop-blur-md",
-          !isExpanded && "cursor-pointer"
+          "relative flex min-h-12 max-w-[92vw] items-center justify-center overflow-hidden border shadow-lg backdrop-blur-md",
+          isExpanded ? "rounded-3xl" : "cursor-pointer rounded-full"
         )}
         style={{
           background: "var(--panel)",
@@ -105,7 +107,8 @@ export function AnimatedMobileNav({ items }: { items: AnimatedNavItem[] }) {
         }}
       >
         <motion.div
-          className={cn("flex items-center gap-0.5 overflow-x-auto px-2 no-scrollbar", !isExpanded && "pointer-events-none")}
+          // Two-row grid so every section stays reachable at phone width instead of a clipped scroller.
+          className={cn("grid grid-cols-[repeat(7,2.5rem)] items-center justify-center gap-0.5 px-2 py-1", !isExpanded && "pointer-events-none")}
         >
           {items.map((item) => (
             <motion.div key={item.label} variants={itemVariants} onClick={(e) => e.stopPropagation()}>

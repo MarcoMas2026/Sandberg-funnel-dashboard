@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { formatDate } from "@/lib/format";
 
@@ -49,14 +50,18 @@ export function MissionControlHeader({
   onSelectMonth: (year: number, month: number) => void;
   onSearch: () => void;
 }) {
+  // The portal target only exists in the browser; mount after hydration to avoid a server/client mismatch.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-4">
+    <div className="flex flex-col gap-4 md:grid md:grid-cols-[1fr_auto_1fr] md:items-end">
       <div>
         <p className="mb-1 flex items-center gap-2 text-xs text-[var(--vantage-text-muted)]">
           <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-500" />
           {lastUpdated ? `Last update ${formatDate(lastUpdated)}` : "No sync yet"}
         </p>
-        <h1 className="whitespace-nowrap text-[1.75rem] font-bold tracking-tight text-[var(--vantage-text)] sm:text-4xl">
+        <h1 className="text-[1.75rem] sm:whitespace-nowrap font-bold tracking-tight text-[var(--vantage-text)] sm:text-4xl">
           {greeting()}, team <span className="align-middle">👋</span>
         </h1>
         <p className="mt-1 text-sm text-[var(--vantage-text-muted)]">
@@ -64,8 +69,8 @@ export function MissionControlHeader({
         </p>
       </div>
 
-      <div className="flex justify-self-center">
-        <div className="vantage-pill flex items-center gap-1 p-1.5">
+      <div className="flex md:justify-self-center">
+        <div className="vantage-pill flex w-fit items-center gap-1 p-1 md:p-1.5">
           {months.map((m) => {
             const active = m.year === selMonth.year && m.month === selMonth.month;
             return (
@@ -73,7 +78,7 @@ export function MissionControlHeader({
                 key={`${m.year}-${m.month}`}
                 type="button"
                 onClick={() => onSelectMonth(m.year, m.month)}
-                className={`rounded-full px-5 py-2 text-base transition-colors ${
+                className={`rounded-full px-3 py-1.5 text-sm transition-colors md:px-5 md:py-2 md:text-base ${
                   active ? "bg-[var(--vantage-accent)] text-[#f0f0f0]" : "text-[var(--vantage-text-muted)]"
                 }`}
               >
@@ -87,12 +92,28 @@ export function MissionControlHeader({
       <button
         type="button"
         onClick={onSearch}
-        className="vantage-pill flex w-64 items-center gap-2 justify-self-end px-5 py-3 text-left text-base text-[var(--vantage-text-muted)]"
+        className="vantage-pill hidden w-full items-center gap-2 px-5 py-3 md:flex md:w-64 md:justify-self-end text-left text-base text-[var(--vantage-text-muted)]"
       >
         <MagnifyingGlass className="h-5 w-5" />
         <span className="flex-1">Search…</span>
         <kbd className="rounded bg-[var(--vantage-icon-box)] px-1.5 py-0.5 text-xs">⌘K</kbd>
       </button>
+
+      {/* Phones: search lives in a small bar fixed to the bottom of the screen, following the scroll.
+          Portaled to <body> so no transformed ancestor can break `position: fixed`. */}
+      {mounted &&
+        createPortal(
+          <button
+            type="button"
+            onClick={onSearch}
+            aria-label="Search"
+            className="vantage-pill fixed bottom-3 left-1/2 z-40 flex w-[min(15rem,70vw)] -translate-x-1/2 items-center gap-2 px-4 py-2.5 text-left text-sm text-[var(--vantage-text-muted)] shadow-lg md:hidden"
+          >
+            <MagnifyingGlass className="h-4 w-4" />
+            <span className="flex-1">Search…</span>
+          </button>,
+          document.body
+        )}
     </div>
   );
 }
