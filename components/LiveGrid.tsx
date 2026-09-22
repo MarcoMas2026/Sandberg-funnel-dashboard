@@ -361,7 +361,7 @@ export default function LiveGrid({
         >
           <SummaryCell label={<><span className="sm:hidden">{summary.monthLabel.slice(0, 3)}</span><span className="hidden sm:inline">{summary.monthLabel}</span> · Leads</>} value={formatNumber(summary.leads)} delta={summary.deltas.leadsPct} goodWhen="up" />
           <SummaryCell label="Spend" value={formatCurrency(summary.spend)} delta={summary.deltas.spendPct} goodWhen="neutral" />
-          <SummaryCell label="CPL" value={summary.cpl !== null ? formatCurrency(summary.cpl, 2) : "—"} delta={summary.deltas.cplPct} goodWhen="down" />
+          <SummaryCell label="Cost Per Lead" value={summary.cpl !== null ? formatCurrency(summary.cpl, 2) : "—"} delta={summary.deltas.cplPct} goodWhen="down" />
           <SummaryCell label="Live campaigns" value={String(allProperties.length)} delta={null} goodWhen="neutral" hideOnMobile />
           {liveAds !== null && <SummaryCell label="Live ads" value={String(liveAds)} delta={null} goodWhen="neutral" hideOnMobile />}
         </div>
@@ -401,7 +401,7 @@ function NodeBody({ node, onPlay }: { node: NodeDef; onPlay: (v: { src: string; 
                   {formatCurrency(p.spend)} <span className="text-neutral-400">spend</span>
                 </span>
                 <span>
-                  {p.cpl > 0 ? formatCurrency(p.cpl, 2) : "—"} <span className="text-neutral-400">CPL</span>
+                  {p.cpl > 0 ? formatCurrency(p.cpl, 2) : "—"} <span className="text-neutral-400">Cost Per Lead</span>
                 </span>
               </div>
             </div>
@@ -416,7 +416,9 @@ function NodeBody({ node, onPlay }: { node: NodeDef; onPlay: (v: { src: string; 
                   {p.agent.split(" ").map((w) => w[0]).slice(0, 2).join("")}
                 </div>
               )}
-              <div className="mt-1 text-[11px] font-medium text-neutral-700">{p.agent}</div>
+              {p.askingPrice !== null && (
+                <div className="mt-1 text-[11px] font-medium text-neutral-700">{formatCurrency(p.askingPrice)}</div>
+              )}
             </div>
           )}
         </div>

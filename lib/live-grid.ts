@@ -44,6 +44,7 @@ export interface LiveProperty {
   hero: string | null;
   agent: string | null;
   agentPhoto: string | null;
+  askingPrice: number | null;
   lanes: LiveLane[];
 }
 
@@ -95,6 +96,7 @@ export async function getLiveProperties(): Promise<{ properties: LiveProperty[];
           hero: assets?.hero ?? null,
           agent: assets?.agent ?? null,
           agentPhoto: assets?.agentPhoto ?? null,
+          askingPrice: assets?.askingPrice ?? null,
           lanes,
         };
       });

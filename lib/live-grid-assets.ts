@@ -6,6 +6,7 @@ export interface LiveAssets {
   hero: string | null;
   agent: string | null;
   agentPhoto: string | null;
+  askingPrice: number | null; // EUR, parsed from the landing hero's "Asking price: €..." tagline
   videos: Record<string, { src: string; poster: string }>;
   landings: Record<string, string>;
 }

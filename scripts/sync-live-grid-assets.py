@@ -114,6 +114,36 @@ def find_agent(ref):
     return agent_from_brochure(ref)
 
 
+# Hero tagline is usually "Asking price: €5,400,000" / "Kaufpreis: €5.400.000" /
+# "Angebotspreis: €8.950.000" (comma or dot as thousands separator), but sometimes a
+# marketing line instead — skip those. Older landings (no .data.json) carry the same
+# line in index.html's og:description meta tag / hero__tagline instead.
+PRICE_RE = re.compile(r"(?:asking price|kaufpreis|angebotspreis)\s*:?\s*€?\s*([\d.,]+)\s*€?", re.IGNORECASE)
+
+
+def _price_from_text(text):
+    m = PRICE_RE.search(text or "")
+    if not m:
+        return None
+    digits = re.sub(r"[.,]", "", m.group(1))
+    return int(digits) if digits.isdigit() else None
+
+
+def find_asking_price(ref):
+    for p in [LAND / f"{ref}.data.json", LAND / ref / "ENG.data.json", LAND / ref / "DEU.data.json", LAND / f"{ref}D.data.json"]:
+        if not p.exists():
+            continue
+        price = _price_from_text(json.loads(p.read_text()).get("tagline"))
+        if price:
+            return price
+    for p in [LAND / ref / "index.html", LAND / f"{ref}.html"]:
+        if p.exists():
+            price = _price_from_text(p.read_text())
+            if price:
+                return price
+    return None
+
+
 def find_video(ref, lang):
     names = [f"{ref} Ad {lang}.MP4"]
     if lang == "ENG":
@@ -154,7 +184,7 @@ def main():
 
     report = []
     for ref in refs:
-        entry = {"hero": None, "agent": None, "agentPhoto": None, "videos": {}, "landings": landings(ref)}
+        entry = {"hero": None, "agent": None, "agentPhoto": None, "askingPrice": None, "videos": {}, "landings": landings(ref)}
         notes = []
         hero = find_hero(ref)
         if hero:
@@ -183,6 +213,11 @@ def main():
                 notes.append(f"no team photo for {agent}")
         else:
             notes.append("NO agent name (landing data missing)")
+        price = find_asking_price(ref)
+        if price:
+            entry["askingPrice"] = price
+        else:
+            notes.append("no asking price in tagline")
         for lang in LANGS:
             src = find_video(ref, lang)
             if not src:
