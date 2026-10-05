@@ -9,26 +9,11 @@ import { FunnelCampaign } from "@/lib/types";
 // Live badge, Spend/Leads/CPL, date range — no funnel donut, sync badges, or
 // sparkline (those stay on the richer /campaign/[id] detail page).
 //
-// Spend/Leads/CPL shown here are scoped to the Mission Control month picker
-// (monthSpend/monthLeads/monthCpl, computed by the caller), NOT the
-// campaign's lifetime meta.spend/meta.leads/meta.cpl — a campaign live for 3
-// months with 128 lifetime leads should show only the leads generated in the
-// selected month here (e.g. 20), matching the hero KPI tiles above it.
-// Lifetime totals still show on the /campaign/[id] detail page this card
-// links to.
-export function VantageCampaignCard({
-  campaign: c,
-  lastUpdated,
-  monthSpend,
-  monthLeads,
-  monthCpl,
-}: {
-  campaign: FunnelCampaign;
-  lastUpdated: string | null;
-  monthSpend: number;
-  monthLeads: number;
-  monthCpl: number;
-}) {
+// Spend/Leads/CPL shown here are always the campaign's LIFETIME totals
+// (meta.spend / meta.leads / meta.cpl), whatever month is selected in the
+// Mission Control month picker — only the monthly KPI bar above the cards is
+// month-scoped.
+export function VantageCampaignCard({ campaign: c, lastUpdated }: { campaign: FunnelCampaign; lastUpdated: string | null }) {
   return (
     <Link href={`/campaign/${c.campaign_id}`} className="vantage-card block p-6">
       <div className="mb-6 flex items-start justify-between">
@@ -50,15 +35,15 @@ export function VantageCampaignCard({
 
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <p className="text-2xl font-bold text-[var(--vantage-text)]">{formatCurrency(monthSpend)}</p>
+          <p className="text-2xl font-bold text-[var(--vantage-text)]">{formatCurrency(c.meta.spend)}</p>
           <p className="text-[11px] uppercase tracking-wide text-[var(--vantage-text-muted)]">spend</p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-[var(--vantage-text)]">{formatNumber(monthLeads)}</p>
+          <p className="text-2xl font-bold text-[var(--vantage-text)]">{formatNumber(c.meta.leads)}</p>
           <p className="text-[11px] uppercase tracking-wide text-[var(--vantage-text-muted)]">leads</p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-[var(--vantage-text)]">{monthLeads > 0 ? formatCurrency(monthCpl, 2) : "—"}</p>
+          <p className="text-2xl font-bold text-[var(--vantage-text)]">{c.meta.leads > 0 ? formatCurrency(c.meta.cpl, 2) : "—"}</p>
           <p className="text-[11px] uppercase tracking-wide text-[var(--vantage-text-muted)]">cpl</p>
         </div>
       </div>

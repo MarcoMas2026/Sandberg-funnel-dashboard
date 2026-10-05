@@ -1,6 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { FunnelCampaign, LeadRecord, MetaBreakdownRow } from "@/lib/types";
-import { todayISOMadrid } from "@/lib/format";
 
 // Server-only client — SUPABASE_SERVICE_ROLE_KEY must never reach the browser
 // bundle (same rule as lib/kv.ts's KV_REST_API_TOKEN and lib/social/db.ts).
@@ -168,61 +167,59 @@ export async function upsertMonthlyTotals(rows: MonthlyTotalsRow[]): Promise<{ o
   return { ok: true, written: rows.length };
 }
 
+// Last calendar month whose funnel_monthly_totals rows are month-scoped. Rows
+// up to here were hand-backfilled from Meta's own per-month aggregate, and
+// funnel_daily_history is incomplete for those months (missing days, no leads
+// for some campaigns), so the monthly row is the better record. Every row
+// AFTER this month was written by /api/history/sync straight from
+// c.meta.spend / c.typeform.completions — the campaign's LIFETIME totals as of
+// that sync, not that month's — so it must never be read as a month figure
+// (September 2026 showed 9,236€ instead of 7,811€ because four campaigns that
+// started in June/August carried their earlier spend into it).
+const MANUAL_BACKFILL_UNTIL = { year: 2026, month: 7 };
+
+function isManualBackfillMonth(year: number, month: number): boolean {
+  return year < MANUAL_BACKFILL_UNTIL.year || (year === MANUAL_BACKFILL_UNTIL.year && month <= MANUAL_BACKFILL_UNTIL.month);
+}
+
+// Every funnel_daily_history row from `start` (to `end`, when given), oldest
+// first. Paged because PostgREST caps a single response at 1000 rows, which a
+// multi-month range passes quickly. Returns null on a query error.
+async function fetchDailyRange(supabase: SupabaseClient, start: string, end: string | null): Promise<HistoryRow[] | null> {
+  const pageSize = 1000;
+  const out: HistoryRow[] = [];
+  for (let from = 0; ; from += pageSize) {
+    let query = supabase.from("funnel_daily_history").select("*").gte("date", start);
+    if (end) query = query.lte("date", end);
+    const { data, error } = await query
+      .order("date", { ascending: true })
+      .order("campaign_id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) return null;
+    out.push(...(data ?? []));
+    if (!data || data.length < pageSize) return out;
+  }
+}
+
 export interface MonthlyTotals {
   connected: boolean;
   spend: number;
   leads: number;
 }
 
-// Sums across ALL campaigns (any status) for a given calendar month. Prefers
-// funnel_monthly_totals (Meta's own monthly aggregate — accurate, backfillable
-// per db/migrations/004) when a row exists for this year/month; falls back to
-// summing funnel_daily_history for months that haven't been backfilled yet.
-//
-// The current, still-in-progress month is ALWAYS summed from
-// funnel_daily_history instead, even though the opportunistic sync
-// (app/api/history/sync/route.ts) keeps a funnel_monthly_totals row for it
-// too. That row is written straight from c.meta.spend / c.typeform.completions
-// — Meta's lifetime (date_preset(maximum)) aggregate and Typeform's all-time
-// completions, per CLAUDE.md — NOT scoped to the calendar month, so for any
-// campaign that has run longer than the current month it silently inflates
-// the KPI cards with all-time totals. funnel_daily_history rows are written
-// per-date from meta.daily[], so summing those over [monthStart, monthEnd] is
-// the only source that's actually month-scoped while the month is still open.
+// Portfolio spend/leads for one calendar month, across ALL campaigns (any
+// status): the sum of getMonthlyCampaignRows — i.e. every stored day from the
+// 1st through the last day of the month, nothing from outside it. The same
+// read serves the open month, which simply grows as each sync upserts new days.
 export async function getMonthlyTotals(year: number, month: number, monthStart: string, monthEnd: string): Promise<MonthlyTotals> {
-  const supabase = getClient();
-  if (!supabase) return { connected: false, spend: 0, leads: 0 };
-
-  const [nowYear, nowMonth] = todayISOMadrid().split("-").map(Number);
-  const isCurrentMonth = year === nowYear && month === nowMonth;
-
-  if (!isCurrentMonth) {
-    const { data: monthlyRows, error: monthlyError } = await supabase
-      .from("funnel_monthly_totals")
-      .select("spend, leads")
-      .eq("year", year)
-      .eq("month", month);
-    if (monthlyError) return { connected: false, spend: 0, leads: 0 };
-    if (monthlyRows && monthlyRows.length > 0) {
-      const spend = monthlyRows.reduce((s, r) => s + Number(r.spend ?? 0), 0);
-      const leads = monthlyRows.reduce((s, r) => s + Number(r.leads ?? 0), 0);
-      return { connected: true, spend, leads };
-    }
-  }
-
-  const { data, error } = await supabase
-    .from("funnel_daily_history")
-    .select("spend, leads")
-    .gte("date", monthStart)
-    .lte("date", monthEnd);
+  const { connected, rows } = await getMonthlyCampaignRows(year, month, monthStart, monthEnd);
   // A query error (e.g. the table hasn't been migrated in yet) must NOT be
   // reported as "connected" with zero totals — the caller falls back to a
   // live scan when connected is false, and a false "connected: true, 0" here
   // would silently override that accurate fallback with a wrong zero.
-  if (error) return { connected: false, spend: 0, leads: 0 };
-  if (!data) return { connected: true, spend: 0, leads: 0 };
-  const spend = data.reduce((s, r) => s + Number(r.spend ?? 0), 0);
-  const leads = data.reduce((s, r) => s + Number(r.leads ?? 0), 0);
+  if (!connected) return { connected: false, spend: 0, leads: 0 };
+  const spend = rows.reduce((s, r) => s + r.spend, 0);
+  const leads = rows.reduce((s, r) => s + (r.leads ?? 0), 0);
   return { connected: true, spend, leads };
 }
 
@@ -239,14 +236,11 @@ export interface MonthlyCampaignRow {
   leads_source: "typeform_verified" | "unavailable" | "daily_derived";
 }
 
-// Per-campaign totals for a given month — powers Mission Control's "Paid
-// Campaigns" list for a selected month, including campaigns no longer live
-// in lib/config.ts. Same monthly-aggregate-first, daily-sum-fallback
-// preference as getMonthlyTotals, and the same current-month exception: see
-// getMonthlyTotals's doc comment — funnel_monthly_totals holds Meta/Typoform
-// lifetime aggregates while the current month is still open, not
-// month-scoped figures, so it's skipped in favor of funnel_daily_history
-// until the month closes.
+// Per-campaign totals for one calendar month, including campaigns no longer
+// live in lib/config.ts. Strictly month-scoped: funnel_daily_history rows
+// dated monthStart..monthEnd, summed per campaign. The only exception is the
+// hand-backfilled months (see MANUAL_BACKFILL_UNTIL), which read their
+// month-scoped funnel_monthly_totals rows instead.
 export async function getMonthlyCampaignRows(
   year: number,
   month: number,
@@ -256,10 +250,7 @@ export async function getMonthlyCampaignRows(
   const supabase = getClient();
   if (!supabase) return { connected: false, rows: [] };
 
-  const [nowYear, nowMonth] = todayISOMadrid().split("-").map(Number);
-  const isCurrentMonth = year === nowYear && month === nowMonth;
-
-  if (!isCurrentMonth) {
+  if (isManualBackfillMonth(year, month)) {
     const { data: monthlyRows, error: monthlyError } = await supabase
       .from("funnel_monthly_totals")
       .select("*")
@@ -285,36 +276,32 @@ export async function getMonthlyCampaignRows(
     }
   }
 
-  const { data: dailyRows, error: dailyError } = await supabase
-    .from("funnel_daily_history")
-    .select("*")
-    .gte("date", monthStart)
-    .lte("date", monthEnd);
-  if (dailyError) return { connected: false, rows: [] };
-  if (!dailyRows) return { connected: true, rows: [] };
+  const dailyRows = await fetchDailyRange(supabase, monthStart, monthEnd);
+  if (!dailyRows) return { connected: false, rows: [] };
 
   const byCampaign = new Map<string, MonthlyCampaignRow>();
   for (const r of dailyRows) {
     const existing = byCampaign.get(r.campaign_id);
-    if (existing) {
-      existing.spend += Number(r.spend ?? 0);
-      existing.leads = (existing.leads ?? 0) + Number(r.leads ?? 0);
-    } else {
-      byCampaign.set(r.campaign_id, {
-        campaign_id: r.campaign_id,
-        campaign_name: r.campaign_name,
-        property: r.property,
-        ref: r.ref,
-        campaign_type: r.campaign_type,
-        status: r.status,
-        spend: Number(r.spend ?? 0),
-        leads: Number(r.leads ?? 0),
-        cpl: null,
-        leads_source: "daily_derived",
-      });
-    }
+    // Rows arrive oldest first, so name/status end up as of the campaign's
+    // last stored day in the month.
+    byCampaign.set(r.campaign_id, {
+      campaign_id: r.campaign_id,
+      campaign_name: r.campaign_name,
+      property: r.property,
+      ref: r.ref,
+      campaign_type: r.campaign_type,
+      status: r.status,
+      spend: (existing?.spend ?? 0) + Number(r.spend ?? 0),
+      leads: (existing?.leads ?? 0) + Number(r.leads ?? 0),
+      cpl: null,
+      leads_source: "daily_derived",
+    });
   }
-  const rows = Array.from(byCampaign.values()).map((r) => ({ ...r, cpl: r.leads ? r.spend / r.leads : null }));
+  // A campaign with stored days in the month but no spend and no leads on any
+  // of them (paused, still returned by Meta) didn't run that month.
+  const rows = Array.from(byCampaign.values())
+    .filter((r) => r.spend > 0 || (r.leads ?? 0) > 0)
+    .map((r) => ({ ...r, cpl: r.leads ? r.spend / r.leads : null }));
   return { connected: true, rows };
 }
 
@@ -594,27 +581,43 @@ export interface PortfolioMonthPoint {
 
 // Portfolio spend/leads summed across all campaigns, one point per calendar
 // month, from `sinceYear`/`sinceMonth` through the current month — powers the
-// report page's trend chart. Reads funnel_monthly_totals directly (Meta's own
-// monthly aggregate, same accuracy rule as everywhere else in this file)
-// rather than summing daily rows, since every month this old is expected to
-// already be backfilled.
+// report page's trend chart. Same month scoping as getMonthlyCampaignRows:
+// hand-backfilled months come from funnel_monthly_totals, every later month is
+// the sum of its own funnel_daily_history days.
 export async function getPortfolioMonthlySeries(sinceYear: number, sinceMonth: number): Promise<PortfolioMonthPoint[]> {
   const supabase = getClient();
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("funnel_monthly_totals")
-    .select("year, month, spend, leads")
-    .or(`year.gt.${sinceYear},and(year.eq.${sinceYear},month.gte.${sinceMonth})`);
-  if (error || !data) return [];
 
   const byMonth = new Map<string, { year: number; month: number; spend: number; leads: number }>();
-  for (const r of data) {
-    const key = `${r.year}-${r.month}`;
-    const acc = byMonth.get(key) ?? { year: r.year, month: r.month, spend: 0, leads: 0 };
-    acc.spend += Number(r.spend ?? 0);
-    if (r.leads !== null && r.leads !== undefined) acc.leads += Number(r.leads);
+  const add = (year: number, month: number, spend: number, leads: number) => {
+    const key = `${year}-${month}`;
+    const acc = byMonth.get(key) ?? { year, month, spend: 0, leads: 0 };
+    acc.spend += spend;
+    acc.leads += leads;
     byMonth.set(key, acc);
+  };
+
+  if (isManualBackfillMonth(sinceYear, sinceMonth)) {
+    const { data, error } = await supabase
+      .from("funnel_monthly_totals")
+      .select("year, month, spend, leads")
+      .or(`year.gt.${sinceYear},and(year.eq.${sinceYear},month.gte.${sinceMonth})`);
+    if (error) return [];
+    for (const r of data ?? []) {
+      if (isManualBackfillMonth(r.year, r.month)) add(r.year, r.month, Number(r.spend ?? 0), Number(r.leads ?? 0));
+    }
   }
+
+  const firstDaily = isManualBackfillMonth(sinceYear, sinceMonth)
+    ? shiftMonth(MANUAL_BACKFILL_UNTIL.year, MANUAL_BACKFILL_UNTIL.month, 1)
+    : { year: sinceYear, month: sinceMonth };
+  const dailyRows = await fetchDailyRange(supabase, monthBounds(firstDaily.year, firstDaily.month).start, null);
+  if (!dailyRows) return [];
+  for (const r of dailyRows) {
+    const [y, m] = String(r.date).split("-").map(Number);
+    add(y, m, Number(r.spend ?? 0), Number(r.leads ?? 0));
+  }
+
   return Array.from(byMonth.values())
     .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month))
     .map((p) => ({ ...p, cpl: p.leads > 0 ? p.spend / p.leads : null }));
@@ -772,18 +775,21 @@ export interface LeaderboardCampaignTotal {
   trend: number[];
 }
 
-// Per-campaign totals summed across every month from HISTORY_START onward —
-// backs the Portfolio Leaderboard and Mission Control's Inactive Campaigns
-// section, the single source of truth for any campaign not currently ACTIVE
-// (the old hand-curated `historical:campaigns` KV pool was retired — it
-// drifted out of sync with this store with nothing keeping the two in step).
-// For each (campaign, month) pair, prefers the
-// falling back to summing funnel_daily_history for months not backfilled to
-// a monthly aggregate (e.g. the current, in-progress month) — same
-// preference as getMonthlyTotals, just applied per campaign across many
-// months instead of across campaigns for one month. A campaign with no
-// verified/derived leads in ANY of its months is excluded entirely (same
-// "leads must be real, never guessed" rule as everywhere else in this file).
+// Per-campaign LIFETIME totals from HISTORY_START onward — backs the
+// Portfolio Leaderboard and Mission Control's Inactive Campaigns section, the
+// single source of truth for any campaign not currently ACTIVE (the old
+// hand-curated `historical:campaigns` KV pool was retired — it drifted out of
+// sync with this store with nothing keeping the two in step).
+//
+// A campaign's latest funnel_monthly_totals row written by the sync (any
+// month after MANUAL_BACKFILL_UNTIL) already IS its lifetime total — Meta's
+// lifetime aggregate + Typeform's all-time completions as of that sync — so
+// it's taken once, never added to the campaign's earlier rows (summing them
+// counted a two-month campaign's first month twice). Only campaigns with no
+// such row fall back to summing their hand-backfilled monthly rows plus
+// funnel_daily_history for months those don't cover. A campaign with no
+// verified/derived leads at all is excluded entirely (same "leads must be
+// real, never guessed" rule as everywhere else in this file).
 export async function getLeaderboardTotals(): Promise<{ connected: boolean; rows: LeaderboardCampaignTotal[] }> {
   const supabase = getClient();
   if (!supabase) return { connected: false, rows: [] };
@@ -797,11 +803,8 @@ export async function getLeaderboardTotals(): Promise<{ connected: boolean; rows
   if (monthlyError) return { connected: false, rows: [] };
 
   const sinceDate = `${sinceYear}-${String(sinceMonth).padStart(2, "0")}-01`;
-  const { data: dailyRows, error: dailyError } = await supabase
-    .from("funnel_daily_history")
-    .select("*")
-    .gte("date", sinceDate);
-  if (dailyError) return { connected: false, rows: [] };
+  const dailyRows = await fetchDailyRange(supabase, sinceDate, null);
+  if (!dailyRows) return { connected: false, rows: [] };
 
   interface Acc {
     property: string;
@@ -821,10 +824,20 @@ export async function getLeaderboardTotals(): Promise<{ connected: boolean; rows
     return acc;
   };
 
-  // Monthly rows are authoritative for whichever (campaign, month) pairs they cover.
+  // Latest sync-written (lifetime) row per campaign.
+  const lifetimeRow = new Map<string, { year: number; month: number }>();
+  for (const r of monthlyRows ?? []) {
+    if (isManualBackfillMonth(r.year, r.month)) continue;
+    const cur = lifetimeRow.get(r.campaign_id);
+    if (!cur || r.year > cur.year || (r.year === cur.year && r.month > cur.month)) lifetimeRow.set(r.campaign_id, r);
+  }
+  const ymOf = (year: number, month: number) => `${year}-${String(month).padStart(2, "0")}`;
+
   const coveredMonthly = new Set<string>();
   for (const r of monthlyRows ?? []) {
-    coveredMonthly.add(`${r.campaign_id}:${r.year}-${String(r.month).padStart(2, "0")}`);
+    coveredMonthly.add(`${r.campaign_id}:${ymOf(r.year, r.month)}`);
+    const lifetime = lifetimeRow.get(r.campaign_id);
+    if (lifetime && lifetime !== r) continue; // already inside the lifetime row
     const acc = ensure(r.campaign_id, r.property, r.ref, r.campaign_type);
     acc.spend += Number(r.spend ?? 0);
     if (r.leads !== null && r.leads !== undefined) {
@@ -849,10 +862,13 @@ export async function getLeaderboardTotals(): Promise<{ connected: boolean; rows
   // chart wants every real daily point regardless of which table the month's
   // TOTAL came from.
   const trendByCampaign = new Map<string, { date: string; leads: number }[]>();
-  for (const r of dailyRows ?? []) {
+  for (const r of dailyRows) {
     const ym = String(r.date).slice(0, 7);
     const key = `${r.campaign_id}:${ym}`;
-    if (!coveredMonthly.has(key)) {
+    // A lifetime row covers every month up to and including its own.
+    const lifetime = lifetimeRow.get(r.campaign_id);
+    const covered = lifetime ? ym <= ymOf(lifetime.year, lifetime.month) : coveredMonthly.has(key);
+    if (!covered) {
       let acc = dailyByCampaignMonth.get(key);
       if (!acc) {
         acc = { property: r.property, ref: r.ref, campaign_type: r.campaign_type, spend: 0, leads: 0 };

@@ -23,6 +23,15 @@ value-based CAPI feedback loop) with build-order and zero-API-cost constraints.
   reintroduce the `@vercel/kv` SDK (it caused stale cached reads).
 - **Meta totals come from the aggregate** (`date_preset(maximum)`), NEVER from summing the daily
   (`time_increment`) rows — the daily breakdown under-reports ~5%. Daily data is for charts only.
+  **Exception, by explicit user rule (2026-10-05): month-scoped figures** (Mission Control's monthly
+  KPI bar, the report's monthly trend/per-campaign month rows) are the sum of `funnel_daily_history`
+  rows dated 1st → last day of that month — there is no month-scoped Meta aggregate stored.
+  `funnel_monthly_totals` rows written by `/api/history/sync` (any month after 2026-07) hold the
+  campaign's LIFETIME totals, so never read them as a month figure (that bug showed September 2026 as
+  9,236€ instead of 7,811€); only June/July 2026 rows are month-scoped hand backfills. See
+  `MANUAL_BACKFILL_UNTIL` in `lib/history/db.ts`.
+- **Campaign cards on Mission Control are always lifetime** (live and inactive alike) — only the
+  monthly KPI bar follows the month picker (user rule, 2026-10-05).
 - **Leads = Typeform submissions** (`tf.completions`), not Meta's lead pixel. Cost-per-lead =
   Meta spend ÷ submissions. The Merge overrides `meta.leads/.cpl` and each `meta.daily[]` entry.
 - **Single source of truth for the campaign map:** `lib/config.ts` → exposed at `/api/config` →
