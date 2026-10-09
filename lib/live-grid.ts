@@ -4,7 +4,7 @@ import { todayISOMadrid } from "@/lib/format";
 import { AGENT_ROSTER } from "@/lib/agents";
 import { applyBaselineToCampaign } from "@/lib/test-attribution";
 import { countLiveAds, getAdsetLanes } from "@/lib/live-adsets";
-import { getLiveAssets } from "@/lib/live-grid-assets";
+import { getLiveAssets, type LiveAssets, type LiveCreative } from "@/lib/live-grid-assets";
 
 export interface LiveAgent {
   name: string;
@@ -24,7 +24,7 @@ export const LIVE_AGENTS: LiveAgent[] = AGENT_ROSTER.map((name) => ({
 
 export interface LiveLane {
   label: string | null; // "ENG" | "DEU" | ... — null for a single-ad campaign
-  video: { src: string; poster: string } | null;
+  creatives: LiveCreative[]; // every video/static launched for this lane — all of them land on `landingUrl`
   impressions: number;
   ctr: number; // 0..1
   landingUrl: string | null;
@@ -48,6 +48,16 @@ export interface LiveProperty {
   lanes: LiveLane[];
 }
 
+// Assets are keyed by ref; a campaign without one (e.g. Sa Cantolina) uses its property slug.
+export const assetKey = (c: { ref: string; property: string }) => c.ref || c.property.replace(/^SP\s*-\s*/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+function creativesFor(assets: LiveAssets | undefined, langKey: string): LiveCreative[] {
+  const list = assets?.creatives?.[langKey];
+  if (list?.length) return list;
+  const v = assets?.videos[langKey] ?? assets?.videos.ENG;
+  return v ? [{ kind: "video", label: "", ...v }] : [];
+}
+
 // Server-side reduction of funnel:merged to only what the Live Grid displays,
 // so the shareable /live page never ships the full portfolio payload.
 export async function getLiveProperties(): Promise<{ properties: LiveProperty[]; lastUpdated: string | null; liveAds: number | null }> {
@@ -58,7 +68,7 @@ export async function getLiveProperties(): Promise<{ properties: LiveProperty[];
     const [adsetLanes, liveAds] = await Promise.all([getAdsetLanes(live), countLiveAds(new Set(live.map((c) => c.campaign_id)))]);
     const properties = live
       .map((c): LiveProperty => {
-        const assets = liveAssets[c.ref];
+        const assets = liveAssets[assetKey(c)];
         // One lane per ad set / language variant; a single-audience campaign is one unlabeled lane.
         const sources = c.variants?.length
           ? c.variants.map((v) => ({ key: v.key as string | null, meta: v.meta, tf: v.typeform }))
@@ -67,7 +77,7 @@ export async function getLiveProperties(): Promise<{ properties: LiveProperty[];
         const lanes = perAdset
           ? perAdset.map((l): LiveLane => ({
               label: l.label,
-              video: assets?.videos[l.langKey] ?? assets?.videos.ENG ?? null,
+              creatives: creativesFor(assets, l.langKey),
               impressions: l.impressions,
               ctr: l.ctr,
               landingUrl: assets ? (assets.landings[l.langKey] ?? assets.landings.default) : null,
@@ -78,7 +88,7 @@ export async function getLiveProperties(): Promise<{ properties: LiveProperty[];
             }))
           : sources.map((s): LiveLane => ({
           label: s.key,
-          video: assets?.videos[s.key ?? "ENG"] ?? null,
+          creatives: creativesFor(assets, s.key ?? "ENG"),
           impressions: s.meta.impressions,
           ctr: s.meta.ctr,
           landingUrl: assets ? (assets.landings[s.key ?? "default"] ?? assets.landings.default) : null,

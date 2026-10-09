@@ -105,9 +105,30 @@ export async function getAdsetLanes(campaigns: FunnelCampaign[]): Promise<Record
     const out: Record<string, AdsetLane[]> = {};
     for (const { c, adsets } of multi) {
       const formOf = (lang: string) => c.variants?.find((v) => v.key === lang)?.typeform ?? c.typeform;
-      const rows = adsets.map((a) => {
+      let rows = adsets.map((a) => {
         const label = adsetLabel(a.name);
         return { a, label, lang: adsetLangKey(label), attributed: completionsByAdset[a.id] ?? 0 };
+      });
+      // A "STATICS" ad set only carries image creatives for a language the other ad sets already cover — it
+      // shares that lane's landing and form, so fold it in (its numbers add up to the lane's).
+      const isStatics = (label: string | null) => label === "STATICS" || label === "STATIC";
+      const hostOf = (r: (typeof rows)[number]) => rows.find((h) => !isStatics(h.label) && h.lang === r.lang);
+      rows = rows.filter((r) => !isStatics(r.label) || !hostOf(r)).map((r) => {
+        const extras = rows.filter((x) => isStatics(x.label) && x !== r && hostOf(x) === r);
+        if (extras.length === 0) return r;
+        const all = [r, ...extras];
+        const impressions = all.reduce((s, x) => s + x.a.impressions, 0);
+        return {
+          ...r,
+          attributed: all.reduce((s, x) => s + x.attributed, 0),
+          a: {
+            ...r.a,
+            impressions,
+            clicks: all.reduce((s, x) => s + x.a.clicks, 0),
+            link_clicks: all.reduce((s, x) => s + x.a.link_clicks, 0),
+            ctr: impressions > 0 ? all.reduce((s, x) => s + x.a.ctr * x.a.impressions, 0) / impressions : 0,
+          },
+        };
       });
       // Ad sets that reuse the same form (e.g. ENG + LOCAL) split its numbers between them.
       const byForm = new Map<string, typeof rows>();

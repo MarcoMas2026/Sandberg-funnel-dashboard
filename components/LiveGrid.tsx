@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { ArrowSquareOut, Browser, Play, X } from "@phosphor-icons/react";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 import { agentSlug, type LiveAgent, type LiveLane, type LiveMonthSummary, type LiveProperty } from "@/lib/live-grid";
+import type { LiveCreative } from "@/lib/live-grid-assets";
 
 const MIN_K = 0.1;
 const MAX_K = 3;
@@ -15,6 +16,8 @@ type View = { x: number; y: number; k: number };
 // Fixed node geometry so connector anchors can be computed without measuring.
 const LANE_W = 200;
 const LANE_GAP = 24;
+const CREATIVE_GAP = 16;
+const STATICS_W = 280;
 const BLOCK_GAP = 72;
 const HERO_MIN_W = 240;
 const HERO_H = 170;
@@ -26,7 +29,7 @@ const V_GAP = 44;
 const PAD = 60;
 const TOP_SPACE = 44; // room above each hero for the agent avatar
 
-type NodeKind = "hero" | "video" | "landing" | "form" | "leads";
+type NodeKind = "hero" | "video" | "statics" | "landing" | "form" | "leads";
 interface NodeDef {
   id: string;
   kind: NodeKind;
@@ -36,11 +39,23 @@ interface NodeDef {
   h: number;
   property: LiveProperty;
   lane?: LiveLane;
+  creative?: LiveCreative; // video nodes: the one creative shown
+  statics?: LiveCreative[]; // statics nodes: the whole gallery
 }
 interface EdgeDef {
   from: string;
   to: string;
   rate: number | null;
+}
+
+// A lane = one landing → form → leads chain fed by every creative launched for it: each video is its own
+// card, all static images share one gallery card, and every card draws an edge into the same landing.
+function laneCreatives(lane: LiveLane) {
+  const videos = lane.creatives.filter((c) => c.kind === "video");
+  const statics = lane.creatives.filter((c) => c.kind === "static");
+  const videoCards = lane.creatives.length ? videos.length : 1; // no files at all: one placeholder card
+  const cards = videoCards + (statics.length ? 1 : 0);
+  return { videos, statics, rowW: videoCards * LANE_W + (statics.length ? STATICS_W : 0) + (cards - 1) * CREATIVE_GAP };
 }
 
 function buildLayout(properties: LiveProperty[]) {
@@ -49,29 +64,46 @@ function buildLayout(properties: LiveProperty[]) {
   let x = PAD;
   let bottom = 0;
   for (const p of properties) {
-    const n = Math.max(1, p.lanes.length);
-    const lanesW = n * LANE_W + (n - 1) * LANE_GAP;
+    const laneWidths = p.lanes.map((lane) => {
+      return Math.max(LANE_W, laneCreatives(lane).rowW);
+    });
+    const lanesW = laneWidths.reduce((s, w) => s + w, 0) + Math.max(0, p.lanes.length - 1) * LANE_GAP;
     const blockW = Math.max(lanesW, HERO_MIN_W);
-    const laneX0 = x + (blockW - lanesW) / 2;
+    let laneX = x + (blockW - lanesW) / 2;
     const heroId = `${p.id}:hero`;
     let y = PAD + TOP_SPACE;
     nodes.push({ id: heroId, kind: "hero", x, y, w: blockW, h: HERO_H, property: p });
     y += HERO_H + V_GAP;
     p.lanes.forEach((lane, i) => {
-      const lx = laneX0 + i * (LANE_W + LANE_GAP);
-      let ly = y;
-      const add = (kind: NodeKind, h: number, rate: number | null, prev: string) => {
+      const laneW = laneWidths[i];
+      const { videos, statics, rowW } = laneCreatives(lane);
+      const multi = lane.creatives.length > 1;
+      let cx = laneX + (laneW - rowW) / 2;
+      const creativeIds: string[] = [];
+      const addCard = (kind: "video" | "statics", w: number, extra: Partial<NodeDef>, idSuffix: string) => {
+        const id = `${p.id}:${i}:${kind}${idSuffix}`;
+        nodes.push({ id, kind, x: cx, y, w, h: VIDEO_H, property: p, lane, ...extra });
+        creativeIds.push(id);
+        edges.push({ from: heroId, to: id, rate: null });
+        cx += w + CREATIVE_GAP;
+      };
+      if (videos.length) videos.forEach((c, j) => addCard("video", LANE_W, { creative: c }, `${j}`));
+      else if (!statics.length) addCard("video", LANE_W, {}, "0"); // no file yet: placeholder card
+      if (statics.length) addCard("statics", STATICS_W, { statics }, "");
+      let ly = y + VIDEO_H + V_GAP;
+      const lx = laneX + (laneW - LANE_W) / 2;
+      const addChain = (kind: NodeKind, h: number, rate: number | null, prev: string[]) => {
         const id = `${p.id}:${i}:${kind}`;
         nodes.push({ id, kind, x: lx, y: ly, w: LANE_W, h, property: p, lane });
-        edges.push({ from: prev, to: id, rate });
+        for (const from of prev) edges.push({ from, to: id, rate: prev.length === 1 ? rate : null });
         ly += h + V_GAP;
         return id;
       };
-      const v = add("video", VIDEO_H, null, heroId);
-      const l = add("landing", LANDING_H, lane.impressions > 0 ? lane.linkClicks / lane.impressions : null, v);
-      const f = add("form", FORM_H, lane.linkClicks > 0 ? lane.typeformStarts / lane.linkClicks : null, l);
-      add("leads", LEADS_H, lane.typeformStarts > 0 ? lane.leads / lane.typeformStarts : null, f);
+      const l = addChain("landing", multi ? LANDING_H + 20 : LANDING_H, !multi && lane.impressions > 0 ? lane.linkClicks / lane.impressions : null, creativeIds);
+      const f = addChain("form", FORM_H, lane.linkClicks > 0 ? lane.typeformStarts / lane.linkClicks : null, [l]);
+      addChain("leads", LEADS_H, lane.typeformStarts > 0 ? lane.leads / lane.typeformStarts : null, [f]);
       bottom = Math.max(bottom, ly - V_GAP);
+      laneX += laneW + LANE_GAP;
     });
     x += blockW + BLOCK_GAP;
   }
@@ -110,7 +142,7 @@ export default function LiveGrid({
   );
   const layout = buildLayout(properties);
   const nodeById = new Map(layout.nodes.map((n) => [n.id, n]));
-  const [playing, setPlaying] = useState<{ src: string; title: string } | null>(null);
+  const [playing, setPlaying] = useState<{ src: string; title: string; image?: boolean } | null>(null);
   const pos = (id: string) => nodeById.get(id)!;
 
   const layoutRef = useRef(layout);
@@ -306,7 +338,12 @@ export default function LiveGrid({
           onClick={() => setPlaying(null)}
         >
           <div className="relative h-full max-h-[90vh] max-w-full" style={{ aspectRatio: "9 / 16" }} onClick={(e) => e.stopPropagation()}>
-            <video src={playing.src} controls autoPlay playsInline className="h-full w-full rounded-xl bg-black object-contain" />
+            {playing.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={playing.src} alt={playing.title} className="h-full w-full rounded-xl bg-black object-contain" />
+            ) : (
+              <video src={playing.src} controls autoPlay playsInline className="h-full w-full rounded-xl bg-black object-contain" />
+            )}
             <button
               className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-neutral-800 shadow"
               onClick={() => setPlaying(null)}
@@ -377,8 +414,9 @@ export default function LiveGrid({
 
 const CARD = "h-full w-full rounded-xl border border-neutral-300 bg-white shadow-sm";
 
-function NodeBody({ node, onPlay }: { node: NodeDef; onPlay: (v: { src: string; title: string }) => void }) {
-  const { property: p, lane } = node;
+function NodeBody({ node, onPlay }: { node: NodeDef; onPlay: (v: { src: string; title: string; image?: boolean }) => void }) {
+  const { property: p, lane, creative } = node;
+  const multi = (lane?.creatives.length ?? 0) > 1;
   switch (node.kind) {
     case "hero":
       return (
@@ -394,7 +432,7 @@ function NodeBody({ node, onPlay }: { node: NodeDef; onPlay: (v: { src: string; 
               </div>
             )}
             <div className="relative flex h-full flex-col justify-end p-4">
-              <div className="text-[10px] uppercase tracking-wider text-neutral-300">Ref {p.ref}</div>
+              {p.ref && <div className="text-[10px] uppercase tracking-wider text-neutral-300">Ref {p.ref}</div>}
               <div className="line-clamp-2 text-xl font-semibold leading-tight">{p.property}</div>
               <div className="mt-2 flex gap-5 text-xs text-neutral-200">
                 <span>
@@ -423,21 +461,22 @@ function NodeBody({ node, onPlay }: { node: NodeDef; onPlay: (v: { src: string; 
           )}
         </div>
       );
-    case "video":
+    case "video": {
+      const badge = creative?.label || lane!.label;
       return (
         <div className={`${CARD} relative flex flex-col overflow-hidden`}>
-          {lane!.label && (
-            <span className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full bg-neutral-900 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white">
-              {lane!.label}
+          {badge && (
+            <span className="absolute left-1/2 top-2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-neutral-900 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+              {badge}
             </span>
           )}
-          {lane!.video ? (
+          {creative ? (
             <button
               data-nodrag
               className="group relative min-h-0 flex-1 cursor-pointer overflow-hidden bg-black"
-              style={{ backgroundImage: `url(${lane!.video.poster})`, backgroundSize: "cover", backgroundPosition: "center" }}
-              onClick={() => onPlay({ src: lane!.video!.src, title: p.property })}
-              aria-label={`Play ${p.property} ${lane!.label ?? ""} video`}
+              style={{ backgroundImage: `url(${creative.poster})`, backgroundSize: "cover", backgroundPosition: "center" }}
+              onClick={() => onPlay({ src: creative.src, title: `${p.property} ${creative.label}`.trim() })}
+              aria-label={`Play ${p.property} ${creative.label || lane!.label || ""} video`}
             >
               <span className="absolute inset-0 flex items-center justify-center bg-black/15 transition group-hover:bg-black/30">
                 <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow">
@@ -450,10 +489,36 @@ function NodeBody({ node, onPlay }: { node: NodeDef; onPlay: (v: { src: string; 
               No {lane!.label ?? ""} video file yet
             </div>
           )}
-          <div className="flex shrink-0 items-center justify-around border-t border-neutral-200 px-2 py-2">
-            <Stat label="Impressions" value={formatNumber(lane!.impressions)} />
-            <div className="h-6 w-px bg-neutral-200" />
-            <Stat label="CTR" value={formatPercent(lane!.ctr, 2)} />
+          {!multi && (
+            <div className="flex shrink-0 items-center justify-around border-t border-neutral-200 px-2 py-2">
+              <Stat label="Impressions" value={formatNumber(lane!.impressions)} />
+              <div className="h-6 w-px bg-neutral-200" />
+              <Stat label="CTR" value={formatPercent(lane!.ctr, 2)} />
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "statics":
+      return (
+        <div className={`${CARD} flex flex-col overflow-hidden p-2`}>
+          <div className="px-1 pb-1.5 pt-0.5 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+            Static creatives · {node.statics!.length}
+          </div>
+          <div className="grid min-h-0 flex-1 grid-cols-4 content-start justify-items-center gap-1.5">
+            {node.statics!.map((c) => (
+              <button
+                key={c.src}
+                data-nodrag
+                className="aspect-[9/16] h-[88px] cursor-pointer overflow-hidden rounded bg-neutral-100 transition hover:ring-2 hover:ring-neutral-900"
+                onClick={() => onPlay({ src: c.src, title: `${p.property} ${c.label}`.trim(), image: true })}
+                aria-label={`View ${p.property} static ${c.label}`}
+                title={c.label}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.poster} alt={c.label} loading="lazy" draggable={false} className="h-full w-full object-cover" />
+              </button>
+            ))}
           </div>
         </div>
       );
@@ -478,9 +543,16 @@ function NodeBody({ node, onPlay }: { node: NodeDef; onPlay: (v: { src: string; 
             </div>
           )}
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-wider text-neutral-500">Landing page</div>
+            <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+              {multi && lane!.label ? `${lane!.label} landing` : "Landing page"}
+            </div>
             <div className="text-2xl font-semibold tabular-nums text-neutral-900">{formatNumber(lane!.linkClicks)}</div>
             <div className="text-[11px] text-neutral-500">link clicks</div>
+            {multi && (
+              <div className="whitespace-nowrap text-[10px] tabular-nums text-neutral-500">
+                {formatNumber(lane!.impressions)} impr · {formatPercent(lane!.ctr, 2)} CTR
+              </div>
+            )}
           </div>
         </div>
       );

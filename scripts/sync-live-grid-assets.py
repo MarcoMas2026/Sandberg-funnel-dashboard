@@ -2,8 +2,8 @@
 """Syncs Live Grid assets to Supabase Storage (public bucket `live-grid`).
 
 Sources (outside this repo):
-  ~/Desktop/LANDINGS/sandbergestates.es/<ref>/hero.jpg  (or <ref>/ENG/hero.jpg)
-  ~/Desktop/LANDINGS/sandbergestates.es/<ref>.data.json  -> agentName
+  ~/Desktop/00_LANDINGS/sandbergestates.es/<ref>/hero.jpg  (or <ref>/ENG/hero.jpg)
+  ~/Desktop/00_LANDINGS/sandbergestates.es/<ref>.data.json  -> agentName
   ~/Desktop/SP Videos/Specific Property Ads/<ref> Ad [ENG|DEU|<LANG>].MP4
 
 Per ref it encodes 540p web proxies (ffmpeg), uploads hero/video/poster files to
@@ -18,7 +18,7 @@ import json, os, re, subprocess, sys, time, urllib.request, urllib.error
 from pathlib import Path
 
 HOME = Path.home() / "Desktop"
-LAND = HOME / "LANDINGS" / "sandbergestates.es"
+LAND = HOME / "00_LANDINGS" / "sandbergestates.es"
 VIDS = HOME / "SP Videos" / "Specific Property Ads"
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / ".live-grid-cache"  # encoded proxies + upload state (gitignored)
@@ -26,6 +26,21 @@ BUCKET = "live-grid"
 FUNNEL_URL = "https://sandberg-funnel-dashboard.vercel.app/api/funnel"
 # Video files whose names don't follow "<ref> Ad [LANG].MP4".
 VIDEO_ALIAS = {"32859": "Ses Salines Ad.MP4", "32785": "32785 Ad copy.MP4"}
+# Properties that launched several creatives per landing: {key: {lang: [(kind, label, path-or-glob), ...]}}.
+# Every creative of a language lands on that language's landing page. Keys are the ref, or the property
+# slug for campaigns with no ref (Sa Cantolina). Statics use a glob and are labelled by their file code.
+STATICS_SA_CANTOLINA = HOME / "00_LANDINGS" / "sa-cantolina Static Ads" / "HQ 2160px" / "9x16"
+SA_CANT = VIDS / "sa-cantolina"
+CREATIVES = {
+    "32854": {"ENG": [("video", "Main", VIDS / "32854" / "32854 Ad Main.MP4")]
+              + [("video", f"Hook {n}", VIDS / "32854" / f"32854 Ad Hook {n}.MP4") for n in (1, 2, 3)]},
+    "sa-cantolina": {
+        "ENG": [("video", "Main", SA_CANT / "sa-cantolina Ad Main.MP4")]
+        + [("video", f"Hook {n}", SA_CANT / f"sa-cantolina Ad H{n}.MP4") for n in (1, 2, 3)]
+        + [("static", "*", STATICS_SA_CANTOLINA / "sa-cantolina_*_9x16.png")],
+        "DEU": [("video", "DEU", SA_CANT / "sa-cantolina Ad DEU.MP4")],
+    },
+}
 # Language folders/labels to look for; extend when a new ad language is launched.
 LANGS = ["ENG", "DEU", "SWE", "FRA", "ESP", "NLD"]
 
@@ -85,14 +100,15 @@ def active_refs():
 
 
 def find_hero(ref):
-    for p in [LAND / ref / "hero.jpg", LAND / ref / "ENG" / "hero.jpg", LAND / ref / "DEU" / "hero.jpg"]:
+    for p in [LAND / ref / "hero.jpg", LAND / ref / "ENG" / "hero.jpg", LAND / ref / "DEU" / "hero.jpg",
+              LAND / ref / "hero1.jpg", LAND / ref / "ENG" / "hero1.jpg"]:
         if p.exists():
             return p
 
 
 def agent_from_brochure(ref):
     """Fallback: the brochure's last page lists 'LISTING AGENT' / 'YOUR CONTACT' (or the Swedish 'DIN KONTAKTPERSON' / German 'IHR ANSPRECHPARTNER') then the name."""
-    pdf = HOME / "LANDINGS" / "BROCHURES" / f"{ref}.pdf"
+    pdf = HOME / "00_LANDINGS" / "BROCHURES" / f"{ref}.pdf"
     if not pdf.exists():
         return None
     try:
@@ -163,6 +179,62 @@ def landings(ref):
         if lang != "ENG":
             base[lang] = f"https://sandbergestates.es/{ref}/{lang}"
     return base
+
+
+def encode_video(src, vkey, pkey, tag, state, force, dry):
+    sig = f"{src.stat().st_mtime}"
+    changed = force or state.get(vkey) != sig
+    if changed and not dry:
+        mp4, poster = CACHE / f"{tag}.mp4", CACHE / f"{tag}.jpg"
+        sh("ffmpeg", "-y", "-i", str(src), "-vf", "scale=540:-2", "-c:v", "libx264", "-crf", "30", "-preset", "veryfast",
+           "-c:a", "aac", "-b:a", "64k", "-movflags", "+faststart", str(mp4))
+        sh("ffmpeg", "-y", "-ss", "1", "-i", str(mp4), "-frames:v", "1", "-q:v", "5", str(poster))
+        upload(vkey, mp4, "video/mp4")
+        upload(pkey, poster, "image/jpeg")
+        state[vkey] = sig
+    return changed
+
+
+def encode_static(src, skey, tkey, tag, state, force, dry):
+    sig = f"{src.stat().st_mtime}"
+    changed = force or state.get(skey) != sig
+    if changed and not dry:
+        full, thumb = CACHE / f"{tag}.jpg", CACHE / f"{tag}-thumb.jpg"
+        sh("ffmpeg", "-y", "-i", str(src), "-vf", "scale=720:-2", "-q:v", "4", str(full))
+        sh("ffmpeg", "-y", "-i", str(src), "-vf", "scale=240:-2", "-q:v", "5", str(thumb))
+        upload(skey, full, "image/jpeg")
+        upload(tkey, thumb, "image/jpeg")
+        state[skey] = sig
+    return changed
+
+
+def build_creatives(ref, state, force, dry, notes):
+    """Encode + upload every creative listed in CREATIVES[ref]; returns {lang: [creative, ...]}."""
+    out = {}
+    pub = lambda k: f"{SB}/storage/v1/object/public/{BUCKET}/{k}"
+    for lang, items in CREATIVES[ref].items():
+        out[lang] = []
+        for kind, label, path in items:
+            if kind == "video":
+                if not path.exists():
+                    notes.append(f"MISSING video {path.name}")
+                    continue
+                slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
+                vkey, pkey = f"{ref}/{lang}-{slug}.mp4", f"{ref}/{lang}-{slug}.jpg"
+                if encode_video(path, vkey, pkey, f"{ref}-{lang}-{slug}", state, force, dry):
+                    notes.append(f"{lang} {label} video updated")
+                out[lang].append({"kind": "video", "label": label, "src": pub(vkey), "poster": pub(pkey)})
+            else:
+                files = sorted(path.parent.glob(path.name))
+                if not files:
+                    notes.append(f"MISSING statics {path}")
+                for f in files:
+                    code = f.stem.split("_")[1] if "_" in f.stem else f.stem
+                    skey, tkey = f"{ref}/static-{code}.jpg", f"{ref}/static-{code}-thumb.jpg"
+                    if encode_static(f, skey, tkey, f"{ref}-static-{code}", state, force, dry):
+                        notes.append(f"static {code} updated")
+                    out[lang].append({"kind": "static", "label": code, "src": pub(skey), "poster": pub(tkey)})
+    return out
 
 
 def main():
@@ -236,6 +308,12 @@ def main():
                 notes.append(f"{lang} video updated")
             entry["videos"][lang] = {"src": f"{SB}/storage/v1/object/public/{BUCKET}/{vkey}",
                                      "poster": f"{SB}/storage/v1/object/public/{BUCKET}/{pkey}"}
+        if ref in CREATIVES:
+            entry["creatives"] = build_creatives(ref, state, force, dry, notes)
+            for lang, items in entry["creatives"].items():  # first video doubles as the single-video fallback
+                first = next((c for c in items if c["kind"] == "video"), None)
+                if first and lang not in entry["videos"]:
+                    entry["videos"][lang] = {"src": first["src"], "poster": first["poster"]}
         if not entry["videos"]:
             notes.append("NO video files found")
         manifest[ref] = entry
