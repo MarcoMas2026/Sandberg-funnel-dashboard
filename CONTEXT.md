@@ -214,6 +214,16 @@ config). No hardcoded copies remain. Find a Typeform form id from the Typeform a
 the API (`GET api.typeform.com/forms?page_size=200`, match by title) — **watch for duplicate
 titles**; confirm the real form by grepping the live landing page HTML for `typeform.com/to/<id>`.
 
+
+**Ref-less campaigns fixed 2026-10-13** (`SP - Sa Cantolina`, no ref in the Meta name). Two Typeform Sync
+bugs showed 5 leads instead of 23: (1) `Match & Persist Pairings` compared the empty ref to empty
+`campaign_name` hidden fields, so the first form scanned "matched" by accident — ref-less/community
+campaigns now match only on `hidden.utm_campaign === meta campaign id`; (2) `Plan Variant Scan` /
+`Resolve Variants` skipped campaigns without a ref, so the ENG form (`msTuud7o`, titled just "Sa Cantolina")
+was never tied to the campaign — they now match forms by property name in the title, attribute responses by
+`utm_campaign` or the landing slug, and read ENG/DEU from the landing URL (`/deu/`; bare URL = ENG).
+Verified live: leads 23, CPL €10.20, ENG 18 / DEU 5.
+
 ## 7. Historical data for Compare (`historical:campaigns` in KV)
 
 Unlike everything else, this is **NOT a live n8n pipeline** — it's a manually-populated KV key
