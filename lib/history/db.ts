@@ -85,9 +85,50 @@ export async function upsertDailySnapshots(rows: HistoryRow[]): Promise<{ ok: bo
   const supabase = getClient();
   if (!supabase) return { ok: false, written: 0, error: "Supabase not configured" };
   if (rows.length === 0) return { ok: true, written: 0 };
-  const { error } = await supabase.from("funnel_daily_history").upsert(rows, { onConflict: "campaign_id,date" });
+  const guarded = await keepStoredSpendOverMetaZeros(supabase, rows);
+  const { error } = await supabase.from("funnel_daily_history").upsert(guarded, { onConflict: "campaign_id,date" });
   if (error) return { ok: false, written: 0, error: error.message };
-  return { ok: true, written: rows.length };
+  return { ok: true, written: guarded.length };
+}
+
+// Meta's daily breakdown occasionally comes back with spend/impressions/clicks/
+// reach all "0" for every day while still returning link-click and engagement
+// actions (seen 2026-10-21 from the 06:00 sync: it zeroed ~70 stored days, so
+// the monthly KPI read 1,398€ against Ads Manager's real figure). A day that
+// already has stored spend can't genuinely drop to 0 spend AND 0 impressions,
+// so for those rows we keep the stored Meta metrics and only refresh the
+// Typeform-derived leads. Genuine zero days (nothing stored yet, or stored 0)
+// are written as usual, and any non-zero value from Meta always wins.
+async function keepStoredSpendOverMetaZeros(supabase: SupabaseClient, rows: HistoryRow[]): Promise<HistoryRow[]> {
+  const suspect = rows.filter((r) => r.spend === 0 && r.impressions === 0);
+  if (suspect.length === 0) return rows;
+  const ids = Array.from(new Set(suspect.map((r) => r.campaign_id)));
+  const dates = suspect.map((r) => r.date).sort();
+  const { data, error } = await supabase
+    .from("funnel_daily_history")
+    .select("campaign_id,date,spend,impressions,clicks,link_clicks,ctr,reach")
+    .in("campaign_id", ids)
+    .gte("date", dates[0])
+    .lte("date", dates[dates.length - 1])
+    .gt("spend", 0);
+  // If we can't read what's stored, don't risk the overwrite — skip the suspect rows.
+  if (error) return rows.filter((r) => !(r.spend === 0 && r.impressions === 0));
+  const stored = new Map((data ?? []).map((d) => [`${d.campaign_id}|${d.date}`, d]));
+  return rows.map((r) => {
+    if (!(r.spend === 0 && r.impressions === 0)) return r;
+    const s = stored.get(`${r.campaign_id}|${r.date}`);
+    if (!s) return r;
+    return {
+      ...r,
+      spend: s.spend,
+      impressions: s.impressions,
+      clicks: s.clicks,
+      link_clicks: s.link_clicks,
+      ctr: s.ctr,
+      reach: s.reach,
+      cpl: r.leads > 0 ? s.spend / r.leads : 0,
+    };
+  });
 }
 
 interface MonthlyTotalsRow {
