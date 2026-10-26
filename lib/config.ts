@@ -75,6 +75,17 @@ export const CAMPAIGN_MAP: CampaignMapEntry[] = [
     ref: "32826",
     campaign_type: "property",
   },
+  // Pinned: "Villa Horizonte (2nd)" shares ref 32849 with the original campaign, so ref-based
+  // auto-pairing wrongly gave it the original's ENG form (z72fEldN). It has its own NEW form.
+  {
+    meta_campaign_id: "120252622408280071",
+    meta_campaign_name: "SP - 32849 - Villa Horizonte (2nd)",
+    typeform_form_id: "lS8FBbU4",
+    typeform_form_name: "Villa Horizonte 32849 NEW",
+    property: "Villa Horizonte (2nd)",
+    ref: "32849",
+    campaign_type: "property",
+  },
   // One-off test: 1 campaign / 1 ad set / 4 ads, each ad a different property (Ses Salines,
   // Olinto, Can Aura, Sa Calma). Shown as a single "property" whose leads are the sum of the
   // property forms below (attribution verified via utm_campaign on each form's responses).
