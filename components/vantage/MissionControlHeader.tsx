@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { MagnifyingGlass } from "@phosphor-icons/react";
+import { CaretDown, CaretLeft, CaretRight, MagnifyingGlass } from "@phosphor-icons/react";
 import { formatDate } from "@/lib/format";
 
 function greeting() {
@@ -18,21 +18,92 @@ export interface MonthOption {
   label: string;
 }
 
-// Last 3 calendar months up to now (inclusive), oldest first — matches the
-// reference's June/July/August tab row. Falls back to fewer months near
-// HISTORY_START (June 2026) rather than showing months with no data.
+// Every calendar month from HISTORY_START (June 2026) up to now, oldest first.
 export function useMonthTabs(): MonthOption[] {
   return useMemo(() => {
     const now = new Date();
     const floor = new Date(2026, 5, 1); // HISTORY_START — lib/history/db.ts
     const opts: MonthOption[] = [];
-    for (let i = 2; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      if (d < floor) continue;
-      opts.push({ year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleDateString("en-US", { month: "long" }) });
+    for (let d = new Date(floor); d <= now; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      opts.push({ year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleDateString("en-US", { month: "long", year: "numeric" }) });
     }
     return opts;
   }, []);
+}
+
+// Prev/next arrows around a month dropdown, so any month back to HISTORY_START
+// is reachable (the old 3-tab row only covered the latest three).
+function MonthPicker({
+  months,
+  selMonth,
+  onSelectMonth,
+}: {
+  months: MonthOption[];
+  selMonth: { year: number; month: number };
+  onSelectMonth: (year: number, month: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const idx = months.findIndex((m) => m.year === selMonth.year && m.month === selMonth.month);
+  const current = months[idx];
+  const go = (i: number) => {
+    const m = months[i];
+    if (m) onSelectMonth(m.year, m.month);
+  };
+  const arrow = "rounded-full p-2 text-[var(--vantage-text)] transition-colors enabled:hover:bg-[var(--vantage-icon-box)] disabled:opacity-30 md:p-2.5";
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="vantage-pill flex w-fit items-center gap-1 p-1 md:p-1.5">
+        <button type="button" aria-label="Previous month" disabled={idx <= 0} onClick={() => go(idx - 1)} className={arrow}>
+          <CaretLeft className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex min-w-[10rem] items-center justify-center gap-2 rounded-full bg-[var(--vantage-accent)] px-4 py-1.5 text-sm text-[#f0f0f0] md:px-5 md:py-2 md:text-base"
+        >
+          {current?.label ?? "Select month"}
+          <CaretDown className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" aria-label="Next month" disabled={idx < 0 || idx >= months.length - 1} onClick={() => go(idx + 1)} className={arrow}>
+          <CaretRight className="h-4 w-4" />
+        </button>
+      </div>
+      {open && (
+        <div className="vantage-card absolute left-1/2 top-full z-50 mt-2 max-h-72 w-56 -translate-x-1/2 overflow-y-auto p-1.5 shadow-lg">
+          {[...months].reverse().map((m) => {
+            const active = m.year === selMonth.year && m.month === selMonth.month;
+            return (
+              <button
+                key={`${m.year}-${m.month}`}
+                type="button"
+                onClick={() => {
+                  onSelectMonth(m.year, m.month);
+                  setOpen(false);
+                }}
+                className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
+                  active ? "bg-[var(--vantage-accent)] text-[#f0f0f0]" : "text-[var(--vantage-text)] hover:bg-[var(--vantage-icon-box)]"
+                }`}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function MissionControlHeader({
@@ -70,23 +141,7 @@ export function MissionControlHeader({
       </div>
 
       <div className="flex md:justify-self-center">
-        <div className="vantage-pill flex w-fit items-center gap-1 p-1 md:p-1.5">
-          {months.map((m) => {
-            const active = m.year === selMonth.year && m.month === selMonth.month;
-            return (
-              <button
-                key={`${m.year}-${m.month}`}
-                type="button"
-                onClick={() => onSelectMonth(m.year, m.month)}
-                className={`rounded-full px-3 py-1.5 text-sm transition-colors md:px-5 md:py-2 md:text-base ${
-                  active ? "bg-[var(--vantage-accent)] text-[#f0f0f0]" : "text-[var(--vantage-text-muted)]"
-                }`}
-              >
-                {m.label}
-              </button>
-            );
-          })}
-        </div>
+        <MonthPicker months={months} selMonth={selMonth} onSelectMonth={onSelectMonth} />
       </div>
 
       <button

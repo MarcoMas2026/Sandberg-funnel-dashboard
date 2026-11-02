@@ -40,13 +40,13 @@ interface DailyPoint {
 // glance, and doesn't need a color per campaign. Days with no rows yet
 // (including the rest of the month still ahead of today) are zero-filled so
 // every day of the month gets a point on the x-axis.
-export function DailyLeadsTrendChart() {
+export function DailyLeadsTrendChart({ year, month, monthLabel }: { year: number; month: number; monthLabel: string }) {
   const [rows, setRows] = useState<DailyPoint[] | null>(null);
 
   useEffect(() => {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const monthStart = new Date(year, month, 1);
+    const monthEnd = new Date(year, month + 1, 0);
+    setRows(null);
 
     fetch(`/api/history/daily-leads?start=${ymd(monthStart)}&end=${ymd(monthEnd)}`, { cache: "no-store" })
       .then((r) => r.json())
@@ -55,18 +55,18 @@ export function DailyLeadsTrendChart() {
         const leadsByDate = new Map(points.map((p) => [p.date, p.leads]));
         const days = monthEnd.getDate();
         const filled: DailyPoint[] = Array.from({ length: days }, (_, i) => {
-          const d = new Date(now.getFullYear(), now.getMonth(), i + 1);
+          const d = new Date(year, month, i + 1);
           const date = ymd(d);
           return { date, label: String(i + 1), leads: leadsByDate.get(date) ?? 0 };
         });
         setRows(filled);
       })
       .catch(() => setRows([]));
-  }, []);
+  }, [year, month]);
 
   return (
     <div className="vantage-card flex h-full flex-col p-4 sm:p-6">
-      <ChartPanelHeader icon={<CalendarBlank className="h-5 w-5" />} title="Daily leads trend" />
+      <ChartPanelHeader icon={<CalendarBlank className="h-5 w-5" />} title={`Daily leads trend · ${monthLabel}`} />
       {rows === null ? (
         <div className="h-80 animate-pulse rounded-xl bg-[var(--vantage-icon-box)]/40" />
       ) : rows.length === 0 ? (
@@ -136,20 +136,24 @@ interface CampaignLeadRow {
 // Live per-campaign lead totals for the selected window (7/15/30 days),
 // across every campaign that had leads in that window — active AND
 // inactive, not just the currently-live set (see /api/history/leads-by-campaign).
-export function LeadCountByCampaignDonut() {
+export function LeadCountByCampaignDonut({ year, month, monthLabel }: { year: number; month: number; monthLabel: string }) {
   const [range, setRange] = useState<LeadRange>("30");
   const [rows, setRows] = useState<CampaignLeadRow[] | null>(null);
+  const today = new Date();
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
 
   useEffect(() => {
-    const today = new Date();
-    const start = ymd(rangeStart(range, today));
-    const end = ymd(today);
+    // Current month: the 7d/15d/30d toggle (ending today). Any other month:
+    // the whole month, day 1 -> last day.
+    const now = new Date();
+    const start = isCurrentMonth ? ymd(rangeStart(range, now)) : ymd(new Date(year, month, 1));
+    const end = isCurrentMonth ? ymd(now) : ymd(new Date(year, month + 1, 0));
     setRows(null);
     fetch(`/api/history/leads-by-campaign?start=${start}&end=${end}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((json) => setRows(json.rows ?? []))
       .catch(() => setRows([]));
-  }, [range]);
+  }, [range, year, month, isCurrentMonth]);
 
   const { data, total } = useMemo(() => {
     const sorted = [...(rows ?? [])].filter((r) => r.leads > 0).sort((a, b) => b.leads - a.leads);
@@ -157,7 +161,9 @@ export function LeadCountByCampaignDonut() {
     return { data, total: sorted.reduce((s, r) => s + r.leads, 0) };
   }, [rows]);
 
-  const toggle = (
+  const toggle = !isCurrentMonth ? (
+    <span className="vantage-icon-box px-2.5 py-1.5 text-xs font-medium text-[var(--vantage-text)]">{monthLabel}</span>
+  ) : (
     <div className="vantage-icon-box flex items-center gap-0.5 p-1">
       {RANGE_OPTIONS.map((o) => (
         <button

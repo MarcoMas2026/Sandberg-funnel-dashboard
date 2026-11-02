@@ -264,8 +264,8 @@ export default function MissionControl() {
         <InsightsTicker insights={insights} />
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <DailyLeadsTrendChart />
-          <LeadCountByCampaignDonut />
+          <DailyLeadsTrendChart year={selMonth.year} month={selMonth.month} monthLabel={monthLabel} />
+          <LeadCountByCampaignDonut year={selMonth.year} month={selMonth.month} monthLabel={monthLabel} />
         </div>
 
         {active.length === 0 ? (
